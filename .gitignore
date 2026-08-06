@@ -1,0 +1,9 @@
+.env
+__pycache__/
+*.pyc
+.venv/
+venv/
+logs/*.log
+.claude/
+data/manual/*.xlsx
+data/manual/.processed.json

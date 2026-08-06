@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+macOS launchd 설정 파일. 매일 오전 8시에 파이프라인을 실행한다.
+
+설치 방법:
+  1. 아래 /PATH/TO/PROJECT 를 실제 프로젝트 경로로 바꾼다 (2군데: Python 경로, 스크립트 경로, 작업 디렉토리).
+     - Python 경로는 이 프로젝트의 venv를 macOS에서 새로 만든 뒤의 경로 (python3 -m venv .venv 실행 후 .venv/bin/python)
+  2. 이 파일을 ~/Library/LaunchAgents/com.krxdashboard.daily.plist 로 복사한다.
+     cp scripts/com.krxdashboard.daily.plist ~/Library/LaunchAgents/
+  3. 로드한다.
+     launchctl load ~/Library/LaunchAgents/com.krxdashboard.daily.plist
+  4. 즉시 테스트 실행하려면:
+     launchctl start com.krxdashboard.daily
+  5. 삭제하려면:
+     launchctl unload ~/Library/LaunchAgents/com.krxdashboard.daily.plist
+-->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.krxdashboard.daily</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/PATH/TO/PROJECT/.venv/bin/python</string>
+        <string>/PATH/TO/PROJECT/scripts/run_pipeline.py</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/PATH/TO/PROJECT</string>
+
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Hour</key>
+        <integer>8</integer>
+        <key>Minute</key>
+        <integer>0</integer>
+    </dict>
+
+    <key>StandardOutPath</key>
+    <string>/PATH/TO/PROJECT/logs/launchd.out.log</string>
+    <key>StandardErrorPath</key>
+    <string>/PATH/TO/PROJECT/logs/launchd.err.log</string>
+
+    <key>RunAtLoad</key>
+    <false/>
+</dict>
+</plist>
