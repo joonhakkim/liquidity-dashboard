@@ -134,15 +134,16 @@ def latest_date_str(raw_latest, cols):
 PANEL_SOURCES = {
     "수급주체": "KOFIA FreeSIS 증시자금추이 (투자자별 순매매대금, 수동 다운로드 병합)",
     "유동성지표": "한국은행 ECOS Open API - 한국은행 주요계정(103Y002), M2(161Y008)",
-    "실탄게이지": "KOFIA FreeSIS (수동 다운로드 병합) 기반 계산",
+    "실탄게이지": "KOFIA FreeSIS Open API(자동 수집) 기반 계산",
     "MMF": "한국은행 ECOS Open API - M2 구성항목(161Y008/BBGA04)",
-    "예수금·신용거래 현황": "KOFIA FreeSIS (수동 다운로드 병합)",
+    "예수금·신용거래 현황": "KOFIA FreeSIS (meta/getMetaDataList.do, 자동 수집)",
+    "신용거래융자 · MMF 현황": "KOFIA FreeSIS (meta/getMetaDataList.do, 자동 수집)",
     "M2 통화공급 (한국·미국)": "한국: ECOS Open API(161Y008) / 미국: FRED M2SL (둘 다 월별, 단위 다름 - 각각 자체 축)",
     "코스피 주가추이": "네이버 금융 일별시세 (finance.naver.com)",
     "시가총액 회전율 · M2 비율": "코스피 거래대금: 네이버 금융 / 코스피 시가총액: KRX Open API(stk_bydd_trd, MKTCAP 합산) / M2: ECOS",
     "신용카드 대출수요 vs 코스피": "코스피: 네이버 금융 / 대출수요: 한국은행 ECOS 대출행태서베이(514Y003, 신용카드회사, 분기)",
     "비트코인 시가총액 vs 코스피": "비트코인: CoinGecko (무료 API, 최근 365일만 제공) / 코스피: 네이버 금융",
-    "투자자예탁금 - RP매도잔고": "KOFIA FreeSIS (수동 다운로드 병합) 기반 계산",
+    "투자자예탁금 - RP매도잔고": "KOFIA FreeSIS Open API(자동 수집) 기반 계산",
 }
 
 PANEL_FORMULAS = {
@@ -233,6 +234,10 @@ MASTER_SERIES = [
     ("신용카드 대출수요(BSI)", "credit_card_loan_demand", False),
     ("비트코인 시가총액(USD)", "btc_market_cap_usd", False),
     ("투자자예탁금 - RP매도잔고", "deposit_minus_rp", False),
+    ("신용거래융자(코스피)", "credit_loan_kospi", False),
+    ("신용거래융자(코스닥)", "credit_loan_kosdaq", False),
+    ("MMF 개인", "mmf_indiv", False),
+    ("MMF 법인", "mmf_corp", False),
 ]
 
 
@@ -281,6 +286,10 @@ def build_dashboard(merged, raw_latest):
             "한국 M2 (십억원)": "m2", "미국 M2 (십억달러, M2SL)": "us_m2",
             "한국 M2 YoY(%)": "korea_m2_yoy", "미국 M2 YoY(%)": "us_m2_yoy",
         }),
+        "신용거래융자 · MMF 현황": build_panel(merged, recent, "split", {
+            "신용거래융자(코스피)": "credit_loan_kospi", "신용거래융자(코스닥)": "credit_loan_kosdaq",
+            "MMF 개인": "mmf_indiv", "MMF 법인": "mmf_corp",
+        }),
         "코스피 주가추이": build_panel(merged, recent, "split", {
             "코스피 종가": "kospi_close", "코스피 거래대금(백만원)": "kospi_trading_value",
         }),
@@ -312,6 +321,7 @@ def build_dashboard(merged, raw_latest):
         "deriv_deposit", "broker_rp_balance", "margin_call_unpaid", "margin_call_liquidation", "margin_liquidation_ratio",
     ])
     panels["시가총액 회전율 · M2 비율"]["latest"] = latest_date_str(raw_latest, ["kospi_turnover_ratio", "m2_to_marketcap_ratio"])
+    panels["신용거래융자 · MMF 현황"]["latest"] = latest_date_str(raw_latest, ["credit_loan_kospi", "credit_loan_kosdaq", "mmf_indiv", "mmf_corp"])
     panels["신용카드 대출수요 vs 코스피"]["latest"] = latest_date_str(raw_latest, ["kospi_close", "credit_card_loan_demand"])
     panels["비트코인 시가총액 vs 코스피"]["latest"] = latest_date_str(raw_latest, ["kospi_close", "btc_market_cap_usd"])
     panels["투자자예탁금 - RP매도잔고"]["latest"] = latest_date_str(raw_latest, ["deposit_minus_rp"])
