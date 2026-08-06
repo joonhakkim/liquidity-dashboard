@@ -405,6 +405,19 @@ function registerChart(chart) {{
   applyRangeToEntry(entry, currentRangeDays);
 }}
 
+function lastNonNull(arr) {{
+  for (let i = arr.length - 1; i >= 0; i--) {{
+    if (arr[i] !== null && arr[i] !== undefined) return arr[i];
+  }}
+  return null;
+}}
+
+function formatLatestSuffix(v) {{
+  if (v === null || v === undefined) return '';
+  const formatted = Number(v).toLocaleString(undefined, {{ maximumFractionDigits: 1 }});
+  return ' : ' + formatted;
+}}
+
 function applyRangeToEntry(entry, days) {{
   const {{ chart, fullLabels }} = entry;
   let startIdx = 0;
@@ -492,7 +505,20 @@ function renderCombined(section) {{
       plugins: {{
         legend: {{
           position: 'bottom',
-          labels: {{ color:'#e6e6e6', boxWidth: 12, font: {{ size: 11 }} }},
+          labels: {{
+            color:'#e6e6e6', boxWidth: 12, font: {{ size: 11 }},
+            generateLabels: (c) => c.data.datasets.map((ds, i) => {{
+              const v = lastNonNull(ds.data);
+              return {{
+                text: ds.label + formatLatestSuffix(v),
+                fillStyle: v !== null && v < 0 ? '#ff6b6b' : ds.borderColor,
+                strokeStyle: ds.borderColor,
+                hidden: !c.isDatasetVisible(i),
+                datasetIndex: i,
+                lineWidth: 0,
+              }};
+            }}),
+          }},
         }},
       }},
     }},

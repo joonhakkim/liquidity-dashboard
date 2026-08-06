@@ -40,7 +40,7 @@
 </head>
 <body>
   <h1>한국 증시 유동성 스크리닝 대시보드</h1>
-  <div class="updated">최종 갱신일시: 2026-08-06 12:49:59 (화면은 최근 약 1825일만 표시, 아래 버튼으로 구간 조절 가능)</div>
+  <div class="updated">최종 갱신일시: 2026-08-06 13:11:55 (화면은 최근 약 1825일만 표시, 아래 버튼으로 구간 조절 가능)</div>
 
   <div class="layout">
     <nav class="sidebar" id="sidebar"></nav>
@@ -79,6 +79,19 @@ function registerChart(chart) {
   const entry = { chart, fullLabels };
   activeCharts.push(entry);
   applyRangeToEntry(entry, currentRangeDays);
+}
+
+function lastNonNull(arr) {
+  for (let i = arr.length - 1; i >= 0; i--) {
+    if (arr[i] !== null && arr[i] !== undefined) return arr[i];
+  }
+  return null;
+}
+
+function formatLatestSuffix(v) {
+  if (v === null || v === undefined) return '';
+  const formatted = Number(v).toLocaleString(undefined, { maximumFractionDigits: 1 });
+  return ' : ' + formatted;
 }
 
 function applyRangeToEntry(entry, days) {
@@ -168,7 +181,20 @@ function renderCombined(section) {
       plugins: {
         legend: {
           position: 'bottom',
-          labels: { color:'#e6e6e6', boxWidth: 12, font: { size: 11 } },
+          labels: {
+            color:'#e6e6e6', boxWidth: 12, font: { size: 11 },
+            generateLabels: (c) => c.data.datasets.map((ds, i) => {
+              const v = lastNonNull(ds.data);
+              return {
+                text: ds.label + formatLatestSuffix(v),
+                fillStyle: v !== null && v < 0 ? '#ff6b6b' : ds.borderColor,
+                strokeStyle: ds.borderColor,
+                hidden: !c.isDatasetVisible(i),
+                datasetIndex: i,
+                lineWidth: 0,
+              };
+            }),
+          },
         },
       },
     },
