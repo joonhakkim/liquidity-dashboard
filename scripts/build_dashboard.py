@@ -32,6 +32,7 @@ KRX_PATH = os.path.join(DATA_DIR, "krx_raw.csv")
 KOFIA_PATH = os.path.join(DATA_DIR, "kofia_raw.csv")
 FRED_PATH = os.path.join(DATA_DIR, "fred_raw.csv")
 BITCOIN_PATH = os.path.join(DATA_DIR, "bitcoin_raw.csv")
+INVESTOR_FLOW_PATH = os.path.join(DATA_DIR, "investor_flow_raw.csv")
 MERGED_PATH = os.path.join(DATA_DIR, "merged.csv")
 DASHBOARD_PATH = os.path.join(DIST_DIR, "index.html")
 
@@ -50,6 +51,7 @@ def build_merged():
     kofia = load_csv(KOFIA_PATH)
     fred = load_csv(FRED_PATH)
     bitcoin = load_csv(BITCOIN_PATH)
+    investor_flow = load_csv(INVESTOR_FLOW_PATH)
 
     # M2 YoY(전년동월대비 %)는 각자 월별 원본에서 12개월 shift로 계산한다
     # (일별로 ffill된 시계열에서 12"일" shift하면 틀리므로 ffill 전에 계산).
@@ -60,14 +62,17 @@ def build_merged():
         fred = fred.sort_values("date").reset_index(drop=True)
         fred["us_m2_yoy"] = fred["us_m2"] / fred["us_m2"].shift(12) * 100 - 100
 
-    all_dates = pd.concat([ecos["date"], krx["date"], kofia["date"], fred["date"], bitcoin["date"]], ignore_index=True).dropna()
+    all_dates = pd.concat(
+        [ecos["date"], krx["date"], kofia["date"], fred["date"], bitcoin["date"], investor_flow["date"]],
+        ignore_index=True,
+    ).dropna()
     if all_dates.empty:
         raise SystemExit("병합할 데이터가 없습니다. fetch_*.py 스크립트를 먼저 실행하세요.")
 
     # ffill 전, 컬럼별 실제 마지막 관측일을 따로 기록해둔다 (대시보드의 "최신" 배지가
     # ffill로 늘어난 날짜가 아니라 진짜 관측된 마지막 날짜를 보여주도록).
     raw_latest = {}
-    for df in (ecos, krx, kofia, fred, bitcoin):
+    for df in (ecos, krx, kofia, fred, bitcoin, investor_flow):
         if df.empty:
             continue
         for col in df.columns:
@@ -80,7 +85,7 @@ def build_merged():
     full_range = pd.date_range(all_dates.min(), all_dates.max(), freq="D")
     merged = pd.DataFrame({"date": full_range})
 
-    for df in (ecos, krx, kofia, fred, bitcoin):
+    for df in (ecos, krx, kofia, fred, bitcoin, investor_flow):
         if df.empty or len(df.columns) <= 1:
             continue
         df = df.drop_duplicates(subset="date").sort_values("date")
@@ -110,6 +115,13 @@ def build_merged():
         if "m2" in raw_latest and "kospi_market_cap" in raw_latest:
             raw_latest["m2_to_marketcap_ratio"] = min(raw_latest["m2"], raw_latest["kospi_market_cap"])
 
+    if "kospi_close" in merged.columns:
+        # 코스피 YoY(%) = (오늘 종가 / 365일 전 종가 - 1) x 100. merged는 1일 간격 daily grid라
+        # 365행 shift가 정확히 1년 전과 대응한다.
+        merged["kospi_yoy"] = merged["kospi_close"] / merged["kospi_close"].shift(365) * 100 - 100
+        if "kospi_close" in raw_latest:
+            raw_latest["kospi_yoy"] = raw_latest["kospi_close"]
+
     os.makedirs(DATA_DIR, exist_ok=True)
     merged.to_csv(MERGED_PATH, index=False, encoding="utf-8-sig")
     print(f"병합 완료: {MERGED_PATH} ({len(merged)}행, {merged['date'].min().date()} ~ {merged['date'].max().date()})")
@@ -132,7 +144,9 @@ def latest_date_str(raw_latest, cols):
 
 
 PANEL_SOURCES = {
-    "수급주체": "KOFIA FreeSIS 증시자금추이 (투자자별 순매매대금, 수동 다운로드 병합)",
+    "수급주체": "데이터 터미널에서 받은 수급정리 엑셀(data/manual/수급정리*.xlsm, 종목별 개인/기관/외국인 순매수)을 KRX Open API 상장종목 목록으로 코스피/코스닥 분류해 합산 (파일은 사용자가 매일 직접 갱신)",
+    "코스피 선행지수 vs YoY": "선행지수순환변동치: 한국은행 ECOS(901Y067/I16E, 국가데이터처 작성, 월간) / 코스피 YoY: 네이버 금융 코스피 종가 기준 전년동일대비(%)",
+    "수출금액(월간)": "관세청 통관기준 수출금액, 한국은행 ECOS(901Y118/T002, 월간 합계). 조업일수로 나눈 일평균 수치는 ECOS에 없어 월간 합계로 대체",
     "유동성지표": "한국은행 ECOS Open API - 한국은행 주요계정(103Y002), M2(161Y008)",
     "실탄게이지": "KOFIA FreeSIS Open API(자동 수집) 기반 계산",
     "MMF": "한국은행 ECOS Open API - M2 구성항목(161Y008/BBGA04)",
@@ -227,10 +241,12 @@ MASTER_SERIES = [
     ("위탁매매 미수금", "margin_call_unpaid", False),
     ("반대매매금액", "margin_call_liquidation", False),
     ("반대매매비중(%)", "margin_liquidation_ratio", False),
-    ("개인 순매매대금", "indiv_net_value", False),
-    ("외국인 순매매대금", "foreign_net_value", False),
-    ("기관 순매매대금", "inst_net_value", False),
-    ("기타법인 순매매대금", "other_corp_net_value", False),
+    ("개인 순매수(코스피)", "indiv_net_kospi", False),
+    ("개인 순매수(코스닥)", "indiv_net_kosdaq", False),
+    ("외국인 순매수(코스피)", "foreign_net_kospi", False),
+    ("외국인 순매수(코스닥)", "foreign_net_kosdaq", False),
+    ("기관 순매수(코스피)", "inst_net_kospi", False),
+    ("기관 순매수(코스닥)", "inst_net_kosdaq", False),
     ("신용카드 대출수요(BSI)", "credit_card_loan_demand", False),
     ("비트코인 시가총액(USD)", "btc_market_cap_usd", False),
     ("투자자예탁금 - RP매도잔고", "deposit_minus_rp", False),
@@ -238,6 +254,9 @@ MASTER_SERIES = [
     ("신용거래융자(코스닥)", "credit_loan_kosdaq", False),
     ("MMF 개인", "mmf_indiv", False),
     ("MMF 법인", "mmf_corp", False),
+    ("선행지수순환변동치", "leading_index_cycle", False),
+    ("수출금액(월간)", "export_amount", False),
+    ("코스피 YoY(%)", "kospi_yoy", False),
 ]
 
 
@@ -264,8 +283,9 @@ def build_dashboard(merged, raw_latest):
 
     panels = {
         "수급주체": build_panel(merged, recent, "multi", {
-            "개인": "indiv_net_value", "외국인": "foreign_net_value",
-            "기관": "inst_net_value", "기타법인": "other_corp_net_value",
+            "개인(코스피)": "indiv_net_kospi", "개인(코스닥)": "indiv_net_kosdaq",
+            "외국인(코스피)": "foreign_net_kospi", "외국인(코스닥)": "foreign_net_kosdaq",
+            "기관(코스피)": "inst_net_kospi", "기관(코스닥)": "inst_net_kosdaq",
         }),
         "유동성지표": build_panel(merged, recent, "split", {
             "한국은행 총자산": "bok_total_assets", "통안증권잔액": "msb_balance",
@@ -309,9 +329,19 @@ def build_dashboard(merged, raw_latest):
         "투자자예탁금 - RP매도잔고": build_panel(merged, recent, "multi", {
             "투자자예탁금 - RP매도잔고": "deposit_minus_rp",
         }),
+        "코스피 선행지수 vs YoY": build_dual_panel(
+            merged, recent,
+            {"코스피 YoY(%)": "kospi_yoy"},
+            {"선행지수순환변동치": "leading_index_cycle"},
+        ),
+        "수출금액(월간)": build_panel(merged, recent, "multi", {
+            "수출금액(월간, 관세청)": "export_amount",
+        }),
     }
 
-    panels["수급주체"]["latest"] = latest_date_str(raw_latest, ["indiv_net_value", "foreign_net_value", "inst_net_value", "other_corp_net_value"])
+    panels["수급주체"]["latest"] = latest_date_str(raw_latest, [
+        "indiv_net_kospi", "indiv_net_kosdaq", "foreign_net_kospi", "foreign_net_kosdaq", "inst_net_kospi", "inst_net_kosdaq",
+    ])
     panels["유동성지표"]["latest"] = latest_date_str(raw_latest, ["bok_total_assets", "m2"])
     panels["실탄게이지"]["latest"] = latest_date_str(raw_latest, ["investor_deposit", "cma_balance"])
     panels["M2 통화공급 (한국·미국)"]["latest"] = latest_date_str(raw_latest, ["m2", "us_m2"])
@@ -325,6 +355,8 @@ def build_dashboard(merged, raw_latest):
     panels["신용카드 대출수요 vs 코스피"]["latest"] = latest_date_str(raw_latest, ["kospi_close", "credit_card_loan_demand"])
     panels["비트코인 시가총액 vs 코스피"]["latest"] = latest_date_str(raw_latest, ["kospi_close", "btc_market_cap_usd"])
     panels["투자자예탁금 - RP매도잔고"]["latest"] = latest_date_str(raw_latest, ["deposit_minus_rp"])
+    panels["코스피 선행지수 vs YoY"]["latest"] = latest_date_str(raw_latest, ["kospi_yoy", "leading_index_cycle"])
+    panels["수출금액(월간)"]["latest"] = latest_date_str(raw_latest, ["export_amount"])
 
     updated_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     panels_json = json.dumps(panels, ensure_ascii=False)

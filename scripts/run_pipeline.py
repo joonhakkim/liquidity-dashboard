@@ -24,6 +24,7 @@ STEPS = [
     ("fetch_kofia.py", "KOFIA 수집(수동 파일 병합)"),
     ("fetch_fred.py", "FRED(미국 M2) 수집"),
     ("fetch_bitcoin.py", "CoinGecko(비트코인 시가총액) 수집"),
+    ("fetch_investor_flow.py", "수급주체(data/manual/수급정리*.xlsm 병합, 코스피/코스닥 분류)"),
     ("build_dashboard.py", "대시보드 빌드"),
 ]
 

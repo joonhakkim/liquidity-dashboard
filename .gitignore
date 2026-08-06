@@ -6,4 +6,5 @@ venv/
 logs/*.log
 .claude/
 data/manual/*.xlsx
+data/manual/*.xlsm
 data/manual/.processed.json
