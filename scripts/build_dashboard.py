@@ -7,8 +7,7 @@ data/merged.csv 를 만들고, Chart.js 기반 정적 HTML 대시보드를 docs/
   1. 수급주체            - 투자자별(개인/외국인/기관/기타법인) 순매매대금
   2. 유동성지표          - 한국은행 총자산 / 통안증권잔액 / RP매각잔고 / M2 (각각 별도 차트)
   3. 실탄게이지           - 투자자예탁금 + CMA잔고 (KOFIA) [계산식 표시]
-  4. MMF                 - M2 구성항목 중 MMF
-  5. 예수금·신용거래 현황 - 파생상품거래예수금/RP매도잔고/미수금/반대매매 (KOFIA)
+  4. 예수금·신용거래 현황 - 파생상품거래예수금/RP매도잔고/미수금/반대매매 (KOFIA)
   6. M2 통화공급(한국·미국) - 한국 ECOS M2 vs 미국 FRED M2SL
   7. 코스피 주가추이      - 코스피 종가/거래대금 (네이버 금융)
 
@@ -19,9 +18,13 @@ merged.csv에 daily 인덱스로 저장한다 (원본 raw csv들은 그대로 �
 """
 import json
 import os
+import sys
 from datetime import datetime
 
 import pandas as pd
+
+sys.path.insert(0, os.path.dirname(__file__))
+import risk_model
 
 BASE_DIR = os.path.join(os.path.dirname(__file__), "..")
 DATA_DIR = os.path.join(BASE_DIR, "data")
@@ -122,6 +125,19 @@ def build_merged():
         if "kospi_close" in raw_latest:
             raw_latest["kospi_yoy"] = raw_latest["kospi_close"]
 
+    if {"m2_to_marketcap_ratio", "credit_loan_kospi", "kospi_close"}.issubset(merged.columns):
+        trading_dates = set(krx["date"]) if not krx.empty else set()
+        score_df, model = risk_model.fit_and_score(merged, trading_dates)
+        merged = merged.merge(score_df, on="date", how="left")
+        risk_valid = merged.dropna(subset=["risk_index"])
+        if not risk_valid.empty:
+            raw_latest["risk_index"] = risk_valid["date"].max()
+        if model is not None:
+            score_path = os.path.join(DATA_DIR, "risk_index_raw.csv")
+            merged[["date", "kospi_close", "predicted_fwd_ret_20", "risk_index", "signal"]].dropna(
+                subset=["risk_index"]
+            ).to_csv(score_path, index=False, encoding="utf-8-sig")
+
     os.makedirs(DATA_DIR, exist_ok=True)
     merged.to_csv(MERGED_PATH, index=False, encoding="utf-8-sig")
     print(f"병합 완료: {MERGED_PATH} ({len(merged)}행, {merged['date'].min().date()} ~ {merged['date'].max().date()})")
@@ -145,11 +161,11 @@ def latest_date_str(raw_latest, cols):
 
 PANEL_SOURCES = {
     "수급주체": "데이터 터미널에서 받은 수급정리 엑셀(data/manual/수급정리*.xlsm, 종목별 개인/기관/외국인 순매수)을 KRX Open API 상장종목 목록으로 코스피/코스닥 분류해 합산 (파일은 사용자가 매일 직접 갱신)",
-    "코스피 선행지수 vs YoY": "선행지수순환변동치: 한국은행 ECOS(901Y067/I16E, 국가데이터처 작성, 월간) / 코스피 YoY: 네이버 금융 코스피 종가 기준 전년동일대비(%)",
-    "수출금액(월간)": "관세청 통관기준 수출금액, 한국은행 ECOS(901Y118/T002, 월간 합계). 조업일수로 나눈 일평균 수치는 ECOS에 없어 월간 합계로 대체",
+    "코스피 선행지수 vs YoY": "선행종합지수 YoY: 한국은행 ECOS(901Y067/I16A 원지수, 국가데이터처 작성, 월간) 전년동월대비(%) / 코스피 YoY: 네이버 금융 코스피 종가 기준 전년동일대비(%)",
+    "수출금액 (일간)": "관세청 통관기준 수출금액(한국은행 ECOS 901Y118/T002, 월간 합계) ÷ 조업일수. 조업일수는 산업통상부 방식(평일 1일 + 토요일 0.5일 + 공휴일·일요일 0일)으로 자체 계산",
+    "코스피 하락 위험지수": "자체 계산 모델 (scripts/risk_model.py). 전체 지표 중 코스피 시가총액과 그냥 동행하지 않고 실제로 향후 수익률을 선행 예측하는 지표만 통계적으로 추려서 회귀",
     "유동성지표": "한국은행 ECOS Open API - 한국은행 주요계정(103Y002), M2(161Y008)",
     "실탄게이지": "KOFIA FreeSIS Open API(자동 수집) 기반 계산",
-    "MMF": "한국은행 ECOS Open API - M2 구성항목(161Y008/BBGA04)",
     "예수금·신용거래 현황": "KOFIA FreeSIS (meta/getMetaDataList.do, 자동 수집)",
     "신용거래융자 · MMF 현황": "KOFIA FreeSIS (meta/getMetaDataList.do, 자동 수집)",
     "M2 통화공급 (한국·미국)": "한국: ECOS Open API(161Y008) / 미국: FRED M2SL (둘 다 월별, 단위 다름 - 각각 자체 축)",
@@ -165,6 +181,14 @@ PANEL_FORMULAS = {
     "투자자예탁금 - RP매도잔고": "계산식: 투자자예탁금 - 대고객 RP매도잔고",
     "시가총액 회전율 · M2 비율": "계산식: 회전율(%) = 코스피 거래대금 / 코스피 상장시가총액 × 100  |  M2/시가총액(%) = 한국 M2 / 코스피 상장시가총액 × 100",
     "M2 통화공급 (한국·미국)": "계산식: M2 YoY(%) = (M2(t) / M2(t-12개월) - 1) × 100",
+    "코스피 하락 위험지수": (
+        "계산식: 위험지수 = 백분위순위(-예측수익률) × 100, 여기서 "
+        "예측수익률(향후 20거래일) = a + b1·Z(M2/시가총액비율, 60일) + b2·Z(코스피 신용거래융자 20일 변화율, 60일). "
+        "회귀 계수(b1, b2)는 둘 다 음수로 유의(p&lt;0.01, Newey-West HAC) - 유동성 대비 밸류에이션이 과열되거나 "
+        "빚투가 급증할수록 이후 수익률이 낮아지는 과거 패턴을 반영. "
+        "신호 기준: 위험지수 상위 5%(≥95)=위험, 상위 20%(≥80)=경고, 나머지=안전. "
+        "표본 약 1560거래일(2020.1~), R²≈0.046 - 계수는 유의하지만 설명력은 낮음. 참고용 통계 모델이며 투자 조언이 아님"
+    ),
 }
 
 
@@ -254,9 +278,10 @@ MASTER_SERIES = [
     ("신용거래융자(코스닥)", "credit_loan_kosdaq", False),
     ("MMF 개인", "mmf_indiv", False),
     ("MMF 법인", "mmf_corp", False),
-    ("선행지수순환변동치", "leading_index_cycle", False),
-    ("수출금액(월간)", "export_amount", False),
+    ("선행종합지수 YoY(%)", "leading_index_yoy", False),
+    ("수출금액(천불/일)", "export_amount_daily_avg", False),
     ("코스피 YoY(%)", "kospi_yoy", False),
+    ("코스피 하락 위험지수(0-100)", "risk_index", True),
 ]
 
 
@@ -294,7 +319,6 @@ def build_dashboard(merged, raw_latest):
         "실탄게이지": build_panel(merged, recent, "split", {
             "실탄 합계(예탁금+CMA)": "dry_powder", "투자자예탁금": "investor_deposit", "CMA잔고": "cma_balance",
         }),
-        "MMF": build_panel(merged, recent, "multi", {"MMF": "mmf"}),
         "예수금·신용거래 현황": build_panel(merged, recent, "split", {
             "장내파생상품 거래예수금": "deriv_deposit",
             "대고객 RP매도잔고": "broker_rp_balance",
@@ -332,11 +356,16 @@ def build_dashboard(merged, raw_latest):
         "코스피 선행지수 vs YoY": build_dual_panel(
             merged, recent,
             {"코스피 YoY(%)": "kospi_yoy"},
-            {"선행지수순환변동치": "leading_index_cycle"},
+            {"선행종합지수 YoY(%)": "leading_index_yoy"},
         ),
-        "수출금액(월간)": build_panel(merged, recent, "multi", {
-            "수출금액(월간, 관세청)": "export_amount",
+        "수출금액 (일간)": build_panel(merged, recent, "multi", {
+            "수출금액(천불/일)": "export_amount_daily_avg",
         }),
+        "코스피 하락 위험지수": build_dual_panel(
+            merged, recent,
+            {"코스피 종가": "kospi_close"},
+            {"위험지수(0-100)": "risk_index"},
+        ),
     }
 
     panels["수급주체"]["latest"] = latest_date_str(raw_latest, [
@@ -346,7 +375,6 @@ def build_dashboard(merged, raw_latest):
     panels["실탄게이지"]["latest"] = latest_date_str(raw_latest, ["investor_deposit", "cma_balance"])
     panels["M2 통화공급 (한국·미국)"]["latest"] = latest_date_str(raw_latest, ["m2", "us_m2"])
     panels["코스피 주가추이"]["latest"] = latest_date_str(raw_latest, ["kospi_close", "kospi_trading_value"])
-    panels["MMF"]["latest"] = latest_date_str(raw_latest, ["mmf"])
     panels["예수금·신용거래 현황"]["latest"] = latest_date_str(raw_latest, [
         "deriv_deposit", "broker_rp_balance", "margin_call_unpaid", "margin_call_liquidation", "margin_liquidation_ratio",
     ])
@@ -355,8 +383,16 @@ def build_dashboard(merged, raw_latest):
     panels["신용카드 대출수요 vs 코스피"]["latest"] = latest_date_str(raw_latest, ["kospi_close", "credit_card_loan_demand"])
     panels["비트코인 시가총액 vs 코스피"]["latest"] = latest_date_str(raw_latest, ["kospi_close", "btc_market_cap_usd"])
     panels["투자자예탁금 - RP매도잔고"]["latest"] = latest_date_str(raw_latest, ["deposit_minus_rp"])
-    panels["코스피 선행지수 vs YoY"]["latest"] = latest_date_str(raw_latest, ["kospi_yoy", "leading_index_cycle"])
-    panels["수출금액(월간)"]["latest"] = latest_date_str(raw_latest, ["export_amount"])
+    panels["코스피 선행지수 vs YoY"]["latest"] = latest_date_str(raw_latest, ["kospi_yoy", "leading_index_yoy"])
+    panels["수출금액 (일간)"]["latest"] = latest_date_str(raw_latest, ["export_amount_daily_avg"])
+    panels["코스피 하락 위험지수"]["latest"] = latest_date_str(raw_latest, ["risk_index"])
+
+    risk_latest_rows = merged.dropna(subset=["risk_index"])
+    if not risk_latest_rows.empty:
+        last_row = risk_latest_rows.iloc[-1]
+        panels["코스피 하락 위험지수"]["badge"] = (
+            f"현재 위험지수: {last_row['risk_index']:.1f} / 100 &nbsp;→&nbsp; 신호: {last_row['signal']}"
+        )
 
     updated_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     panels_json = json.dumps(panels, ensure_ascii=False)
@@ -381,6 +417,7 @@ def build_dashboard(merged, raw_latest):
   .latest {{ color:#63e6be; font-size:11px; float:right; }}
   .source {{ color:#7a8290; font-size:11px; margin-bottom:4px; clear:both; }}
   .formula {{ color:#ffa94d; font-size:11px; margin-bottom:10px; font-family:monospace; }}
+  .risk-badge {{ clear:both; font-size:16px; font-weight:bold; color:#ff6b6b; margin:6px 0; }}
   .nodata {{ color:#7a8290; font-size:13px; padding:40px 0; text-align:center; }}
   canvas {{ max-height:420px; }}
   .split-grid {{ display:grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap:20px; }}
@@ -631,7 +668,8 @@ function renderPanel(title, panel, section) {{
   const source = SOURCES[title] || '';
   const formula = FORMULAS[title];
   const latest = panel.latest ? `<span class="latest">최신: ${{panel.latest}}</span>` : '';
-  card.innerHTML = `<h2>${{title}}</h2>${{latest}}<div class="source">데이터 출처: ${{source}}</div>` +
+  const badge = panel.badge ? `<div class="risk-badge">${{panel.badge}}</div>` : '';
+  card.innerHTML = `<h2>${{title}}</h2>${{latest}}${{badge}}<div class="source">데이터 출처: ${{source}}</div>` +
                     (formula ? `<div class="formula">${{formula}}</div>` : '');
   section.appendChild(card);
 

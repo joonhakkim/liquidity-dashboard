@@ -36,7 +36,7 @@ NAVER_INDEX_URL = "https://finance.naver.com/sise/sise_index_day.naver"
 DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data")
 OUT_PATH = os.path.join(DATA_DIR, "krx_raw.csv")
 
-BACKFILL_YEARS = 5
+BACKFILL_YEARS = 7  # 2026년 기준 2020년 초까지 (위험지수 모델 학습 표본 확보를 위해 확장)
 UNAVAILABLE_COLUMNS = [
     "indiv_net_value",
     "foreign_net_value",

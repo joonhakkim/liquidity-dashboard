@@ -38,7 +38,7 @@ DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data")
 OUT_PATH = os.path.join(DATA_DIR, "kofia_raw.csv")
 
 API_URL = "https://freesis.kofia.or.kr/meta/getMetaDataList.do"
-BACKFILL_YEARS = 2
+BACKFILL_YEARS = 7  # 2026년 기준 2020년 초까지 (위험지수 모델 학습 표본 확보를 위해 확장)
 
 # (컬럼명 리스트, OBJ_NM, 날짜 파라미터 이름(시작,종료), 추가 고정 파라미터)
 SOURCES = [

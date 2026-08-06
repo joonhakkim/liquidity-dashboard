@@ -12,10 +12,12 @@
     python scripts/fetch_ecos.py --discover  # 통계표 코드를 다시 검색만 하고 종료
 """
 import argparse
+import calendar
 import os
 import sys
-from datetime import datetime
+from datetime import date, datetime
 
+import holidays
 import pandas as pd
 import requests
 from dotenv import load_dotenv
@@ -41,7 +43,7 @@ STAT_ITEMS = [
     ("rp_sale_balance", "103Y002", "BCAA216", "M", "한국은행 주요계정(말잔) - 환매조건부채권매각(RP매각)"),
     ("m2", "161Y008", "BBGA00", "M", "M2(말잔, 원계열) [신지표, 2003.10~]"),
     ("mmf", "161Y008", "BBGA04", "M", "M2 구성항목 중 MMF(말잔, 원계열)"),
-    ("leading_index_cycle", "901Y067", "I16E", "M", "선행지수순환변동치(경기종합지수, 국가데이터처)"),
+    ("leading_index", "901Y067", "I16A", "M", "선행종합지수 원지수(경기종합지수, 국가데이터처) - YoY 계산용 (순환변동치 I16E는 이미 추세 제거된 값이라 YoY가 의미 없음)"),
     ("export_amount", "901Y118", "T002", "M", "수출금액(통관기준, 월간 합계, 관세청)"),
 ]
 
@@ -112,6 +114,25 @@ def fetch_series(stat_code, item_code, cycle, start_date, end_date, parse_dates=
     return df
 
 
+def working_days_in_month(year, month):
+    """조업일수 계산: 평일(공휴일 아님) 1일 + 토요일(공휴일 아님) 0.5일 + 일요일/공휴일 0일.
+    산업통상부가 '일평균 수출입동향' 보도자료에서 쓰는 방식과 동일한 관례를 따름."""
+    kr_holidays = holidays.KR(years=[year])
+    total = 0.0
+    for day in range(1, calendar.monthrange(year, month)[1] + 1):
+        d = date(year, month, day)
+        if d in kr_holidays:
+            continue
+        weekday = d.weekday()  # 0=월 ... 5=토 6=일
+        if weekday == 6:
+            continue
+        elif weekday == 5:
+            total += 0.5
+        else:
+            total += 1.0
+    return total
+
+
 def fetch_quarterly_series(stat_code, item_code, start_date, end_date):
     df = fetch_series(stat_code, item_code, "Q", start_date, end_date, parse_dates=False)
     if df.empty:
@@ -155,6 +176,14 @@ def main():
 
     merged = merged.sort_values("date").reset_index(drop=True)
     merged["government_deposit"] = pd.NA
+
+    if "export_amount" in merged.columns:
+        # 일평균 수출액 = 해당월 수출금액 / 조업일수(평일1 + 토요일0.5 + 공휴일·일요일0)
+        working_days = merged["date"].apply(lambda d: working_days_in_month(d.year, d.month))
+        merged["export_amount_daily_avg"] = merged["export_amount"] / working_days
+
+    if "leading_index" in merged.columns:
+        merged["leading_index_yoy"] = merged["leading_index"] / merged["leading_index"].shift(12) * 100 - 100
 
     merged["net_liquidity"] = (
         merged["bok_total_assets"] - (merged["msb_balance"] + merged["rp_sale_balance"])
