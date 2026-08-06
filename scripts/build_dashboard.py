@@ -354,8 +354,15 @@ def build_dashboard(merged, raw_latest):
   .split-grid {{ display:grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap:20px; }}
   .split-item h3 {{ font-size:13px; color:#c7cbd1; margin:6px 0 6px 0; font-weight:normal; }}
   .split-item canvas {{ max-height:320px; }}
-  .combined-canvas {{ max-height:560px; }}
+  .combined-canvas-wrap {{ height:420px; position:relative; }}
   .combined-hint {{ color:#7a8290; font-size:11px; margin-bottom:10px; }}
+  .combined-legend {{ display:flex; flex-wrap:wrap; gap:6px; margin-top:14px; }}
+  .combined-legend-item {{ display:flex; align-items:center; gap:6px; background:#12141a; border:1px solid #2a2e37;
+    border-radius:6px; padding:5px 10px; cursor:pointer; font-size:12px; color:#e6e6e6; user-select:none; }}
+  .combined-legend-item:hover {{ border-color:#4dabf7; }}
+  .combined-legend-item.inactive {{ opacity:0.35; }}
+  .combined-legend-item .swatch {{ width:10px; height:10px; border-radius:2px; flex-shrink:0; }}
+  .combined-legend-item .val.negative {{ color:#ff6b6b; font-weight:bold; }}
   .layout {{ display:flex; align-items:flex-start; gap:20px; }}
   .sidebar {{ width:220px; flex-shrink:0; position:sticky; top:24px; max-height:calc(100vh - 48px); overflow-y:auto; }}
   .nav-btn {{ display:block; width:100%; text-align:left; background:none; border:none; color:#9aa0a6;
@@ -485,7 +492,8 @@ function renderCombined(section) {{
     <h2>통합 차트 (전체 지표 겹쳐보기)</h2>
     <div class="source">모든 지표를 한 차트에 모았습니다. 아래 범례를 클릭하면 해당 지표를 켜고 끌 수 있습니다.</div>
     <div class="combined-hint">지표마다 단위가 달라 각자 숨겨진 축(스케일)을 따로 씁니다 - 절대값보다는 시점/추세 비교용입니다.</div>
-    <canvas id="combinedChart" class="combined-canvas"></canvas>
+    <div class="combined-canvas-wrap"><canvas id="combinedChart"></canvas></div>
+    <div class="combined-legend" id="combinedLegend"></div>
   </div>`;
   if (!COMBINED.items.length) return;
   const datasets = COMBINED.items.map((item, i) => ({{
@@ -510,30 +518,32 @@ function renderCombined(section) {{
     data: {{ labels: COMBINED.labels, datasets }},
     options: {{
       responsive: true,
+      maintainAspectRatio: false,
       interaction: {{ mode: 'index', intersect: false }},
       scales,
-      plugins: {{
-        legend: {{
-          position: 'bottom',
-          labels: {{
-            color:'#e6e6e6', boxWidth: 12, font: {{ size: 11 }},
-            generateLabels: (c) => c.data.datasets.map((ds, i) => {{
-              const v = lastNonNull(ds.data);
-              return {{
-                text: ds.label + formatLatestSuffix(v),
-                fillStyle: v !== null && v < 0 ? '#ff6b6b' : ds.borderColor,
-                strokeStyle: ds.borderColor,
-                hidden: !c.isDatasetVisible(i),
-                datasetIndex: i,
-                lineWidth: 0,
-              }};
-            }}),
-          }},
-        }},
-      }},
+      plugins: {{ legend: {{ display: false }} }},
     }},
   }});
   registerChart(chart);
+
+  // 캔버스 범례 대신 진짜 HTML 범례를 그린다 (항목이 많으면 캔버스 범례는
+  // 글자가 겹쳐서 안 보이는 문제가 있었음). 클릭하면 해당 데이터셋을 토글.
+  const legendEl = document.getElementById('combinedLegend');
+  datasets.forEach((ds, i) => {{
+    const v = lastNonNull(ds.data);
+    const item = document.createElement('div');
+    item.className = 'combined-legend-item' + (ds.hidden ? ' inactive' : '');
+    const valClass = (v !== null && v < 0) ? 'val negative' : 'val';
+    item.innerHTML = `<span class="swatch" style="background:${{ds.borderColor}}"></span>` +
+                      `<span>${{ds.label}}</span><span class="${{valClass}}">${{formatLatestSuffix(v)}}</span>`;
+    item.onclick = () => {{
+      const nowVisible = chart.isDatasetVisible(i);
+      chart.setDatasetVisibility(i, !nowVisible);
+      chart.update();
+      item.classList.toggle('inactive', nowVisible);
+    }};
+    legendEl.appendChild(item);
+  }});
 }}
 
 function makeLineChart(canvas, labels, datasets) {{
