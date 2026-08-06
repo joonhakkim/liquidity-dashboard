@@ -18,13 +18,9 @@ merged.csv에 daily 인덱스로 저장한다 (원본 raw csv들은 그대로 �
 """
 import json
 import os
-import sys
 from datetime import datetime
 
 import pandas as pd
-
-sys.path.insert(0, os.path.dirname(__file__))
-import risk_model
 
 BASE_DIR = os.path.join(os.path.dirname(__file__), "..")
 DATA_DIR = os.path.join(BASE_DIR, "data")
@@ -125,19 +121,6 @@ def build_merged():
         if "kospi_close" in raw_latest:
             raw_latest["kospi_yoy"] = raw_latest["kospi_close"]
 
-    if {"m2_to_marketcap_ratio", "credit_loan_kospi", "kospi_close"}.issubset(merged.columns):
-        trading_dates = set(krx["date"]) if not krx.empty else set()
-        score_df, model = risk_model.fit_and_score(merged, trading_dates)
-        merged = merged.merge(score_df, on="date", how="left")
-        risk_valid = merged.dropna(subset=["risk_index"])
-        if not risk_valid.empty:
-            raw_latest["risk_index"] = risk_valid["date"].max()
-        if model is not None:
-            score_path = os.path.join(DATA_DIR, "risk_index_raw.csv")
-            merged[["date", "kospi_close", "predicted_fwd_ret_20", "risk_index", "signal"]].dropna(
-                subset=["risk_index"]
-            ).to_csv(score_path, index=False, encoding="utf-8-sig")
-
     os.makedirs(DATA_DIR, exist_ok=True)
     merged.to_csv(MERGED_PATH, index=False, encoding="utf-8-sig")
     print(f"병합 완료: {MERGED_PATH} ({len(merged)}행, {merged['date'].min().date()} ~ {merged['date'].max().date()})")
@@ -163,7 +146,6 @@ PANEL_SOURCES = {
     "수급주체": "데이터 터미널에서 받은 수급정리 엑셀(data/manual/수급정리*.xlsm, 종목별 개인/기관/외국인 순매수)을 KRX Open API 상장종목 목록으로 코스피/코스닥 분류해 합산 (파일은 사용자가 매일 직접 갱신)",
     "코스피 선행지수 vs YoY": "선행종합지수 YoY: 한국은행 ECOS(901Y067/I16A 원지수, 국가데이터처 작성, 월간) 전년동월대비(%) / 코스피 YoY: 네이버 금융 코스피 종가 기준 전년동일대비(%)",
     "수출금액 (일간)": "관세청 통관기준 수출금액(한국은행 ECOS 901Y118/T002, 월간 합계) ÷ 조업일수. 조업일수는 산업통상부 방식(평일 1일 + 토요일 0.5일 + 공휴일·일요일 0일)으로 자체 계산",
-    "코스피 하락 위험지수": "자체 계산 모델 (scripts/risk_model.py). 전체 지표 중 코스피 시가총액과 그냥 동행하지 않고 실제로 향후 수익률을 선행 예측하는 지표만 통계적으로 추려서 회귀",
     "유동성지표": "한국은행 ECOS Open API - 한국은행 주요계정(103Y002), M2(161Y008)",
     "실탄게이지": "KOFIA FreeSIS Open API(자동 수집) 기반 계산",
     "예수금·신용거래 현황": "KOFIA FreeSIS (meta/getMetaDataList.do, 자동 수집)",
@@ -181,14 +163,6 @@ PANEL_FORMULAS = {
     "투자자예탁금 - RP매도잔고": "계산식: 투자자예탁금 - 대고객 RP매도잔고",
     "시가총액 회전율 · M2 비율": "계산식: 회전율(%) = 코스피 거래대금 / 코스피 상장시가총액 × 100  |  M2/시가총액(%) = 한국 M2 / 코스피 상장시가총액 × 100",
     "M2 통화공급 (한국·미국)": "계산식: M2 YoY(%) = (M2(t) / M2(t-12개월) - 1) × 100",
-    "코스피 하락 위험지수": (
-        "계산식: 위험지수 = 백분위순위(-예측수익률) × 100, 여기서 "
-        "예측수익률(향후 20거래일) = a + b1·Z(M2/시가총액비율, 60일) + b2·Z(코스피 신용거래융자 20일 변화율, 60일). "
-        "회귀 계수(b1, b2)는 둘 다 음수로 유의(p&lt;0.01, Newey-West HAC) - 유동성 대비 밸류에이션이 과열되거나 "
-        "빚투가 급증할수록 이후 수익률이 낮아지는 과거 패턴을 반영. "
-        "신호 기준: 위험지수 상위 5%(≥95)=위험, 상위 20%(≥80)=경고, 나머지=안전. "
-        "표본 약 1560거래일(2020.1~), R²≈0.046 - 계수는 유의하지만 설명력은 낮음. 참고용 통계 모델이며 투자 조언이 아님"
-    ),
 }
 
 
@@ -281,7 +255,6 @@ MASTER_SERIES = [
     ("선행종합지수 YoY(%)", "leading_index_yoy", False),
     ("수출금액(천불/일)", "export_amount_daily_avg", False),
     ("코스피 YoY(%)", "kospi_yoy", False),
-    ("코스피 하락 위험지수(0-100)", "risk_index", True),
 ]
 
 
@@ -361,11 +334,6 @@ def build_dashboard(merged, raw_latest):
         "수출금액 (일간)": build_panel(merged, recent, "multi", {
             "수출금액(천불/일)": "export_amount_daily_avg",
         }),
-        "코스피 하락 위험지수": build_dual_panel(
-            merged, recent,
-            {"코스피 종가": "kospi_close"},
-            {"위험지수(0-100)": "risk_index"},
-        ),
     }
 
     panels["수급주체"]["latest"] = latest_date_str(raw_latest, [
@@ -385,14 +353,6 @@ def build_dashboard(merged, raw_latest):
     panels["투자자예탁금 - RP매도잔고"]["latest"] = latest_date_str(raw_latest, ["deposit_minus_rp"])
     panels["코스피 선행지수 vs YoY"]["latest"] = latest_date_str(raw_latest, ["kospi_yoy", "leading_index_yoy"])
     panels["수출금액 (일간)"]["latest"] = latest_date_str(raw_latest, ["export_amount_daily_avg"])
-    panels["코스피 하락 위험지수"]["latest"] = latest_date_str(raw_latest, ["risk_index"])
-
-    risk_latest_rows = merged.dropna(subset=["risk_index"])
-    if not risk_latest_rows.empty:
-        last_row = risk_latest_rows.iloc[-1]
-        panels["코스피 하락 위험지수"]["badge"] = (
-            f"현재 위험지수: {last_row['risk_index']:.1f} / 100 &nbsp;→&nbsp; 신호: {last_row['signal']}"
-        )
 
     updated_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     panels_json = json.dumps(panels, ensure_ascii=False)
@@ -417,13 +377,13 @@ def build_dashboard(merged, raw_latest):
   .latest {{ color:#63e6be; font-size:11px; float:right; }}
   .source {{ color:#7a8290; font-size:11px; margin-bottom:4px; clear:both; }}
   .formula {{ color:#ffa94d; font-size:11px; margin-bottom:10px; font-family:monospace; }}
-  .risk-badge {{ clear:both; font-size:16px; font-weight:bold; color:#ff6b6b; margin:6px 0; }}
   .nodata {{ color:#7a8290; font-size:13px; padding:40px 0; text-align:center; }}
   canvas {{ max-height:420px; }}
   .split-grid {{ display:grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap:20px; }}
   .split-item h3 {{ font-size:13px; color:#c7cbd1; margin:6px 0 6px 0; font-weight:normal; }}
-  .split-item canvas {{ max-height:320px; }}
+  .split-item .chart-canvas-wrap {{ height:280px; position:relative; }}
   .combined-canvas-wrap {{ height:420px; position:relative; }}
+  .chart-canvas-wrap {{ height:380px; position:relative; }}
   .combined-hint {{ color:#7a8290; font-size:11px; margin-bottom:10px; }}
   .combined-legend {{ display:flex; flex-wrap:wrap; gap:6px; margin-top:14px; }}
   .combined-legend-item {{ display:flex; align-items:center; gap:6px; background:#12141a; border:1px solid #2a2e37;
@@ -621,6 +581,7 @@ function makeLineChart(canvas, labels, datasets) {{
     data: {{ labels, datasets }},
     options: {{
       responsive: true,
+      maintainAspectRatio: false,
       interaction: {{ mode: 'index', intersect: false }},
       scales: {{
         x: {{ ticks: {{ color: '#9aa0a6', maxTicksLimit: 6 }}, grid: {{ color:'#2a2e37' }} }},
@@ -650,6 +611,7 @@ function makeDualAxisChart(canvas, labels, leftSeries, rightSeries) {{
     data: {{ labels, datasets }},
     options: {{
       responsive: true,
+      maintainAspectRatio: false,
       interaction: {{ mode: 'index', intersect: false }},
       scales: {{
         x: {{ ticks: {{ color: '#9aa0a6', maxTicksLimit: 6 }}, grid: {{ color:'#2a2e37' }} }},
@@ -668,8 +630,7 @@ function renderPanel(title, panel, section) {{
   const source = SOURCES[title] || '';
   const formula = FORMULAS[title];
   const latest = panel.latest ? `<span class="latest">최신: ${{panel.latest}}</span>` : '';
-  const badge = panel.badge ? `<div class="risk-badge">${{panel.badge}}</div>` : '';
-  card.innerHTML = `<h2>${{title}}</h2>${{latest}}${{badge}}<div class="source">데이터 출처: ${{source}}</div>` +
+  card.innerHTML = `<h2>${{title}}</h2>${{latest}}<div class="source">데이터 출처: ${{source}}</div>` +
                     (formula ? `<div class="formula">${{formula}}</div>` : '');
   section.appendChild(card);
 
@@ -682,8 +643,11 @@ function renderPanel(title, panel, section) {{
   }}
 
   if (panel.type === 'dual') {{
+    const wrap = document.createElement('div');
+    wrap.className = 'chart-canvas-wrap';
     const canvas = document.createElement('canvas');
-    card.appendChild(canvas);
+    wrap.appendChild(canvas);
+    card.appendChild(wrap);
     makeDualAxisChart(canvas, panel.labels, panel.left, panel.right);
     return;
   }}
@@ -695,8 +659,11 @@ function renderPanel(title, panel, section) {{
       const item = document.createElement('div');
       item.className = 'split-item';
       item.innerHTML = `<h3>${{name}}</h3>`;
+      const itemWrap = document.createElement('div');
+      itemWrap.className = 'chart-canvas-wrap';
       const canvas = document.createElement('canvas');
-      item.appendChild(canvas);
+      itemWrap.appendChild(canvas);
+      item.appendChild(itemWrap);
       splitGrid.appendChild(item);
       makeLineChart(canvas, panel.labels, [{{
         label: name, data, borderColor: COLORS[i % COLORS.length],
@@ -708,8 +675,11 @@ function renderPanel(title, panel, section) {{
     return;
   }}
 
+  const wrap = document.createElement('div');
+  wrap.className = 'chart-canvas-wrap';
   const canvas = document.createElement('canvas');
-  card.appendChild(canvas);
+  wrap.appendChild(canvas);
+  card.appendChild(wrap);
   const datasets = Object.entries(panel.series).map(([name, data], i) => ({{
     label: name, data, borderColor: COLORS[i % COLORS.length],
     backgroundColor: COLORS[i % COLORS.length] + '33',
