@@ -62,7 +62,11 @@ def build_merged():
         ecos["korea_m2_yoy"] = ecos["m2"] / ecos["m2"].shift(12) * 100 - 100
     if not fred.empty and "us_m2" in fred.columns:
         fred = fred.sort_values("date").reset_index(drop=True)
-        fred["us_m2_yoy"] = fred["us_m2"] / fred["us_m2"].shift(12) * 100 - 100
+        # fred_raw.csv에 us_real_rate_10y(일별)가 섞여 있어 fred 전체가 일별 그리드가
+        # 됐다. us_m2(월별) 값이 있는 행만 뽑아 12개월 shift로 계산한 뒤 다시 합친다.
+        m2_monthly = fred.loc[fred["us_m2"].notna(), ["date", "us_m2"]].sort_values("date").reset_index(drop=True)
+        m2_monthly["us_m2_yoy"] = m2_monthly["us_m2"] / m2_monthly["us_m2"].shift(12) * 100 - 100
+        fred = fred.merge(m2_monthly[["date", "us_m2_yoy"]], on="date", how="left")
 
     all_dates = pd.concat(
         [ecos["date"], krx["date"], kofia["date"], fred["date"], bitcoin["date"], investor_flow["date"], markets["date"]],
