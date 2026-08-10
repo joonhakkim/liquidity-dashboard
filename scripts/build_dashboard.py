@@ -225,46 +225,21 @@ def build_dual_panel(merged, window_df, left_map, right_map):
 
 
 MASTER_SERIES = [
+    # 코스피 -15%+ 급락 4개 구간(2020-01/2021-07/2026-02/2026-06, 뒤 2개는 미래 합성구간이라
+    # 신뢰도 낮음) 이전 데이터로 level/MoM/QoQ/YoY x 21~252일 선행폭을 다 테스트해서, "향후 126일
+    # 최대낙폭"과의 상관관계가 뚜렷했던 지표만 남겼다(2026-08 분석, scratchpad/leading_indicator_analysis.py).
+    # 표본이 4개뿐이라 확정 법칙은 아니고 "이 데이터에서 방향성이 일관된 지표" 정도로 취급할 것.
+    # 개별 패널(수급주체/유동성지표/실탄게이지 등)은 이 리스트와 무관하게 그대로 유지된다.
     ("코스피 종가", "kospi_close", True),
-    ("코스피 거래대금(백만원)", "kospi_trading_value", False),
-    ("코스피 회전율(%)", "kospi_turnover_ratio", False),
-    ("M2/코스피 시가총액(%)", "m2_to_marketcap_ratio", False),
-    ("한국 M2(십억원)", "m2", False),
-    ("한국 M2 YoY(%)", "korea_m2_yoy", False),
-    ("미국 M2(십억달러)", "us_m2", False),
-    ("미국 M2 YoY(%)", "us_m2_yoy", False),
-    ("한국은행 총자산(십억원)", "bok_total_assets", False),
-    ("통안증권잔액(십억원)", "msb_balance", False),
-    ("RP매각잔고(십억원)", "rp_sale_balance", False),
-    ("MMF(십억원)", "mmf", False),
-    ("실탄 합계(예탁금+CMA)", "dry_powder", False),
-    ("투자자예탁금", "investor_deposit", False),
-    ("CMA잔고", "cma_balance", False),
-    ("장내파생상품 거래예수금", "deriv_deposit", False),
-    ("대고객 RP매도잔고", "broker_rp_balance", False),
-    ("위탁매매 미수금", "margin_call_unpaid", False),
-    ("반대매매금액", "margin_call_liquidation", False),
-    ("반대매매비중(%)", "margin_liquidation_ratio", False),
-    ("개인 순매수(코스피)", "indiv_net_kospi", False),
-    ("개인 순매수(코스닥)", "indiv_net_kosdaq", False),
-    ("외국인 순매수(코스피)", "foreign_net_kospi", False),
-    ("외국인 순매수(코스닥)", "foreign_net_kosdaq", False),
-    ("기관 순매수(코스피)", "inst_net_kospi", False),
-    ("기관 순매수(코스닥)", "inst_net_kosdaq", False),
-    ("신용카드 대출수요(BSI)", "credit_card_loan_demand", False),
-    ("비트코인 시가총액(USD)", "btc_market_cap_usd", False),
-    ("신용거래융자(코스피)", "credit_loan_kospi", False),
-    ("신용거래융자(코스닥)", "credit_loan_kosdaq", False),
-    ("MMF 개인", "mmf_indiv", False),
-    ("MMF 법인", "mmf_corp", False),
-    ("선행종합지수 YoY(%)", "leading_index_yoy", False),
-    ("수출금액(천불/일)", "export_amount_daily_avg", False),
-    ("코스피 YoY(%)", "kospi_yoy", False),
-    ("미국 10년물 실질금리(%)", "us_real_rate_10y", False),
-    ("원/달러 환율", "usd_krw", False),
-    ("금 가격(USD)", "gold_usd", False),
-    ("은 가격(USD)", "silver_usd", False),
-    ("구리 가격(USD/MT)", "copper_usd", False),
+    ("신용거래융자 합계", "credit_loan_total", False),  # corr -0.73 (252일 선행) - 레버리지 과열->강제청산
+    ("미국 M2 YoY(%)", "us_m2_yoy", False),  # corr 0.68 (21일 선행) - 글로벌 유동성
+    ("예탁금-RP(실탄)", "deposit_minus_rp", False),  # corr -0.61 (252일 선행)
+    ("M2/코스피 시가총액(%)", "m2_to_marketcap_ratio", False),  # corr 0.54 (252일 선행) - 시총 과열도
+    ("한국 M2 YoY(%)", "korea_m2_yoy", False),  # corr 0.41 (21일 선행) - 통화긴축 선행신호
+    ("실탄 합계(예탁금+CMA)", "dry_powder", False),  # corr -0.47 (252일 선행)
+    ("투자자예탁금", "investor_deposit", False),  # corr -0.55 (252일 선행)
+    ("미국 10년물 실질금리(%)", "us_real_rate_10y", False),  # corr -0.48 (21일 선행)
+    ("신용카드 대출수요(BSI)", "credit_card_loan_demand", False),  # corr -0.31 (QoQ, 126일 선행) - 약하지만 설문 기반이라 태생적으로 선행성
 ]
 
 
