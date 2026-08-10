@@ -61,13 +61,32 @@ def main():
 
     name_to_code, _, _ = load_corp_code_map()
 
+    # 이미 처리된 종목은 건너뛴다(DART 확정 실적은 과거로 안 바뀌므로 재조회 불필요) -
+    # DART 일일 API 한도(2만 건)에 걸려도 다음 실행(하루 2회 자동)에서 이어서 처리되게 하기 위함.
     rows_out = []
-    for i, name in enumerate(names, 1):
+    done_names = set()
+    if os.path.exists(OUT_PATH):
+        existing = pd.read_csv(OUT_PATH)
+        rows_out = existing.to_dict("records")
+        done_names = set(existing["종목명"].unique())
+        print(f"기존에 처리된 종목 {len(done_names)}개는 건너뜁니다.")
+
+    todo = [n for n in names if n not in done_names]
+    print(f"오늘 처리 대상: {len(todo)}개 (전체 {len(names)}개 중)")
+
+    call_budget = 8000  # 이 스크립트 하나가 하루 API 한도를 다 쓰지 않도록 상한(나머지 스크립트 몫 남겨둠)
+    calls_made = 0
+
+    for i, name in enumerate(todo, 1):
+        if calls_made >= call_budget:
+            print(f"이번 실행 호출 한도({call_budget}) 도달 - 나머지는 다음 실행에서 이어서 처리합니다.")
+            break
         corp_code = name_to_code.get(name)
-        print(f"[{i}/{len(names)}] {name}")
+        print(f"[{i}/{len(todo)}] {name}")
         if not corp_code:
             continue
         for year in QUARTERLY_YEARS:
+            calls_made += 16  # fetch_year_quarters 1회 호출당 4개 reprt_code 조회
             try:
                 quarters = fetch_year_quarters(corp_code, year)
             except Exception as e:
@@ -82,9 +101,9 @@ def main():
                     "매출액": rev, "영업이익": op, "영업이익률": margin,
                 })
 
-        if i % 10 == 0 or i == len(names):
+        if i % 10 == 0 or i == len(todo):
             pd.DataFrame(rows_out).to_csv(OUT_PATH, index=False, encoding="utf-8-sig")
-            print(f"  중간 저장 완료 ({i}/{len(names)}, 누적 {len(rows_out)}행)")
+            print(f"  중간 저장 완료 ({i}/{len(todo)}, 누적 {len(rows_out)}행)")
 
     pd.DataFrame(rows_out).to_csv(OUT_PATH, index=False, encoding="utf-8-sig")
     print(f"\n최종 저장 완료: {OUT_PATH} ({len(rows_out)}행)")

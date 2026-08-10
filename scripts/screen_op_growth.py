@@ -2,12 +2,12 @@
 data/manual/*데이터 모음*.xlsm (에프앤가이드류 컨센서스 워크북)에서
 - '시가총액' 시트: 종목별 시가총액
 - '2026 영업이익 추정치' / '2027 영업이익 추정치' 시트: 종목별 영업이익 컨센서스(각 시트 최신일자 행)
-을 읽어 시가총액 2000억원 이상 + 2026->2027 영업이익 컨센서스 50% 이상 성장 종목을 걸러
-data/screening/op_growth_screen.csv 로 저장한다.
+을 읽어 시가총액이 있는 전체 상장사를 data/screening/op_growth_screen.csv 로 저장한다.
+컨센서스(영업이익 추정치)는 애널리스트 커버리지가 있는 종목(~800개)만 있어서 없는 종목은
+2026/2027 영업이익·증가율 컬럼이 비어있다 - 컨센서스가 없어도 DART 실적 트래킹은 하기 위해
+시가총액만 있으면 포함시킨다(이름 기준 아우터조인).
 
 주의: 이 워크북엔 매출액 컨센서스가 없어 영업이익만으로 스크리닝한다(사용자 확인 완료).
-'영업이익 추정치' 시트들은 애널리스트 커버리지가 있는 종목(~800개)만 있어서,
-전체 상장사(~2600개)의 시가총액 시트보다 종목 수가 적다 - 이름 기준으로 이너조인한다.
 """
 import glob
 import os
@@ -22,8 +22,11 @@ DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data")
 MANUAL_DIR = os.path.join(DATA_DIR, "manual")
 OUT_PATH = os.path.join(DATA_DIR, "screening", "op_growth_screen.csv")
 
-MIN_MARKET_CAP = 300_000_000_000  # 3000억원 (DART 일일 API 호출 한도 내에서 최대한 넓힌 값 - 449개)
+MIN_MARKET_CAP = 0  # 시총 제한 없음 - 컨센서스(영업이익 추정치) 있는 종목 전체(~740개)가 사실상 상한
 MIN_OP_GROWTH = -10  # 사실상 무제한(적자전환 등 극단치만 배제) - 실제 필터링은 웹페이지에서
+# DART 일일 API 호출 한도(2만 건) 때문에 하루에 전체를 다 못 돈다 - fetch_dart_quarterly.py /
+# fetch_valuation_bands.py / fetch_dart_preliminary.py 가 이미 처리된 종목은 건너뛰므로,
+# 하루 2회 자동 실행(run_pipeline.py)이 며칠 반복되면 전체가 자연스럽게 채워진다.
 
 
 def find_workbook():
@@ -74,36 +77,39 @@ def main():
     print("2027 영업이익 추정치 읽는 중...")
     op_2027 = read_op_estimate(wb, "2027 영업이익 추정치")
 
+    # 컨센서스(영업이익 추정치)가 없어도 시가총액만 있으면 포함한다 - 성장률/컨센서스 필터는
+    # 페이지에서 걸고, 여기서는 "실적 트래킹 대상"을 최대한 넓게(전체 상장사) 잡는다.
+    # 컨센서스가 있는 종목만 OP2026/OP2027/증가율이 채워지고, 없는 종목은 None으로 둔다.
     rows = []
-    for name in op_2026:
-        if name not in op_2027:
+    for name, cap in market_cap.items():
+        if not isinstance(cap, (int, float)):
             continue
-        cap = market_cap.get(name)
-        v2026, v2027 = op_2026[name], op_2027[name]
-        if not isinstance(cap, (int, float)) or not isinstance(v2026, (int, float)) or not isinstance(v2027, (int, float)):
-            continue
-        if v2026 <= 0:
-            continue  # 적자 -> 흑자 전환은 growth% 의미 없음, 별도 표기 없이 제외
-        growth = (v2027 - v2026) / v2026
+        v2026 = op_2026.get(name)
+        v2027 = op_2027.get(name)
+        growth = None
+        if isinstance(v2026, (int, float)) and isinstance(v2027, (int, float)) and v2026 > 0:
+            growth = round((v2027 - v2026) / v2026, 4)
         rows.append({
             "종목명": name,
             "시가총액(억원)": round(cap / 1e8, 1),
-            "2026_영업이익(십억원)": round(v2026, 1),
-            "2027_영업이익(십억원)": round(v2027, 1),
-            "영업이익_증가율": round(growth, 4),
+            "2026_영업이익(십억원)": round(v2026, 1) if isinstance(v2026, (int, float)) else None,
+            "2027_영업이익(십억원)": round(v2027, 1) if isinstance(v2027, (int, float)) else None,
+            "영업이익_증가율": growth,
         })
 
     df = pd.DataFrame(rows)
-    screened = df[(df["시가총액(억원)"] >= MIN_MARKET_CAP / 1e8) & (df["영업이익_증가율"] >= MIN_OP_GROWTH)]
-    screened = screened.sort_values("영업이익_증가율", ascending=False).reset_index(drop=True)
+    screened = df[df["시가총액(억원)"] >= MIN_MARKET_CAP / 1e8]
+    screened = screened.sort_values(
+        "영업이익_증가율", ascending=False, na_position="last"
+    ).reset_index(drop=True)
 
     os.makedirs(os.path.dirname(OUT_PATH), exist_ok=True)
     screened.to_csv(OUT_PATH, index=False, encoding="utf-8-sig")
 
-    print(f"\n전체 매칭 종목: {len(df)}개 (시가총액+컨센서스 둘 다 있는 종목)")
-    print(f"조건 통과(시총 2000억+ / OP성장 50%+): {len(screened)}개")
+    has_consensus = screened["영업이익_증가율"].notna().sum()
+    print(f"\n전체 대상(시가총액 있는 전 종목): {len(screened)}개")
+    print(f"이 중 영업이익 컨센서스(2026/2027 둘 다 흑자) 있는 종목: {has_consensus}개")
     print(f"저장 완료: {OUT_PATH}")
-    print(screened.to_string(index=False))
 
 
 if __name__ == "__main__":

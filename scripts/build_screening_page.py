@@ -78,6 +78,12 @@ def main():
     quarterly = pd.read_csv(os.path.join(SCREEN_DIR, "dart_quarterly.csv"))
     sector_map = load_sector_map()
 
+    prelim_path = os.path.join(SCREEN_DIR, "dart_preliminary_q2.csv")
+    prelim_by_name = {}
+    if os.path.exists(prelim_path):
+        prelim_df = pd.read_csv(prelim_path)
+        prelim_by_name = {row["종목명"]: row for _, row in prelim_df.iterrows()} if not prelim_df.empty else {}
+
     quarterly_by_name = {}
     q2_yoy_by_name = {}
     for name, g in quarterly.groupby("종목명"):
@@ -100,18 +106,28 @@ def main():
                 op_yoy = ot / op_ - 1
         q2_yoy_by_name[name] = (nz(rev_yoy), nz(op_yoy))
 
+        # 2026 Q2 정식 분기 데이터가 아직 없으면(반기보고서 마감 전) 잠정실적으로 채워서
+        # 상세화면 분기 막대차트에 최소한 잠정치라도 보이게 한다.
+        labels = quarterly_by_name[name]["labels"]
+        prelim = prelim_by_name.get(name)
+        if "2026 Q2" not in labels and isinstance(prelim, pd.Series) and prelim.get("상태") == "ok":
+            rev_eok, op_eok = prelim.get("매출액_당기(억원)"), prelim.get("영업이익_당기(억원)")
+            rev_won = rev_eok * 1e8 if pd.notna(rev_eok) else None
+            op_won = op_eok * 1e8 if pd.notna(op_eok) else None
+            if rev_won is not None or op_won is not None:
+                margin = (op_won / rev_won) if (op_won is not None and rev_won not in (None, 0)) else None
+                quarterly_by_name[name]["labels"].append("2026 Q2(잠정)")
+                quarterly_by_name[name]["revenue"].append(rev_won)
+                quarterly_by_name[name]["op"].append(op_won)
+                quarterly_by_name[name]["margin"].append(margin)
+                quarterly_by_name[name]["prelimIndex"] = len(quarterly_by_name[name]["labels"]) - 1
+
     per_by_name = {row["종목명"]: row for _, row in per.iterrows()} if not per.empty else {}
     pbr_path = os.path.join(SCREEN_DIR, "pbr_band.csv")
     pbr_by_name = {}
     if os.path.exists(pbr_path):
         pbr_df = pd.read_csv(pbr_path)
         pbr_by_name = {row["종목명"]: row for _, row in pbr_df.iterrows()} if not pbr_df.empty else {}
-
-    prelim_path = os.path.join(SCREEN_DIR, "dart_preliminary_q2.csv")
-    prelim_by_name = {}
-    if os.path.exists(prelim_path):
-        prelim_df = pd.read_csv(prelim_path)
-        prelim_by_name = {row["종목명"]: row for _, row in prelim_df.iterrows()} if not prelim_df.empty else {}
 
     _, _, name_to_stock_code = load_corp_code_map_safe()
 
@@ -144,9 +160,11 @@ def main():
             "q2OpYoy": op_yoy,
             "q2Source": q2_source,
             "currentPer": nz(p.get("현재PER")),
-            "perPercentile": nz(p.get("밴드내_위치_percentile")),
+            # 적자가 지속돼 흑자전환이 안 돼 PER 자체를 계산 못하는 경우는 N/A로 비우면
+            # "PER 밴드위치 필터"에서 그냥 빠져버린다 - 밴드 최하단(0%ile)으로 취급해 필터에 남긴다.
+            "perPercentile": 0 if isinstance(p, pd.Series) and p.get("상태") == "no_positive_ttm_eps" else nz(p.get("밴드내_위치_percentile")),
             "currentPbr": nz(b.get("현재PBR")),
-            "pbrPercentile": nz(b.get("밴드내_위치_percentile")),
+            "pbrPercentile": 0 if isinstance(b, pd.Series) and b.get("상태") == "no_positive_bps" else nz(b.get("밴드내_위치_percentile")),
             "quarterly": quarterly_by_name.get(name, {"labels": [], "revenue": [], "op": [], "margin": []}),
         })
 
@@ -201,17 +219,33 @@ TEMPLATE = """<!doctype html>
     border-radius:999px; cursor:pointer; font-size:12px; font-family:inherit; }
   .range-btn:hover { color:#c7cbd1; border-color:#4dabf7; }
   .range-btn.active { background:#4dabf7; color:#0f1115; border-color:#4dabf7; font-weight:bold; }
+  .filter-bar { display:flex; flex-wrap:wrap; align-items:center; gap:16px; margin-bottom:16px; padding:12px 16px;
+    background:#1a1d24; border:1px solid #23262e; border-radius:10px; font-size:13px; color:#c7cbd1; }
+  .filter-bar label { display:flex; align-items:center; gap:6px; white-space:nowrap; }
+  .filter-bar input[type="number"] { width:70px; background:#12141a; border:1px solid #2a2e37; color:#e6e6e6;
+    border-radius:6px; padding:5px 8px; font-size:13px; }
+  .filter-bar input[type="checkbox"] { width:14px; height:14px; }
 </style>
 </head>
 <body>
   <a class="back" href="index.html">&larr; 홈</a> &middot; <a class="back" href="liquidity.html">유동성 대시보드 &rarr;</a>
-  <h1>주식 스크리닝 - 영업이익 고성장 종목</h1>
+  <h1>주식 스크리닝</h1>
   <div class="note">
-    조건: 시가총액 2000억원 이상 &amp; 2026&rarr;2027년 영업이익 컨센서스(에프앤가이드류) 50%↑ 성장.
+    기본 모집단: 시가총액 3000억원 이상 &amp; 영업이익 컨센서스(에프앤가이드류)가 있는 종목(DART 일일 API 호출
+    한도 안에서 최대한 넓힌 값). 성장률 컷은 없고 아래 필터로 직접 좁혀서 보세요.
     <b>매출액 컨센서스는 원본 데이터에 없어 영업이익만으로 스크리닝했습니다.</b>
     2분기 실적 YoY는 DART 잠정실적(공정공시) 공시가 있으면 그걸 우선 쓰고, 없으면 반기보고서 제출 마감(8/14) 전이라 결측입니다.
     PER·PBR 밴드는 분기별 TTM EPS/BPS와 월별 종가로 계산한 <b>근사치</b>이며 정식 리서치 밴드차트와는 값이 다를 수 있습니다.
     사업부별 매출비중·제품가격 추이는 자동으로 가져올 무료 소스가 없어 이번 페이지에는 포함하지 않았습니다.
+  </div>
+  <div class="filter-bar">
+    <label>OP 증가율 &ge; <input type="number" id="fOpGrowth" placeholder="예: 30" step="5">%</label>
+    <label>시가총액 &ge; <input type="number" id="fMarketCap" placeholder="예: 5000">억</label>
+    <label>PER 밴드위치 &le; <input type="number" id="fPerPct" placeholder="예: 30" min="0" max="100">%ile <span class="muted">(낮을수록 밴드 하단)</span></label>
+    <label><input type="checkbox" id="fHasPer"> PER 데이터 있는 종목만</label>
+    <button id="fApply" class="range-btn">필터 적용</button>
+    <button id="fReset" class="range-btn">초기화</button>
+    <span id="fCount" class="muted"></span>
   </div>
   <div class="table-wrap">
   <table id="tbl">
@@ -240,13 +274,36 @@ TEMPLATE = """<!doctype html>
 <script>
 const COMPANIES = __COMPANIES_JSON__;
 let sortKey = 'opGrowth', sortDir = -1;
+let filters = { opGrowth: null, marketCap: null, perPct: null, hasPer: false };
 
 function pct(v) { return v === null || v === undefined ? '<span class="muted">N/A</span>' : (v*100).toFixed(1) + '%'; }
 function num(v, digits) { return v === null || v === undefined ? '<span class="muted">N/A</span>' : Number(v).toLocaleString(undefined, {maximumFractionDigits: digits ?? 0}); }
 function colorize(v, html) { if (v === null || v === undefined) return html; return v >= 0 ? '<span class="pos">'+html+'</span>' : '<span class="neg">'+html+'</span>'; }
 
+function applyFilters(list) {
+  return list.filter(c => {
+    if (filters.opGrowth !== null && (c.opGrowth === null || c.opGrowth * 100 < filters.opGrowth)) return false;
+    if (filters.marketCap !== null && (c.marketCap === null || c.marketCap < filters.marketCap)) return false;
+    if (filters.perPct !== null && (c.perPercentile === null || c.perPercentile > filters.perPct)) return false;
+    if (filters.hasPer && c.currentPer === null) return false;
+    return true;
+  });
+}
+
+function readFilterInputs() {
+  const v = id => { const el = document.getElementById(id); const raw = el.value.trim(); return raw === '' ? null : Number(raw); };
+  filters = {
+    opGrowth: v('fOpGrowth'),
+    marketCap: v('fMarketCap'),
+    perPct: v('fPerPct'),
+    hasPer: document.getElementById('fHasPer').checked,
+  };
+}
+
 function render() {
-  const rows = COMPANIES.slice().sort((a,b) => {
+  const filtered = applyFilters(COMPANIES);
+  document.getElementById('fCount').textContent = `${filtered.length} / ${COMPANIES.length}개 종목`;
+  const rows = filtered.slice().sort((a,b) => {
     const av = a[sortKey], bv = b[sortKey];
     if (av === null || av === undefined) return 1;
     if (bv === null || bv === undefined) return -1;
@@ -264,9 +321,9 @@ function render() {
       <td>${colorize(c.opGrowth, pct(c.opGrowth))}</td>
       <td>${colorize(c.q2RevYoy, pct(c.q2RevYoy))}${c.q2Source === 'preliminary' ? ' <span class="muted" title="DART 잠정실적">잠정</span>' : ''}</td>
       <td>${colorize(c.q2OpYoy, pct(c.q2OpYoy))}</td>
-      <td>${num(c.currentPer, 1)}</td>
+      <td>${c.currentPer === null && c.perPercentile === 0 ? '<span class="muted" title="적자 지속(흑자전환 안됨)">적자</span>' : num(c.currentPer, 1)}</td>
       <td>${c.perPercentile === null || c.perPercentile === undefined ? '<span class="muted">N/A</span>' : c.perPercentile.toFixed(0) + '%ile'}</td>
-      <td>${num(c.currentPbr, 2)}</td>
+      <td>${c.currentPbr === null && c.pbrPercentile === 0 ? '<span class="muted">N/A</span>' : num(c.currentPbr, 2)}</td>
       <td>${c.pbrPercentile === null || c.pbrPercentile === undefined ? '<span class="muted">N/A</span>' : c.pbrPercentile.toFixed(0) + '%ile'}</td>
     </tr>
   `).join('');
@@ -282,6 +339,17 @@ document.querySelectorAll('th[data-key]').forEach(th => {
     sortKey = key;
     render();
   });
+});
+
+document.getElementById('fApply').addEventListener('click', () => { readFilterInputs(); render(); });
+document.getElementById('fReset').addEventListener('click', () => {
+  ['fOpGrowth', 'fMarketCap', 'fPerPct'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('fHasPer').checked = false;
+  filters = { opGrowth: null, marketCap: null, perPct: null, hasPer: false };
+  render();
+});
+['fOpGrowth', 'fMarketCap', 'fPerPct'].forEach(id => {
+  document.getElementById(id).addEventListener('keydown', e => { if (e.key === 'Enter') { readFilterInputs(); render(); } });
 });
 
 let detailChart = null;
@@ -319,19 +387,23 @@ function openDetail(c) {
   if (detailChart) detailChart.destroy();
   const ctx = document.getElementById('trendChart').getContext('2d');
   const q = c.quarterly || {labels: [], revenue: [], op: [], margin: []};
+  const barColor = (base, dim) => q.labels.map((_, i) => i === q.prelimIndex ? dim : base);
   detailChart = new Chart(ctx, {
     data: {
       labels: q.labels,
       datasets: [
-        { type: 'bar', label: '매출액(원)', data: q.revenue, backgroundColor: '#4dabf7', yAxisID: 'y' },
-        { type: 'bar', label: '영업이익(원)', data: q.op, backgroundColor: '#63e6be', yAxisID: 'y' },
+        { type: 'bar', label: '매출액(원)', data: q.revenue, backgroundColor: barColor('#4dabf7', 'rgba(77,171,247,0.35)'), yAxisID: 'y' },
+        { type: 'bar', label: '영업이익(원)', data: q.op, backgroundColor: barColor('#63e6be', 'rgba(99,230,190,0.35)'), yAxisID: 'y' },
         { type: 'line', label: '영업이익률(%)', data: q.margin.map(v => v === null ? null : v * 100),
           borderColor: '#ffa94d', backgroundColor: 'transparent', yAxisID: 'y1', tension: 0.2 },
       ]
     },
     options: {
       responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { labels: { color: '#e6e6e6' } } },
+      plugins: {
+        legend: { labels: { color: '#e6e6e6' } },
+        tooltip: { callbacks: { footer: items => items[0].dataIndex === q.prelimIndex ? '⚠ DART 잠정실적(공정공시) 기준, 확정치와 다를 수 있음' : '' } },
+      },
       scales: {
         x: { ticks: { color: '#9aa0a6' }, grid: { color: '#23262e' } },
         y: { position: 'left', ticks: { color: '#9aa0a6' }, grid: { color: '#23262e' } },

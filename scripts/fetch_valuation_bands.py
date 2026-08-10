@@ -238,11 +238,29 @@ def main():
 
     per_summary_rows = []
     pbr_summary_rows = []
+    done_names = set()
+    if os.path.exists(PER_SUMMARY_PATH):
+        existing_per = pd.read_csv(PER_SUMMARY_PATH)
+        per_summary_rows = existing_per.to_dict("records")
+        done_names = set(existing_per["종목명"].unique())
+    if os.path.exists(PBR_SUMMARY_PATH):
+        existing_pbr = pd.read_csv(PBR_SUMMARY_PATH)
+        pbr_summary_rows = existing_pbr.to_dict("records")
+    print(f"기존에 처리된 종목 {len(done_names)}개는 건너뜁니다.")
+    todo = [n for n in names if n not in done_names]
+    print(f"오늘 처리 대상: {len(todo)}개 (전체 {len(names)}개 중)")
 
-    for i, name in enumerate(names, 1):
+    call_budget = 8000  # 회사당 대략 17회 호출(분기 16 + 발행주식수 1) - 하루 한도 안에서 상한
+    calls_made = 0
+
+    for i, name in enumerate(todo, 1):
+        if calls_made >= call_budget:
+            print(f"이번 실행 호출 한도({call_budget}) 도달 - 나머지는 다음 실행에서 이어서 처리합니다.")
+            break
+        calls_made += 17
         corp_code = name_to_code.get(name)
         stock_code = name_to_stock_code.get(name)
-        print(f"[{i}/{len(names)}] {name}")
+        print(f"[{i}/{len(todo)}] {name}")
         if not corp_code or not stock_code:
             per_summary_rows.append({"종목명": name, "상태": "code_not_found"})
             pbr_summary_rows.append({"종목명": name, "상태": "code_not_found"})
@@ -308,10 +326,10 @@ def main():
         with open(os.path.join(DETAIL_OUT_DIR, f"{stock_code}.json"), "w", encoding="utf-8") as f:
             json.dump(detail, f, ensure_ascii=False)
 
-        if i % 10 == 0 or i == len(names):
+        if i % 10 == 0 or i == len(todo):
             pd.DataFrame(per_summary_rows).to_csv(PER_SUMMARY_PATH, index=False, encoding="utf-8-sig")
             pd.DataFrame(pbr_summary_rows).to_csv(PBR_SUMMARY_PATH, index=False, encoding="utf-8-sig")
-            print(f"  중간 저장 완료 ({i}/{len(names)})")
+            print(f"  중간 저장 완료 ({i}/{len(todo)})")
 
     pd.DataFrame(per_summary_rows).to_csv(PER_SUMMARY_PATH, index=False, encoding="utf-8-sig")
     pd.DataFrame(pbr_summary_rows).to_csv(PBR_SUMMARY_PATH, index=False, encoding="utf-8-sig")
