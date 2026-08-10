@@ -203,9 +203,16 @@ def build_band(price_history, value_points, months, current_price):
     current_ratio = (current_price / latest_value) if latest_value and latest_value > 0 else None
 
     ratios_sorted = sorted(ratios)
-    lo, hi = ratios_sorted[0], ratios_sorted[-1]
-    if len(ratios_sorted) == 1:
-        lo, hi = lo * 0.7, hi * 1.3
+    # 흑자전환 직후처럼 EPS/BPS가 거의 0에 가까운 분기가 하나라도 있으면 그 분기의 PER/PBR이
+    # 수백~수천 배로 튀어서 밴드 전체가 그 이상치 하나에 눌린다(예: HD현대중공업 2024년초
+    # TTM EPS 278원 -> PER 495배, 실제 정상 범위는 24~40배인데 밴드 최고값이 495로 잡힘).
+    # 진짜 최소/최대 대신 상하위 10%를 잘라낸 값을 밴드 범위로 써서 이상치 영향을 줄인다.
+    n = len(ratios_sorted)
+    lo_idx = int(n * 0.1)
+    hi_idx = min(n - 1, int(n * 0.9))
+    lo, hi = ratios_sorted[lo_idx], ratios_sorted[hi_idx]
+    if len(ratios_sorted) == 1 or lo == hi:
+        lo, hi = ratios_sorted[0] * 0.7, ratios_sorted[-1] * 1.3
     if current_ratio is not None:
         lo, hi = min(lo, current_ratio * 0.95), max(hi, current_ratio * 1.05)
     multiples = [lo + (hi - lo) * k / (N_BANDS - 1) for k in range(N_BANDS)]
@@ -223,8 +230,8 @@ def build_band(price_history, value_points, months, current_price):
 
     summary = {
         "current": round(current_ratio, 2) if current_ratio is not None else None,
-        "band_min": round(ratios_sorted[0], 2),
-        "band_max": round(ratios_sorted[-1], 2),
+        "band_min": round(lo, 2),
+        "band_max": round(hi, 2),
         "percentile": round(percentile, 1) if percentile is not None else None,
         "n_obs": len(ratios_sorted),
     }

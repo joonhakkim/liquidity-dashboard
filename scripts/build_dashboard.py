@@ -34,6 +34,7 @@ FRED_PATH = os.path.join(DATA_DIR, "fred_raw.csv")
 BITCOIN_PATH = os.path.join(DATA_DIR, "bitcoin_raw.csv")
 INVESTOR_FLOW_PATH = os.path.join(DATA_DIR, "investor_flow_raw.csv")
 MARKETS_PATH = os.path.join(DATA_DIR, "markets_raw.csv")
+NEWS_SENTIMENT_PATH = os.path.join(DATA_DIR, "news_sentiment_raw.csv")
 MERGED_PATH = os.path.join(DATA_DIR, "merged.csv")
 DASHBOARD_PATH = os.path.join(DIST_DIR, "liquidity.html")
 
@@ -54,6 +55,7 @@ def build_merged():
     bitcoin = load_csv(BITCOIN_PATH)
     investor_flow = load_csv(INVESTOR_FLOW_PATH)
     markets = load_csv(MARKETS_PATH)
+    news_sentiment = load_csv(NEWS_SENTIMENT_PATH)  # 이미 일별이라 ffill 대상 외 별도 처리 불필요
 
     # M2 YoY(전년동월대비 %)는 각자 월별 원본에서 12개월 shift로 계산한다
     # (일별로 ffill된 시계열에서 12"일" shift하면 틀리므로 ffill 전에 계산).
@@ -69,7 +71,7 @@ def build_merged():
         fred = fred.merge(m2_monthly[["date", "us_m2_yoy"]], on="date", how="left")
 
     all_dates = pd.concat(
-        [ecos["date"], krx["date"], kofia["date"], fred["date"], bitcoin["date"], investor_flow["date"], markets["date"]],
+        [ecos["date"], krx["date"], kofia["date"], fred["date"], bitcoin["date"], investor_flow["date"], markets["date"], news_sentiment["date"]],
         ignore_index=True,
     ).dropna()
     if all_dates.empty:
@@ -78,7 +80,7 @@ def build_merged():
     # ffill 전, 컬럼별 실제 마지막 관측일을 따로 기록해둔다 (대시보드의 "최신" 배지가
     # ffill로 늘어난 날짜가 아니라 진짜 관측된 마지막 날짜를 보여주도록).
     raw_latest = {}
-    for df in (ecos, krx, kofia, fred, bitcoin, investor_flow, markets):
+    for df in (ecos, krx, kofia, fred, bitcoin, investor_flow, markets, news_sentiment):
         if df.empty:
             continue
         for col in df.columns:
@@ -91,7 +93,7 @@ def build_merged():
     full_range = pd.date_range(all_dates.min(), all_dates.max(), freq="D")
     merged = pd.DataFrame({"date": full_range})
 
-    for df in (ecos, krx, kofia, fred, bitcoin, investor_flow, markets):
+    for df in (ecos, krx, kofia, fred, bitcoin, investor_flow, markets, news_sentiment):
         if df.empty or len(df.columns) <= 1:
             continue
         df = df.drop_duplicates(subset="date").sort_values("date")
@@ -154,6 +156,7 @@ PANEL_SOURCES = {
     "코스피 선행지수 vs YoY": "선행종합지수 YoY: 한국은행 ECOS(901Y067/I16A 원지수, 국가데이터처 작성, 월간) 전년동월대비(%) / 코스피 YoY: 네이버 금융 코스피 종가 기준 전년동일대비(%)",
     "수출금액 (일간)": "관세청 통관기준 수출금액(한국은행 ECOS 901Y118/T002, 월간 합계) ÷ 조업일수. 조업일수는 산업통상부 방식(평일 1일 + 토요일 0.5일 + 공휴일·일요일 0일)으로 자체 계산",
     "수출금액 YoY vs 코스피": "위 수출금액(일간) 패널과 동일 소스, 전년동월대비(%)로 변환해 코스피와 겹쳐본 것",
+    "뉴스심리지수 vs 코스피": "한국은행 ECOS 521Y001(뉴스심리지수, 실험적 통계, 일별) - 뉴스 텍스트 감성분석 기반, 100=중립, 100 초과면 평소보다 긍정적 톤",
     "미국 10년물 실질금리": "FRED(세인트루이스 연은) DFII10 - Market Yield on U.S. Treasury Securities at 10-Year Constant Maturity, Quoted on an Investment Basis, Inflation-Indexed (일별)",
     "환율·귀금속·구리": "원/달러·금·은: 네이버 금융(marketindex, 일별) / 구리: FRED PCOPPUSDM(IMF 발표, 월간, 네이버엔 구리 시세 없어 대체)",
     "유동성지표": "한국은행 ECOS Open API - 한국은행 주요계정(103Y002), M2(161Y008)",
@@ -372,6 +375,11 @@ def build_dashboard(merged, raw_latest):
             {"코스피 종가": "kospi_close"},
             {"수출금액 YoY(%)": "export_amount_daily_avg_yoy"},
         ),
+        "뉴스심리지수 vs 코스피": build_dual_panel(
+            merged, recent,
+            {"코스피 종가": "kospi_close"},
+            {"뉴스심리지수": "news_sentiment_index"},
+        ),
         "미국 10년물 실질금리": build_panel(merged, recent, "multi", {
             "미국 10년물 실질금리(%)": "us_real_rate_10y",
         }),
@@ -399,6 +407,7 @@ def build_dashboard(merged, raw_latest):
     panels["코스피 선행지수 vs YoY"]["latest"] = latest_date_str(raw_latest, ["kospi_yoy", "leading_index_yoy"])
     panels["수출금액 (일간)"]["latest"] = latest_date_str(raw_latest, ["kospi_close", "export_amount_daily_avg"])
     panels["수출금액 YoY vs 코스피"]["latest"] = latest_date_str(raw_latest, ["kospi_close", "export_amount_daily_avg_yoy"])
+    panels["뉴스심리지수 vs 코스피"]["latest"] = latest_date_str(raw_latest, ["kospi_close", "news_sentiment_index"])
     panels["미국 10년물 실질금리"]["latest"] = latest_date_str(raw_latest, ["us_real_rate_10y"])
     panels["환율·귀금속·구리"]["latest"] = latest_date_str(raw_latest, ["usd_krw", "gold_usd", "silver_usd", "copper_usd"])
 

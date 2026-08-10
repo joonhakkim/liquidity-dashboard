@@ -487,7 +487,9 @@ function sliceByRange(points) {
 
 function renderBandChart(canvasId, multiples, bands, price, existingChart) {
   if (existingChart) existingChart.destroy();
-  const ctx = document.getElementById(canvasId).getContext('2d');
+  const canvasEl = document.getElementById(canvasId);
+  if (!canvasEl) return null;  // 다른 종목 클릭 등으로 캔버스가 이미 교체/제거된 경우
+  const ctx = canvasEl.getContext('2d');
   const pricePts = sliceByRange(price);
   const labels = pricePts.map(p => p[0]);
   const bandColors = ['#5c5f66', '#748ffc', '#4dabf7', '#63e6be', '#ffd43b'];
