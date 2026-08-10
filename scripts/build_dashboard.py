@@ -342,6 +342,34 @@ def build_bulk_items(window_df):
             })
     return items
 
+
+# 주식 차트의 5주/10주/60주 이동평균선과 같은 개념 - 모든 지표(코스피 종가 포함)의 원값에
+# 대해 단순이동평균(SMA)을 만들어서 서로 비교해볼 수 있게 한다. merged는 1일 간격 daily
+# grid라 "주" 단위는 그냥 7을 곱해서 캘린더일수로 환산한다(거래일 기준 아님).
+MA_WEEKS = [5, 10, 60]
+MA_CANDIDATES = [("kospi_close", "코스피종가")] + [
+    (col, label) for col, label in BULK_CANDIDATES if col != "kospi_close"
+]
+
+
+def build_ma_items(window_df):
+    items = []
+    for col, kor_label in MA_CANDIDATES:
+        if col not in window_df.columns or not has_data(window_df, col):
+            continue
+        for w in MA_WEEKS:
+            days = w * 7
+            ma = window_df[col].rolling(days, min_periods=max(5, days // 3)).mean()
+            if not ma.notna().any():
+                continue
+            items.append({
+                "label": f"[이동평균] {kor_label} {w}주선",
+                "column": f"{col}_ma{w}w",
+                "data": [None if pd.isna(v) else round(float(v), 4) for v in ma],
+                "default_visible": False,
+            })
+    return items
+
 PERCENTILE_WINDOW_DEFAULT = 756  # 3년(거래일) - optimize_percentile_window.py가 종목별 최적값을
 # data/percentile_windows.json 에 저장하면 그쪽을 우선 쓰고, 없는 지표는 이 기본값을 쓴다.
 PERCENTILE_WINDOWS_PATH = os.path.join(DATA_DIR, "percentile_windows.json")
@@ -396,6 +424,7 @@ def build_combined(merged, window_df):
     dates = window_df["date"].dt.strftime("%Y-%m-%d").tolist()
     crash_starts = [d for d in detect_crash_starts(merged) if d in set(dates)]
     items.extend(build_bulk_items(window_df))
+    items.extend(build_ma_items(window_df))
     return {"labels": dates, "items": items, "crashStarts": crash_starts}
 
 
