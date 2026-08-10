@@ -784,60 +784,89 @@ function renderCombined(section) {{
     <div class="combined-legend" id="combinedLegend"></div>
   </div>`;
   if (!COMBINED.items.length) return;
-  const datasets = COMBINED.items.map((item, i) => ({{
+
+  // 지표가 186개까지 늘어나면서, 숨겨진(hidden) 데이터셋까지 전부 Chart.js에
+  // 등록해두면 초기 렌더링/구간 변경마다 다 처리해야 해서 눈에 띄게 느려진다.
+  // 그래서 기본으로 켜져있는 것만 실제 Chart.js 데이터셋으로 만들고, 나머지는
+  // 범례를 클릭하는 순간에만 데이터셋을 만들어 추가한다(지연 로딩).
+  const makeDataset = (item, i) => ({{
     label: item.label,
-    data: item.data,
+    data: item.data.slice(),
     yAxisID: 'axis_' + i,
     borderColor: COLORS[i % COLORS.length],
     backgroundColor: COLORS[i % COLORS.length] + '33',
     spanGaps: true,
     pointRadius: 0,
     borderWidth: 1.5,
-    hidden: !item.default_visible,
-  }}));
+  }});
+  // Chart.js는 데이터셋이 하나도 참조하지 않는 축(scale)이 있으면 축 방향을
+  // 추론하지 못해 에러를 낸다 - 그래서 축도 데이터셋과 마찬가지로 실제로 쓰는
+  // 것만(기본 표시 + 나중에 클릭해서 추가되는 것) 그때그때 등록한다.
   const scales = {{
     x: {{ ticks: {{ color: '#9aa0a6', maxTicksLimit: 10 }}, grid: {{ color:'#2a2e37' }} }},
   }};
+  const initialDatasets = [];
+  const dsIndexByItem = {{}};
   COMBINED.items.forEach((item, i) => {{
-    scales['axis_' + i] = {{ display: false }};
+    if (item.default_visible) {{
+      initialDatasets.push(makeDataset(item, i));
+      dsIndexByItem[i] = initialDatasets.length - 1;
+      scales['axis_' + i] = {{ display: false }};
+    }}
   }});
   const chart = new Chart(document.getElementById('combinedChart'), {{
     type: 'line',
-    data: {{ labels: COMBINED.labels, datasets }},
+    data: {{ labels: COMBINED.labels, datasets: initialDatasets }},
     options: {{
       responsive: true,
       maintainAspectRatio: false,
-      interaction: {{ mode: 'index', intersect: false }},
+      animation: false,
+      interaction: {{ mode: 'nearest', intersect: false }},
       scales,
       plugins: {{ legend: {{ display: false }} }},
     }},
   }});
   registerChart(chart);
+  const chartEntry = activeCharts[activeCharts.length - 1];
 
   // 캔버스 범례 대신 진짜 HTML 범례를 그린다 (항목이 많으면 캔버스 범례는
   // 글자가 겹쳐서 안 보이는 문제가 있었음). 클릭하면 해당 데이터셋을 토글.
   const legendEl = document.getElementById('combinedLegend');
-  datasets.forEach((ds, i) => {{
-    const v = lastNonNull(ds.data);
-    const item = document.createElement('div');
-    item.className = 'combined-legend-item' + (ds.hidden ? ' inactive' : '');
+  COMBINED.items.forEach((item, i) => {{
+    const v = lastNonNull(item.data);
+    const color = COLORS[i % COLORS.length];
+    const el = document.createElement('div');
+    el.className = 'combined-legend-item' + (item.default_visible ? '' : ' inactive');
     const valClass = (v !== null && v < 0) ? 'val negative' : 'val';
-    item.innerHTML = `<span class="swatch" style="background:${{ds.borderColor}}"></span>` +
-                      `<span>${{ds.label}}</span><span class="${{valClass}}">${{formatLatestSuffix(v)}}</span>`;
-    item.onclick = () => {{
-      const nowVisible = chart.isDatasetVisible(i);
-      chart.setDatasetVisibility(i, !nowVisible);
+    el.innerHTML = `<span class="swatch" style="background:${{color}}"></span>` +
+                      `<span>${{item.label}}</span><span class="${{valClass}}">${{formatLatestSuffix(v)}}</span>`;
+    el.onclick = () => {{
+      if (!(i in dsIndexByItem)) {{
+        const ds = makeDataset(item, i);
+        ds._fullData = ds.data.slice();
+        const [startIdx, endIdx] = computeRangeIndices(chartEntry.fullLabels, currentRange);
+        ds.data = ds._fullData.slice(startIdx, endIdx + 1);
+        chart.options.scales['axis_' + i] = {{ display: false }};
+        chart.data.datasets.push(ds);
+        dsIndexByItem[i] = chart.data.datasets.length - 1;
+        chart.update();
+        el.classList.remove('inactive');
+        return;
+      }}
+      const idx = dsIndexByItem[i];
+      const nowVisible = chart.isDatasetVisible(idx);
+      chart.setDatasetVisibility(idx, !nowVisible);
       chart.update();
-      item.classList.toggle('inactive', nowVisible);
+      el.classList.toggle('inactive', nowVisible);
     }};
-    legendEl.appendChild(item);
+    legendEl.appendChild(el);
   }});
 
   const searchEl = document.getElementById('combinedLegendSearch');
   searchEl.oninput = () => {{
     const q = searchEl.value.trim().toLowerCase();
     Array.from(legendEl.children).forEach((item, i) => {{
-      const match = !q || datasets[i].label.toLowerCase().includes(q);
+      const match = !q || COMBINED.items[i].label.toLowerCase().includes(q);
       item.style.display = match ? '' : 'none';
     }});
   }};
