@@ -431,7 +431,7 @@ def build_dashboard(merged, raw_latest):
 </head>
 <body>
   <h1>한국 증시 유동성 스크리닝 대시보드</h1>
-  <div class="updated">최종 갱신일시: {updated_at} (기본은 최근 구간만 표시 - 아래 버튼이나 날짜 직접 지정으로 과거 구간도 조절 가능)</div>
+  <div class="updated">최종 갱신일시: {updated_at} (기본은 최근 구간만 표시 - 아래 버튼이나 날짜 직접 지정으로 과거 구간도 조절 가능) &middot; <a href="screening.html" style="color:#4dabf7;">주식 스크리닝 &rarr;</a></div>
 
   <div class="layout">
     <nav class="sidebar" id="sidebar"></nav>

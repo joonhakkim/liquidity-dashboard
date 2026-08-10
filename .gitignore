@@ -8,3 +8,4 @@ logs/*.log
 data/manual/*.xlsx
 data/manual/*.xlsm
 data/manual/.processed.json
+data/screening/cache/
