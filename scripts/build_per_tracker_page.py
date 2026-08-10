@@ -15,11 +15,18 @@ KRX_PATH = os.path.join(DATA_DIR, "krx_raw.csv")
 OUT_PATH = os.path.join(DOCS_DIR, "per_tracker.html")
 
 
+CHART_WINDOW_DAYS = 365  # 코스피 지수는 PER 수집 시작일과 무관하게 최근 1년치를 배경으로 깔아준다
+
+
 def main():
     per = pd.read_csv(PER_PATH, parse_dates=["date"]).sort_values("date")
-    krx = pd.read_csv(KRX_PATH, parse_dates=["date"])[["date", "kospi_close"]]
+    krx = pd.read_csv(KRX_PATH, parse_dates=["date"])[["date", "kospi_close"]].sort_values("date")
 
-    merged = per.merge(krx, on="date", how="left")
+    cutoff = krx["date"].max() - pd.Timedelta(days=CHART_WINDOW_DAYS)
+    krx_recent = krx[krx["date"] >= cutoff]
+
+    # 코스피 지수(1년치)를 기준 타임라인으로 깔고, PER은 수집된 날짜만 값이 채워지고 나머지는 공백(null)
+    merged = krx_recent.merge(per, on="date", how="left").sort_values("date")
 
     dates = merged["date"].dt.strftime("%Y-%m-%d").tolist()
     per_trailing = [None if pd.isna(v) else round(v, 2) for v in merged["per_trailing"]]
@@ -27,7 +34,7 @@ def main():
     per_2027e = [None if pd.isna(v) else round(v, 2) for v in merged["per_2027e"]]
     kospi = [None if pd.isna(v) else round(v, 2) for v in merged["kospi_close"]]
 
-    latest = merged.iloc[-1]
+    latest = per.iloc[-1]  # PER 배지는 실제 PER이 마지막으로 수집된 날 기준
     latest_str = latest["date"].strftime("%Y-%m-%d")
 
     def fmt(v):
@@ -43,13 +50,13 @@ def main():
         latest_trailing=fmt(latest["per_trailing"]),
         latest_2026e=fmt(latest["per_2026e"]),
         latest_2027e=fmt(latest["per_2027e"]),
-        n_days=len(merged),
+        n_days=len(per),
         updated_at=datetime.now().strftime("%Y-%m-%d %H:%M"),
     )
     os.makedirs(DOCS_DIR, exist_ok=True)
     with open(OUT_PATH, "w", encoding="utf-8") as f:
         f.write(html)
-    print(f"저장 완료: {OUT_PATH} ({len(merged)}일치)")
+    print(f"저장 완료: {OUT_PATH} (코스피 지수 {len(merged)}일치, PER 수집 {len(per)}일치)")
 
 
 TEMPLATE = """<!doctype html>
@@ -79,7 +86,7 @@ TEMPLATE = """<!doctype html>
 <body>
   <a class="back" href="index.html">&larr; 홈</a>
   <h1>코스피 선행 PER 트래커</h1>
-  <div class="updated">최종 갱신: {updated_at} &middot; 최신 기준일 {latest_date} &middot; 누적 {n_days}일치</div>
+  <div class="updated">최종 갱신: {updated_at} &middot; 최신 기준일 {latest_date} &middot; PER 수집 {n_days}일치(코스피 지수는 참고용으로 최근 1년 표시)</div>
 
   <div class="badges">
     <div class="badge trailing"><div class="label">후행(TTM) PER</div><div class="value">{latest_trailing}</div></div>
