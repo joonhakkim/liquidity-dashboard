@@ -243,6 +243,31 @@ MASTER_SERIES = [
 ]
 
 
+CRASH_DRAWDOWN_THRESHOLD = -0.15  # analysis_leading_indicators.py와 동일한 기준
+
+
+def detect_crash_starts(merged):
+    """코스피가 롤링 고점 대비 CRASH_DRAWDOWN_THRESHOLD 이상 빠지기 시작한 시점(고점일) 리스트.
+    통합차트에 세로선으로 표시해서, MASTER_SERIES로 고른 지표들이 실제로 그 시점 이전에
+    먼저 움직였는지 눈으로 확인할 수 있게 한다(analysis_leading_indicators.py와 같은 로직)."""
+    kospi = merged[["date", "kospi_close"]].dropna().sort_values("date")
+    if kospi.empty:
+        return []
+    roll_max = kospi["kospi_close"].cummax()
+    drawdown = kospi["kospi_close"] / roll_max - 1
+    starts = []
+    in_crash = False
+    peak_price, peak_date = None, None
+    for d, price, dd in zip(kospi["date"], kospi["kospi_close"], drawdown):
+        if price >= (peak_price or float("-inf")):
+            peak_price, peak_date = price, d
+            in_crash = False
+        if dd <= CRASH_DRAWDOWN_THRESHOLD and not in_crash:
+            starts.append(peak_date)
+            in_crash = True
+    return sorted(set(pd.Timestamp(d).strftime("%Y-%m-%d") for d in starts))
+
+
 def build_combined(merged, window_df):
     items = []
     for label, col, default_visible in MASTER_SERIES:
@@ -255,7 +280,8 @@ def build_combined(merged, window_df):
             "default_visible": default_visible,
         })
     dates = window_df["date"].dt.strftime("%Y-%m-%d").tolist()
-    return {"labels": dates, "items": items}
+    crash_starts = [d for d in detect_crash_starts(merged) if d in set(dates)]
+    return {"labels": dates, "items": items, "crashStarts": crash_starts}
 
 
 def build_dashboard(merged, raw_latest):
@@ -356,6 +382,7 @@ def build_dashboard(merged, raw_latest):
 <meta charset="utf-8">
 <title>한국 증시 유동성 스크리닝 대시보드</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3"></script>
 <style>
   body {{ font-family: -apple-system, "Malgun Gothic", sans-serif; background:#0f1115; color:#e6e6e6; margin:0; padding:24px; }}
   h1 {{ font-size:20px; margin-bottom:4px; }}
@@ -594,6 +621,16 @@ function renderCombined(section) {{
   COMBINED.items.forEach((item, i) => {{
     scales['axis_' + i] = {{ display: false }};
   }});
+  // 코스피 -15%+ 급락이 시작된 시점(고점일)을 세로 점선으로 표시한다 - MASTER_SERIES로
+  // 고른 지표들이 실제로 이 시점보다 먼저 움직였는지 눈으로 검증할 수 있게 하기 위함
+  // (detect_crash_starts, analysis_leading_indicators.py 참고).
+  const crashAnnotations = {{}};
+  (COMBINED.crashStarts || []).forEach((d, i) => {{
+    crashAnnotations['crash' + i] = {{
+      type: 'line', xMin: d, xMax: d, borderColor: '#ff6b6b', borderWidth: 1.5, borderDash: [6, 4],
+      label: {{ display: true, content: '급락 시작', position: 'start', color: '#ff6b6b', font: {{ size: 10 }}, backgroundColor: 'rgba(15,17,21,0.8)' }},
+    }};
+  }});
   const chart = new Chart(document.getElementById('combinedChart'), {{
     type: 'line',
     data: {{ labels: COMBINED.labels, datasets }},
@@ -602,7 +639,7 @@ function renderCombined(section) {{
       maintainAspectRatio: false,
       interaction: {{ mode: 'index', intersect: false }},
       scales,
-      plugins: {{ legend: {{ display: false }} }},
+      plugins: {{ legend: {{ display: false }}, annotation: {{ annotations: crashAnnotations }} }},
     }},
   }});
   registerChart(chart);
