@@ -3,7 +3,6 @@ data/screening/*.csv 를 모아 docs/screening.html (주식 스크리닝 페이�
 
 입력:
 - op_growth_screen.csv: 시총2000억+/영업이익 2026->2027 컨센서스 50%+ 성장 종목 목록
-- dart_financials.csv: DART 2분기(반기-1분기) YoY 실적 (반기보고서 제출 전이면 결측)
 - per_band.csv: 최근 10개년 연말 스냅샷 기준 PER 밴드 근사치
 - dart_annual_trend.csv: DART 사업보고서 기준 최근 6개년 매출액/영업이익 실적(회사별 시계열)
 - manual/*데이터 모음*.xlsm '섹터별 구성 종목' 시트: 종목 -> 섹터 매핑
@@ -17,6 +16,8 @@ import warnings
 
 import openpyxl
 import pandas as pd
+
+from dart_client import load_corp_code_map as load_corp_code_map_safe
 
 warnings.filterwarnings("ignore")
 
@@ -53,21 +54,6 @@ def load_sector_map():
             if name and name not in mapping:
                 mapping[name] = sector
     return mapping
-
-
-def parse_per_year(s):
-    if not isinstance(s, str) or not s:
-        return {}
-    out = {}
-    for part in s.split(";"):
-        if ":" not in part:
-            continue
-        y, v = part.split(":")
-        try:
-            out[int(y)] = float(v)
-        except ValueError:
-            pass
-    return out
 
 
 def nz(v):
@@ -115,14 +101,40 @@ def main():
         q2_yoy_by_name[name] = (nz(rev_yoy), nz(op_yoy))
 
     per_by_name = {row["종목명"]: row for _, row in per.iterrows()} if not per.empty else {}
+    pbr_path = os.path.join(SCREEN_DIR, "pbr_band.csv")
+    pbr_by_name = {}
+    if os.path.exists(pbr_path):
+        pbr_df = pd.read_csv(pbr_path)
+        pbr_by_name = {row["종목명"]: row for _, row in pbr_df.iterrows()} if not pbr_df.empty else {}
+
+    prelim_path = os.path.join(SCREEN_DIR, "dart_preliminary_q2.csv")
+    prelim_by_name = {}
+    if os.path.exists(prelim_path):
+        prelim_df = pd.read_csv(prelim_path)
+        prelim_by_name = {row["종목명"]: row for _, row in prelim_df.iterrows()} if not prelim_df.empty else {}
+
+    _, _, name_to_stock_code = load_corp_code_map_safe()
 
     companies = []
     for _, row in screen.iterrows():
         name = row["종목명"]
         p = per_by_name.get(name, {})
+        b = pbr_by_name.get(name, {})
+        prelim = prelim_by_name.get(name, {})
         rev_yoy, op_yoy = q2_yoy_by_name.get(name, (None, None))
+        q2_source = "quarterly_filing" if (rev_yoy is not None or op_yoy is not None) else None
+        if isinstance(prelim, pd.Series) and prelim.get("상태") == "ok":
+            prelim_rev_yoy = nz(prelim.get("매출액_YoY(%)"))
+            prelim_op_yoy = nz(prelim.get("영업이익_YoY(%)"))
+            if prelim_rev_yoy is not None:
+                rev_yoy = prelim_rev_yoy / 100
+                q2_source = "preliminary"
+            if prelim_op_yoy is not None:
+                op_yoy = prelim_op_yoy / 100
+                q2_source = "preliminary"
         companies.append({
             "name": name,
+            "stockCode": name_to_stock_code.get(name),
             "sector": sector_map.get(name),
             "marketCap": nz(row["시가총액(억원)"]),
             "op2026": nz(row["2026_영업이익(십억원)"]),
@@ -130,11 +142,11 @@ def main():
             "opGrowth": nz(row["영업이익_증가율"]),
             "q2RevYoy": rev_yoy,
             "q2OpYoy": op_yoy,
+            "q2Source": q2_source,
             "currentPer": nz(p.get("현재PER")),
-            "perBandMin": nz(p.get("밴드_최저PER")),
-            "perBandMax": nz(p.get("밴드_최고PER")),
             "perPercentile": nz(p.get("밴드내_위치_percentile")),
-            "perByYear": parse_per_year(p.get("연도별_PER")) if isinstance(p, pd.Series) else {},
+            "currentPbr": nz(b.get("현재PBR")),
+            "pbrPercentile": nz(b.get("밴드내_위치_percentile")),
             "quarterly": quarterly_by_name.get(name, {"labels": [], "revenue": [], "op": [], "margin": []}),
         })
 
@@ -181,20 +193,24 @@ TEMPLATE = """<!doctype html>
   .metric .value { font-size:16px; font-weight:bold; margin-top:2px; }
   .chart-wrap { height:260px; position:relative; margin-bottom:20px; }
   .per-band-wrap { margin-bottom:16px; }
-  .per-band-track { position:relative; height:10px; background:#2a2e37; border-radius:5px; margin:10px 0; }
-  .per-band-marker { position:absolute; top:-5px; width:4px; height:20px; background:#4dabf7; border-radius:2px; }
-  .per-band-labels { display:flex; justify-content:space-between; color:#9aa0a6; font-size:11px; }
+  .per-band-title { color:#9aa0a6; font-size:12px; margin-bottom:6px; }
+  .per-band-chart-wrap { height:280px; position:relative; }
   #closeBtn { float:right; background:none; border:none; color:#9aa0a6; font-size:20px; cursor:pointer; }
+  .band-range-bar { display:flex; gap:6px; margin-bottom:14px; }
+  .range-btn { background:#1a1d24; border:1px solid #2a2e37; color:#9aa0a6; padding:5px 12px;
+    border-radius:999px; cursor:pointer; font-size:12px; font-family:inherit; }
+  .range-btn:hover { color:#c7cbd1; border-color:#4dabf7; }
+  .range-btn.active { background:#4dabf7; color:#0f1115; border-color:#4dabf7; font-weight:bold; }
 </style>
 </head>
 <body>
-  <a class="back" href="index.html">&larr; 유동성 대시보드로</a>
+  <a class="back" href="index.html">&larr; 홈</a> &middot; <a class="back" href="liquidity.html">유동성 대시보드 &rarr;</a>
   <h1>주식 스크리닝 - 영업이익 고성장 종목</h1>
   <div class="note">
     조건: 시가총액 2000억원 이상 &amp; 2026&rarr;2027년 영업이익 컨센서스(에프앤가이드류) 50%↑ 성장.
     <b>매출액 컨센서스는 원본 데이터에 없어 영업이익만으로 스크리닝했습니다.</b>
-    2분기(반기) 실적 YoY는 반기보고서 제출 마감(8/14) 전이라 대부분 결측이며 마감 후 데이터가 채워집니다.
-    PER은 최근 10개년 <b>연말 종가/연간 EPS 스냅샷 기준 근사치</b>이며, 매 분기 갱신되는 정식 PER 밴드가 아닙니다.
+    2분기 실적 YoY는 DART 잠정실적(공정공시) 공시가 있으면 그걸 우선 쓰고, 없으면 반기보고서 제출 마감(8/14) 전이라 결측입니다.
+    PER·PBR 밴드는 분기별 TTM EPS/BPS와 월별 종가로 계산한 <b>근사치</b>이며 정식 리서치 밴드차트와는 값이 다를 수 있습니다.
     사업부별 매출비중·제품가격 추이는 자동으로 가져올 무료 소스가 없어 이번 페이지에는 포함하지 않았습니다.
   </div>
   <div class="table-wrap">
@@ -210,6 +226,8 @@ TEMPLATE = """<!doctype html>
       <th data-key="q2OpYoy">2Q 영업이익YoY</th>
       <th data-key="currentPer">현재PER</th>
       <th data-key="perPercentile">PER밴드위치</th>
+      <th data-key="currentPbr">현재PBR</th>
+      <th data-key="pbrPercentile">PBR밴드위치</th>
     </tr></thead>
     <tbody id="tbody"></tbody>
   </table>
@@ -244,10 +262,12 @@ function render() {
       <td>${num(c.op2026, 1)}</td>
       <td>${num(c.op2027, 1)}</td>
       <td>${colorize(c.opGrowth, pct(c.opGrowth))}</td>
-      <td>${colorize(c.q2RevYoy, pct(c.q2RevYoy))}</td>
+      <td>${colorize(c.q2RevYoy, pct(c.q2RevYoy))}${c.q2Source === 'preliminary' ? ' <span class="muted" title="DART 잠정실적">잠정</span>' : ''}</td>
       <td>${colorize(c.q2OpYoy, pct(c.q2OpYoy))}</td>
       <td>${num(c.currentPer, 1)}</td>
       <td>${c.perPercentile === null || c.perPercentile === undefined ? '<span class="muted">N/A</span>' : c.perPercentile.toFixed(0) + '%ile'}</td>
+      <td>${num(c.currentPbr, 2)}</td>
+      <td>${c.pbrPercentile === null || c.pbrPercentile === undefined ? '<span class="muted">N/A</span>' : c.pbrPercentile.toFixed(0) + '%ile'}</td>
     </tr>
   `).join('');
   tbody.querySelectorAll('tr').forEach(tr => {
@@ -278,18 +298,19 @@ function openDetail(c) {
       <div class="metric"><div class="label">2026 OP(컨센서스)</div><div class="value">${num(c.op2026,1)}십억</div></div>
       <div class="metric"><div class="label">2027 OP(컨센서스)</div><div class="value">${num(c.op2027,1)}십억</div></div>
       <div class="metric"><div class="label">OP 증가율</div><div class="value">${pct(c.opGrowth)}</div></div>
-      <div class="metric"><div class="label">2Q 매출 YoY</div><div class="value">${pct(c.q2RevYoy)}</div></div>
-      <div class="metric"><div class="label">2Q 영업이익 YoY</div><div class="value">${pct(c.q2OpYoy)}</div></div>
+      <div class="metric"><div class="label">2Q 매출 YoY${c.q2Source === 'preliminary' ? ' (잠정실적)' : ''}</div><div class="value">${pct(c.q2RevYoy)}</div></div>
+      <div class="metric"><div class="label">2Q 영업이익 YoY${c.q2Source === 'preliminary' ? ' (잠정실적)' : ''}</div><div class="value">${pct(c.q2OpYoy)}</div></div>
+      <div class="metric"><div class="label">현재 PER / PBR</div><div class="value">${c.currentPer !== null ? c.currentPer.toFixed(1) : 'N/A'} / ${c.currentPbr !== null ? c.currentPbr.toFixed(2) : 'N/A'}</div></div>
     </div>
     <div class="chart-wrap"><canvas id="trendChart"></canvas></div>
+    <div class="band-range-bar" id="bandRangeBar"></div>
     <div class="per-band-wrap">
-      <div style="color:#9aa0a6;font-size:12px;">PER 밴드(최근 10개년 연말 스냅샷 근사치)</div>
-      ${c.perBandMin !== null && c.perBandMax !== null ? `
-        <div class="per-band-track">
-          <div class="per-band-marker" style="left:${c.currentPer !== null ? Math.min(100, Math.max(0, (c.currentPer - c.perBandMin) / (c.perBandMax - c.perBandMin) * 100)) : 50}%;"></div>
-        </div>
-        <div class="per-band-labels"><span>${c.perBandMin.toFixed(1)} (저)</span><span>현재 ${c.currentPer !== null ? c.currentPer.toFixed(1) : 'N/A'}</span><span>${c.perBandMax.toFixed(1)} (고)</span></div>
-      ` : '<div class="muted" style="padding:10px 0;">데이터 부족으로 계산 불가</div>'}
+      <div class="per-band-title">PER 밴드 (주가선 + TTM EPS&times;PER배수 밴드선, 확정 공시된 실적만 사용)</div>
+      <div class="per-band-chart-wrap"><canvas id="perBandChart"></canvas></div>
+    </div>
+    <div class="per-band-wrap">
+      <div class="per-band-title">PBR 밴드 (주가선 + BPS&times;PBR배수 밴드선)</div>
+      <div class="per-band-chart-wrap"><canvas id="pbrBandChart"></canvas></div>
     </div>
   `;
   document.getElementById('closeBtn').addEventListener('click', closeDetail);
@@ -318,6 +339,108 @@ function openDetail(c) {
       }
     }
   });
+
+  loadBandCharts(c);
+}
+
+const BAND_RANGES = [
+  { label: '1년', months: 12 },
+  { label: '3년', months: 36 },
+  { label: '5년', months: 60 },
+  { label: '전체', months: null },
+];
+let bandRangeMonths = 36;
+let perBandChart = null, pbrBandChart = null;
+let currentBandData = null;
+
+function sliceByRange(points) {
+  if (bandRangeMonths === null) return points;
+  return points.slice(-bandRangeMonths);
+}
+
+function renderBandChart(canvasId, multiples, bands, price, existingChart) {
+  if (existingChart) existingChart.destroy();
+  const ctx = document.getElementById(canvasId).getContext('2d');
+  const pricePts = sliceByRange(price);
+  const labels = pricePts.map(p => p[0]);
+  const bandColors = ['#5c5f66', '#748ffc', '#4dabf7', '#63e6be', '#ffd43b'];
+  const datasets = multiples.map((m, i) => ({
+    label: `${m}x`,
+    data: sliceByRange(bands[`x${m}`]).map(p => p[1]),
+    borderColor: bandColors[i % bandColors.length],
+    backgroundColor: 'transparent',
+    borderDash: [4, 3],
+    pointRadius: 0,
+    borderWidth: 1,
+  }));
+  datasets.push({
+    label: '주가',
+    data: pricePts.map(p => p[1]),
+    borderColor: '#ff6b6b',
+    backgroundColor: 'transparent',
+    pointRadius: 0,
+    borderWidth: 2,
+  });
+  return new Chart(ctx, {
+    type: 'line',
+    data: { labels, datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { labels: { color: '#e6e6e6', boxWidth: 12 } } },
+      scales: {
+        x: { ticks: { color: '#9aa0a6', maxTicksLimit: 10 }, grid: { color: '#23262e' } },
+        y: { ticks: { color: '#9aa0a6' }, grid: { color: '#23262e' } },
+      }
+    }
+  });
+}
+
+function renderBandRangeBar() {
+  const bar = document.getElementById('bandRangeBar');
+  bar.innerHTML = BAND_RANGES.map(r =>
+    `<button class="range-btn ${r.months === bandRangeMonths ? 'active' : ''}" data-months="${r.months}">${r.label}</button>`
+  ).join('');
+  bar.querySelectorAll('button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      bandRangeMonths = btn.dataset.months === 'null' ? null : Number(btn.dataset.months);
+      renderBandRangeBar();
+      redrawBandCharts();
+    });
+  });
+}
+
+function redrawBandCharts() {
+  if (!currentBandData) return;
+  const data = currentBandData;
+  if (data.perMultiples) {
+    perBandChart = renderBandChart('perBandChart', data.perMultiples, data.perBands, data.price, perBandChart);
+  }
+  if (data.pbrMultiples) {
+    pbrBandChart = renderBandChart('pbrBandChart', data.pbrMultiples, data.pbrBands, data.price, pbrBandChart);
+  }
+}
+
+function loadBandCharts(c) {
+  currentBandData = null;
+  renderBandRangeBar();
+  const perWrap = document.querySelectorAll('.per-band-chart-wrap')[0];
+  const pbrWrap = document.querySelectorAll('.per-band-chart-wrap')[1];
+  if (!c.stockCode) {
+    perWrap.innerHTML = pbrWrap.innerHTML = '<div class="muted" style="padding:20px 0;">종목코드 없음</div>';
+    return;
+  }
+  fetch(`screening_data/${c.stockCode}.json`)
+    .then(r => { if (!r.ok) throw new Error('no data'); return r.json(); })
+    .then(data => {
+      currentBandData = data;
+      if (!data.perMultiples) perWrap.innerHTML = '<div class="muted" style="padding:20px 0;">PER 밴드 데이터 부족(흑자 이력 없음 등)으로 표시할 수 없습니다.</div>';
+      if (!data.pbrMultiples) pbrWrap.innerHTML = '<div class="muted" style="padding:20px 0;">PBR 밴드 데이터 부족으로 표시할 수 없습니다.</div>';
+      redrawBandCharts();
+    })
+    .catch(() => {
+      perWrap.innerHTML = '<div class="muted" style="padding:20px 0;">밴드 데이터를 불러올 수 없습니다.</div>';
+      pbrWrap.innerHTML = '';
+    });
 }
 
 function closeDetail() {

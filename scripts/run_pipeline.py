@@ -26,7 +26,13 @@ STEPS = [
     ("fetch_bitcoin.py", "CoinGecko(비트코인 시가총액) 수집"),
     ("fetch_markets.py", "네이버 금융(원/달러 환율, 금, 은) 수집"),
     ("fetch_investor_flow.py", "수급주체(data/manual/수급정리*.xlsm 병합, 코스피/코스닥 분류)"),
-    ("build_dashboard.py", "대시보드 빌드"),
+    ("build_dashboard.py", "유동성 대시보드 빌드"),
+    ("screen_op_growth.py", "주식 스크리닝: 시총+영업이익 컨센서스 성장률 필터"),
+    ("fetch_dart_quarterly.py", "주식 스크리닝: DART 분기별 매출/영업이익"),
+    ("fetch_dart_preliminary.py", "주식 스크리닝: DART 잠정실적(2분기 YoY 우선 소스)"),
+    ("fetch_valuation_bands.py", "주식 스크리닝: PER/PBR 밴드"),
+    ("build_screening_page.py", "주식 스크리닝 페이지 빌드"),
+    ("build_home.py", "홈페이지 빌드"),
 ]
 
 

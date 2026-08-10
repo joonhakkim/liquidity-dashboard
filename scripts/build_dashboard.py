@@ -35,7 +35,7 @@ BITCOIN_PATH = os.path.join(DATA_DIR, "bitcoin_raw.csv")
 INVESTOR_FLOW_PATH = os.path.join(DATA_DIR, "investor_flow_raw.csv")
 MARKETS_PATH = os.path.join(DATA_DIR, "markets_raw.csv")
 MERGED_PATH = os.path.join(DATA_DIR, "merged.csv")
-DASHBOARD_PATH = os.path.join(DIST_DIR, "index.html")
+DASHBOARD_PATH = os.path.join(DIST_DIR, "liquidity.html")
 
 RECENT_WINDOW_DAYS = 1825  # 대시보드 기본 표시 구간 (~5년)
 
@@ -431,7 +431,7 @@ def build_dashboard(merged, raw_latest):
 </head>
 <body>
   <h1>한국 증시 유동성 스크리닝 대시보드</h1>
-  <div class="updated">최종 갱신일시: {updated_at} (기본은 최근 구간만 표시 - 아래 버튼이나 날짜 직접 지정으로 과거 구간도 조절 가능) &middot; <a href="screening.html" style="color:#4dabf7;">주식 스크리닝 &rarr;</a></div>
+  <div class="updated">최종 갱신일시: {updated_at} (기본은 최근 구간만 표시 - 아래 버튼이나 날짜 직접 지정으로 과거 구간도 조절 가능) &middot; <a href="index.html" style="color:#4dabf7;">&larr; 홈</a> &middot; <a href="screening.html" style="color:#4dabf7;">주식 스크리닝 &rarr;</a></div>
 
   <div class="layout">
     <nav class="sidebar" id="sidebar"></nav>
