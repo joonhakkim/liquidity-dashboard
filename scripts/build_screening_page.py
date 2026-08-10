@@ -84,6 +84,21 @@ def main():
         prelim_df = pd.read_csv(prelim_path)
         prelim_by_name = {row["종목명"]: row for _, row in prelim_df.iterrows()} if not prelim_df.empty else {}
 
+    # 수주잔고: DART 정기보고서 본문에서 회사마다 다른 표기("기말수주잔고"/"건설계약 수주잔고"/
+    # "공사계약 분기말잔액" 등)로 흩어져있는 걸 휴리스틱으로 추출한 것 - 조선/건설/방산처럼
+    # 수주 기반 업종만 있고, 대부분 기업은 이 공시 자체가 없다(자동으로 표시 안 됨).
+    backlog_history_path = os.path.join(SCREEN_DIR, "order_backlog_history.csv")
+    backlog_by_name = {}
+    if os.path.exists(backlog_history_path):
+        bh = pd.read_csv(backlog_history_path)
+        bh["기준일"] = pd.to_datetime(bh["기준일"], format="%Y%m%d")
+        for name, g in bh.groupby("종목명"):
+            g = g.sort_values("기준일")
+            backlog_by_name[name] = {
+                "labels": g["기준일"].dt.strftime("%Y-%m-%d").tolist(),
+                "values": [nz(v) for v in g["수주잔고(억원)"].tolist()],
+            }
+
     quarterly_by_name = {}
     q2_yoy_by_name = {}
     for name, g in quarterly.groupby("종목명"):
@@ -166,6 +181,7 @@ def main():
             "currentPbr": nz(b.get("현재PBR")),
             "pbrPercentile": 0 if isinstance(b, pd.Series) and b.get("상태") == "no_positive_bps" else nz(b.get("밴드내_위치_percentile")),
             "quarterly": quarterly_by_name.get(name, {"labels": [], "revenue": [], "op": [], "margin": []}),
+            "orderBacklog": backlog_by_name.get(name),
         })
 
     companies.sort(key=lambda c: (c["opGrowth"] is None, -(c["opGrowth"] or 0)))
@@ -379,6 +395,7 @@ function openDetail(c) {
       <div class="metric"><div class="label">현재 PER / PBR</div><div class="value">${c.currentPer !== null ? c.currentPer.toFixed(1) : 'N/A'} / ${c.currentPbr !== null ? c.currentPbr.toFixed(2) : 'N/A'}</div></div>
     </div>
     <div class="chart-wrap"><canvas id="trendChart"></canvas></div>
+    <div id="backlogSection"></div>
     <div class="band-range-bar" id="bandRangeBar"></div>
     <div class="per-band-wrap">
       <div class="per-band-title">PER 밴드 (주가선 + TTM EPS&times;PER배수 밴드선, 확정 공시된 실적만 사용)</div>
@@ -420,7 +437,37 @@ function openDetail(c) {
     }
   });
 
+  renderBacklogSection(c);
   loadBandCharts(c);
+}
+
+let backlogChart = null;
+function renderBacklogSection(c) {
+  const el = document.getElementById('backlogSection');
+  if (!c.orderBacklog || c.orderBacklog.labels.length === 0) { el.innerHTML = ''; return; }
+  el.innerHTML = `
+    <div class="per-band-wrap">
+      <div class="per-band-title">수주잔고(억원) - DART 정기보고서 본문에서 자동 추출한 근사치, 조선·건설 등 수주 기반 업종만 있음</div>
+      <div class="chart-wrap"><canvas id="backlogChart"></canvas></div>
+    </div>
+  `;
+  if (backlogChart) backlogChart.destroy();
+  const ctx = document.getElementById('backlogChart').getContext('2d');
+  backlogChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: c.orderBacklog.labels,
+      datasets: [{ label: '수주잔고(억원)', data: c.orderBacklog.values, backgroundColor: '#b197fc' }],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { color: '#9aa0a6' }, grid: { color: '#23262e' } },
+        y: { ticks: { color: '#9aa0a6' }, grid: { color: '#23262e' } },
+      }
+    }
+  });
 }
 
 const BAND_RANGES = [
