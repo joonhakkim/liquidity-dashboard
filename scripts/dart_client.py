@@ -29,6 +29,13 @@ CORP_CODE_CACHE = os.path.join(CACHE_DIR, "corpCode.xml")
 BASE_URL = "https://opendart.fss.or.kr/api"
 
 
+class DartQuotaExceeded(Exception):
+    """DART 일일 API 호출 한도(status 020) 초과. status!=000을 뭉뚱그려 '데이터 없음'으로
+    처리하면 한도 초과 시점에 처리 중이던 회사가 일부 분기만 채워진 채 영구히 '완료'로
+    잘못 마킹되는 버그가 있었다(예: 케이엠더블유가 2026 Q1만 있고 2023~2025가 빠진 문제) -
+    그래서 한도 초과는 별도 예외로 구분해서 호출자가 재시도 대상으로 남겨두게 한다."""
+
+
 def _download_corp_code_xml():
     os.makedirs(CACHE_DIR, exist_ok=True)
     r = requests.get(f"{BASE_URL}/corpCode.xml", params={"crtfc_key": DART_API_KEY}, timeout=60)
@@ -85,8 +92,10 @@ def get_financials(corp_code, bsns_year, reprt_code, fs_div="CFS"):
     r = requests.get(f"{BASE_URL}/fnlttSinglAcntAll.json", params=params, timeout=20)
     r.raise_for_status()
     data = r.json()
-    if data.get("status") == "013":  # 데이터 없음
+    if data.get("status") == "013":  # 데이터 없음(실제로 그 분기 공시가 없음 - 정상)
         return []
+    if data.get("status") == "020":  # 사용한도 초과 - 재시도해도 소용없음, 남은 fs_div 시도도 스킵
+        raise DartQuotaExceeded(data.get("message", "사용한도를 초과하였습니다."))
     if data.get("status") != "000":
         if fs_div == "CFS":
             return get_financials(corp_code, bsns_year, reprt_code, fs_div="OFS")
