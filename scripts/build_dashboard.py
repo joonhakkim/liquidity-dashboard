@@ -157,6 +157,9 @@ PANEL_SOURCES = {
     "수출금액 (일간)": "관세청 통관기준 수출금액(한국은행 ECOS 901Y118/T002, 월간 합계) ÷ 조업일수. 조업일수는 산업통상부 방식(평일 1일 + 토요일 0.5일 + 공휴일·일요일 0일)으로 자체 계산",
     "수출금액 YoY vs 코스피": "위 수출금액(일간) 패널과 동일 소스, 전년동월대비(%)로 변환해 코스피와 겹쳐본 것",
     "뉴스심리지수 vs 코스피": "한국은행 ECOS 521Y001(뉴스심리지수, 실험적 통계, 일별) - 뉴스 텍스트 감성분석 기반, 100=중립, 100 초과면 평소보다 긍정적 톤",
+    "소비자심리지수(CCSI) vs 코스피": "한국은행 ECOS 511Y002(소비자동향조사, 월간) - 소비자심리지수(CCSI), 100=중립",
+    "경제심리지수(ESI) vs 코스피": "한국은행 ECOS 513Y001(경제심리지수, 원계열, 월간) - 기업+소비자 심리 종합, 100=중립",
+    "전산업 업황BSI vs 코스피": "한국은행 ECOS 512Y013(기업경기조사-실적, 월간) - 전산업 업황실적BSI, 100=중립",
     "미국 10년물 실질금리": "FRED(세인트루이스 연은) DFII10 - Market Yield on U.S. Treasury Securities at 10-Year Constant Maturity, Quoted on an Investment Basis, Inflation-Indexed (일별)",
     "환율·귀금속·구리": "원/달러·금·은: 네이버 금융(marketindex, 일별) / 구리: FRED PCOPPUSDM(IMF 발표, 월간, 네이버엔 구리 시세 없어 대체)",
     "유동성지표": "한국은행 ECOS Open API - 한국은행 주요계정(103Y002), M2(161Y008)",
@@ -387,6 +390,21 @@ def build_dashboard(merged, raw_latest):
             {"코스피 종가": "kospi_close"},
             {"뉴스심리지수": "news_sentiment_index"},
         ),
+        "소비자심리지수(CCSI) vs 코스피": build_dual_panel(
+            merged, recent,
+            {"코스피 종가": "kospi_close"},
+            {"소비자심리지수(CCSI)": "ccsi"},
+        ),
+        "경제심리지수(ESI) vs 코스피": build_dual_panel(
+            merged, recent,
+            {"코스피 종가": "kospi_close"},
+            {"경제심리지수(ESI)": "esi"},
+        ),
+        "전산업 업황BSI vs 코스피": build_dual_panel(
+            merged, recent,
+            {"코스피 종가": "kospi_close"},
+            {"전산업 업황실적BSI": "bsi_all_industry"},
+        ),
         "미국 10년물 실질금리": build_panel(merged, recent, "multi", {
             "미국 10년물 실질금리(%)": "us_real_rate_10y",
         }),
@@ -415,6 +433,9 @@ def build_dashboard(merged, raw_latest):
     panels["수출금액 (일간)"]["latest"] = latest_date_str(raw_latest, ["kospi_close", "export_amount_daily_avg"])
     panels["수출금액 YoY vs 코스피"]["latest"] = latest_date_str(raw_latest, ["kospi_close", "export_amount_daily_avg_yoy"])
     panels["뉴스심리지수 vs 코스피"]["latest"] = latest_date_str(raw_latest, ["kospi_close", "news_sentiment_index"])
+    panels["소비자심리지수(CCSI) vs 코스피"]["latest"] = latest_date_str(raw_latest, ["kospi_close", "ccsi"])
+    panels["경제심리지수(ESI) vs 코스피"]["latest"] = latest_date_str(raw_latest, ["kospi_close", "esi"])
+    panels["전산업 업황BSI vs 코스피"]["latest"] = latest_date_str(raw_latest, ["kospi_close", "bsi_all_industry"])
     panels["미국 10년물 실질금리"]["latest"] = latest_date_str(raw_latest, ["us_real_rate_10y"])
     panels["환율·귀금속·구리"]["latest"] = latest_date_str(raw_latest, ["usd_krw", "gold_usd", "silver_usd", "copper_usd"])
 
