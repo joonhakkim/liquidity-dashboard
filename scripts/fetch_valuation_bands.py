@@ -246,17 +246,35 @@ def main():
     name_to_code, _, name_to_stock_code = load_corp_code_map()
     os.makedirs(DETAIL_OUT_DIR, exist_ok=True)
 
+    # "완료"로 치고 건너뛸 상태들 - 그 외(shares_not_found, price_error: ... 등 API 한도초과나
+    # 일시적 오류로 생기는 상태)는 다음 실행에서 재시도한다. 예전엔 PER 파일에 이름만 있으면
+    # 무조건 건너뛰어서, PER은 성공했는데 PBR만 API 한도초과로 실패한 종목(예: HD현대중공업)이
+    # 영원히 재시도가 안 되는 버그가 있었다 - PER/PBR 둘 다 "종결 상태"여야 완료로 본다.
+    TERMINAL_STATUSES = {"ok", "no_positive_ttm_eps", "no_positive_bps", "code_not_found", "no_data"}
+
     per_summary_rows = []
     pbr_summary_rows = []
-    done_names = set()
+    per_status_by_name = {}
+    pbr_status_by_name = {}
     if os.path.exists(PER_SUMMARY_PATH):
         existing_per = pd.read_csv(PER_SUMMARY_PATH)
         per_summary_rows = existing_per.to_dict("records")
-        done_names = set(existing_per["종목명"].unique())
+        per_status_by_name = dict(zip(existing_per["종목명"], existing_per["상태"]))
     if os.path.exists(PBR_SUMMARY_PATH):
         existing_pbr = pd.read_csv(PBR_SUMMARY_PATH)
         pbr_summary_rows = existing_pbr.to_dict("records")
-    print(f"기존에 처리된 종목 {len(done_names)}개는 건너뜁니다.")
+        pbr_status_by_name = dict(zip(existing_pbr["종목명"], existing_pbr["상태"]))
+
+    done_names = {
+        name for name in per_status_by_name
+        if name in pbr_status_by_name
+        and per_status_by_name[name] in TERMINAL_STATUSES
+        and pbr_status_by_name[name] in TERMINAL_STATUSES
+    }
+    # 재시도 대상 행은 다시 쓸 것이므로 기존 결과 목록에서 미리 빼둔다(안 빼면 중복행이 쌓임).
+    per_summary_rows = [r for r in per_summary_rows if r["종목명"] in done_names]
+    pbr_summary_rows = [r for r in pbr_summary_rows if r["종목명"] in done_names]
+    print(f"기존에 완료된(재시도 불필요) 종목 {len(done_names)}개는 건너뜁니다.")
     todo = [n for n in names if n not in done_names]
     print(f"오늘 처리 대상: {len(todo)}개 (전체 {len(names)}개 중)")
 

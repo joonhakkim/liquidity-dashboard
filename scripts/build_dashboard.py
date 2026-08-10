@@ -265,6 +265,53 @@ MASTER_SERIES = [
 ]
 TRANSFORM_WINDOW = 756  # zscore/ma_gap 계산용 이동평균·표준편차 창(3년)
 
+# 위 MASTER_SERIES는 분석해서 "선행성이 뚜렷했던" 것만 고른 큐레이션 목록이다.
+# 아래는 사용자가 직접 눈으로 다 훑어보고 싶다고 해서, 지금까지 조사한 후보 지표 전부에
+# level/WoW/MoM/QoQ/YoY 다섯 변환을 기계적으로 다 만들어 통합차트에 추가한다(전부 기본
+# 숨김 - 범례에서 원하는 것만 켜서 봄). 선행폭 정렬(shift)은 안 하니 순수 원시 비교용.
+BULK_CANDIDATES = [
+    ("net_liquidity", "순유동성"), ("korea_m2_yoy", "한국 M2 YoY"), ("us_m2_yoy", "미국 M2 YoY"),
+    ("m2", "한국 M2"), ("bok_total_assets", "한국은행 총자산"), ("msb_balance", "통안증권잔액"),
+    ("rp_sale_balance", "RP매각잔고"), ("mmf", "MMF"), ("dry_powder", "실탄합계"),
+    ("investor_deposit", "투자자예탁금"), ("cma_balance", "CMA잔고"), ("deriv_deposit", "파생상품거래예수금"),
+    ("broker_rp_balance", "대고객RP매도잔고"), ("margin_call_unpaid", "위탁매매미수금"),
+    ("margin_call_liquidation", "반대매매금액"), ("margin_liquidation_ratio", "반대매매비중"),
+    ("credit_card_loan_demand", "신용카드대출수요BSI"), ("credit_loan_total", "신용거래융자합계"),
+    ("credit_loan_kospi", "신용거래융자(코스피)"), ("credit_loan_kosdaq", "신용거래융자(코스닥)"),
+    ("credit_short_total", "신용대주잔고"), ("leading_index_yoy", "선행종합지수YoY"),
+    ("export_amount_daily_avg", "일평균수출금액"), ("us_real_rate_10y", "미국10년실질금리"),
+    ("m2_to_marketcap_ratio", "M2/코스피시총비율"), ("kospi_turnover_ratio", "코스피회전율"),
+    ("foreign_net_total", "외국인순매수"), ("indiv_net_total", "개인순매수"), ("inst_net_total", "기관순매수"),
+    ("deposit_minus_rp", "예탁금-RP"), ("usd_krw", "원달러환율"), ("copper_usd", "구리가격"),
+    ("ccsi", "소비자심리지수"), ("esi", "경제심리지수"), ("bsi_all_industry", "전산업업황BSI"),
+    ("news_sentiment_index", "뉴스심리지수"),
+]
+BULK_TRANSFORMS = [
+    ("level", "원값", lambda s: s),
+    ("wow", "WoW", lambda s: s.pct_change(5)),
+    ("mom", "MoM", lambda s: s.pct_change(21)),
+    ("qoq", "QoQ", lambda s: s.pct_change(63)),
+    ("yoy", "YoY", lambda s: s.pct_change(252)),
+]
+
+
+def build_bulk_items(window_df):
+    items = []
+    for col, kor_label in BULK_CANDIDATES:
+        if col not in window_df.columns or not has_data(window_df, col):
+            continue
+        for tkey, tlabel, tfunc in BULK_TRANSFORMS:
+            series = tfunc(window_df[col]).replace([float("inf"), float("-inf")], None)
+            if not series.notna().any():
+                continue
+            items.append({
+                "label": f"[전체후보] {kor_label} {tlabel}",
+                "column": f"{col}_{tkey}",
+                "data": [None if pd.isna(v) else round(float(v), 4) for v in series],
+                "default_visible": False,
+            })
+    return items
+
 PERCENTILE_WINDOW_DEFAULT = 756  # 3년(거래일) - optimize_percentile_window.py가 종목별 최적값을
 # data/percentile_windows.json 에 저장하면 그쪽을 우선 쓰고, 없는 지표는 이 기본값을 쓴다.
 PERCENTILE_WINDOWS_PATH = os.path.join(DATA_DIR, "percentile_windows.json")
@@ -318,6 +365,7 @@ def build_combined(merged, window_df):
         })
     dates = window_df["date"].dt.strftime("%Y-%m-%d").tolist()
     crash_starts = [d for d in detect_crash_starts(merged) if d in set(dates)]
+    items.extend(build_bulk_items(window_df))
     return {"labels": dates, "items": items, "crashStarts": crash_starts}
 
 
