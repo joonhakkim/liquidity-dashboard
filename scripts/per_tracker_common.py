@@ -70,8 +70,9 @@ def fetch_top_n(basDd, market_url, market_name, top_n):
     return df, d
 
 
-def fetch_consensus_eps(code, basDd):
-    """반환: (trailing_eps, eps_2026, eps_2027) - 없으면 각각 None."""
+def fetch_consensus(code, basDd):
+    """반환: (trailing_eps, eps_2026, eps_2027, trailing_bps, bps_2026, bps_2027) - 없으면 각각 None.
+    같은 API 응답에 EPS와 BPS(주당순자산)가 함께 들어있어 한 번에 뽑는다(PER/PBR 공용)."""
     try:
         r = requests.get(
             WISEREPORT_CONSENSUS_URL,
@@ -81,26 +82,27 @@ def fetch_consensus_eps(code, basDd):
         )
         rows = r.json().get("JsonData", [])
     except Exception:
-        return None, None, None
+        return None, None, None, None, None, None
 
-    def to_eps(v):
+    def to_num(v):
         try:
             return float(str(v).replace(",", ""))
         except (TypeError, ValueError):
             return None
 
-    trailing_eps = None
-    eps_2026 = eps_2027 = None
+    trailing_eps = trailing_bps = None
+    eps_2026 = eps_2027 = bps_2026 = bps_2027 = None
     for row in rows:
         yymm = row.get("YYMM", "")
-        eps = to_eps(row.get("EPS"))
+        eps = to_num(row.get("EPS"))
+        bps = to_num(row.get("BPS"))
         if yymm.startswith("2026") and "(E)" in yymm:
-            eps_2026 = eps
+            eps_2026, bps_2026 = eps, bps
         elif yymm.startswith("2027") and "(E)" in yymm:
-            eps_2027 = eps
+            eps_2027, bps_2027 = eps, bps
         elif "(A)" in yymm:
-            trailing_eps = eps  # 마지막 (A) 행이 가장 최근 확정연도로 덮어써짐(리스트가 연도 오름차순)
-    return trailing_eps, eps_2026, eps_2027
+            trailing_eps, trailing_bps = eps, bps  # 마지막 (A) 행이 가장 최근 확정연도로 덮어써짐(리스트가 연도 오름차순)
+    return trailing_eps, eps_2026, eps_2027, trailing_bps, bps_2026, bps_2027
 
 
 def cap_weighted_harmonic_per(df, per_col):
@@ -122,11 +124,15 @@ def run_tracker(market_url, market_name, top_n, out_filename, label):
     print(f"{label} 시총 상위 {len(top)}종목 (실제 기준일 {actual_basDd})")
 
     trailing_epss, eps2026s, eps2027s = [], [], []
+    trailing_bpss, bps2026s, bps2027s = [], [], []
     for i, row in top.iterrows():
-        t, e26, e27 = fetch_consensus_eps(row["code"], actual_basDd)
+        t, e26, e27, tb, b26, b27 = fetch_consensus(row["code"], actual_basDd)
         trailing_epss.append(t)
         eps2026s.append(e26)
         eps2027s.append(e27)
+        trailing_bpss.append(tb)
+        bps2026s.append(b26)
+        bps2027s.append(b27)
         if (i + 1) % 10 == 0:
             print(f"  {i+1}/{len(top)} 종목 컨센서스 조회 완료")
         time.sleep(0.1)
@@ -134,15 +140,25 @@ def run_tracker(market_url, market_name, top_n, out_filename, label):
     top["trailing_eps"] = trailing_epss
     top["eps_2026"] = eps2026s
     top["eps_2027"] = eps2027s
+    top["trailing_bps"] = trailing_bpss
+    top["bps_2026"] = bps2026s
+    top["bps_2027"] = bps2027s
     top["per_trailing"] = top["price"] / top["trailing_eps"].replace(0, pd.NA)
     top["per_2026"] = top["price"] / top["eps_2026"].replace(0, pd.NA)
     top["per_2027"] = top["price"] / top["eps_2027"].replace(0, pd.NA)
+    top["pbr_trailing"] = top["price"] / top["trailing_bps"].replace(0, pd.NA)
+    top["pbr_2026"] = top["price"] / top["bps_2026"].replace(0, pd.NA)
+    top["pbr_2027"] = top["price"] / top["bps_2027"].replace(0, pd.NA)
 
     per_trailing, n_trailing = cap_weighted_harmonic_per(top, "per_trailing")
     per_2026, n_2026 = cap_weighted_harmonic_per(top, "per_2026")
     per_2027, n_2027 = cap_weighted_harmonic_per(top, "per_2027")
+    pbr_trailing, np_trailing = cap_weighted_harmonic_per(top, "pbr_trailing")
+    pbr_2026, np_2026 = cap_weighted_harmonic_per(top, "pbr_2026")
+    pbr_2027, np_2027 = cap_weighted_harmonic_per(top, "pbr_2027")
 
     print(f"후행 PER: {per_trailing} ({n_trailing}종목) / 당해선행(2026E): {per_2026} ({n_2026}종목) / 차년선행(2027E): {per_2027} ({n_2027}종목)")
+    print(f"후행 PBR: {pbr_trailing} ({np_trailing}종목) / 당해선행(2026E): {pbr_2026} ({np_2026}종목) / 차년선행(2027E): {pbr_2027} ({np_2027}종목)")
 
     record = {
         "date": pd.to_datetime(actual_basDd),
@@ -150,6 +166,10 @@ def run_tracker(market_url, market_name, top_n, out_filename, label):
         "per_2026e": round(per_2026, 3) if per_2026 else None,
         "per_2027e": round(per_2027, 3) if per_2027 else None,
         "n_trailing": n_trailing, "n_2026e": n_2026, "n_2027e": n_2027,
+        "pbr_trailing": round(pbr_trailing, 3) if pbr_trailing else None,
+        "pbr_2026e": round(pbr_2026, 3) if pbr_2026 else None,
+        "pbr_2027e": round(pbr_2027, 3) if pbr_2027 else None,
+        "np_trailing": np_trailing, "np_2026e": np_2026, "np_2027e": np_2027,
     }
 
     if os.path.exists(out_path):

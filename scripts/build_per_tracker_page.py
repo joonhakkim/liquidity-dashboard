@@ -50,6 +50,10 @@ def build(market_key, market_label, index_symbol, out_name):
     per_2026e = [None if pd.isna(v) else round(v, 2) for v in merged["per_2026e"]]
     per_2027e = [None if pd.isna(v) else round(v, 2) for v in merged["per_2027e"]]
     index_close = [None if pd.isna(v) else round(v, 2) for v in merged["close"]]
+    has_pbr = "pbr_trailing" in merged.columns
+    pbr_trailing = [None if pd.isna(v) else round(v, 2) for v in merged["pbr_trailing"]] if has_pbr else [None] * len(merged)
+    pbr_2026e = [None if pd.isna(v) else round(v, 2) for v in merged["pbr_2026e"]] if has_pbr else [None] * len(merged)
+    pbr_2027e = [None if pd.isna(v) else round(v, 2) for v in merged["pbr_2027e"]] if has_pbr else [None] * len(merged)
 
     latest = per.iloc[-1]
     latest_str = latest["date"].strftime("%Y-%m-%d")
@@ -63,11 +67,17 @@ def build(market_key, market_label, index_symbol, out_name):
         per_trailing_json=json.dumps(per_trailing),
         per_2026e_json=json.dumps(per_2026e),
         per_2027e_json=json.dumps(per_2027e),
+        pbr_trailing_json=json.dumps(pbr_trailing),
+        pbr_2026e_json=json.dumps(pbr_2026e),
+        pbr_2027e_json=json.dumps(pbr_2027e),
         index_json=json.dumps(index_close),
         latest_date=latest_str,
         latest_trailing=fmt(latest["per_trailing"]),
         latest_2026e=fmt(latest["per_2026e"]),
         latest_2027e=fmt(latest["per_2027e"]),
+        latest_pbr_trailing=fmt(latest["pbr_trailing"]) if has_pbr else "N/A",
+        latest_pbr_2026e=fmt(latest["pbr_2026e"]) if has_pbr else "N/A",
+        latest_pbr_2027e=fmt(latest["pbr_2027e"]) if has_pbr else "N/A",
         n_days=len(per),
         updated_at=datetime.now().strftime("%Y-%m-%d %H:%M"),
     )
@@ -116,19 +126,29 @@ TEMPLATE = """<!doctype html>
 
   <div class="chart-wrap"><canvas id="perChart"></canvas></div>
 
+  <h2 style="font-size:16px; margin:28px 0 4px 0;">PBR (주가순자산비율)</h2>
+  <div class="badges">
+    <div class="badge trailing"><div class="label">후행(TTM) PBR</div><div class="value">{latest_pbr_trailing}</div></div>
+    <div class="badge y2026"><div class="label">당해선행(2026E) PBR</div><div class="value">{latest_pbr_2026e}</div></div>
+    <div class="badge y2027"><div class="label">차년선행(2027E) PBR</div><div class="value">{latest_pbr_2027e}</div></div>
+  </div>
+
+  <div class="chart-wrap"><canvas id="pbrChart"></canvas></div>
+
   <div class="note">
     <h3>산출 방법론</h3>
     <b>수집 주기·소스</b> — 실행 시점 기준 {market_label} 시가총액 상위 50종목(우선주 제외)을 KRX Open API로,
-    각 종목의 당해년도(2026E)&middot;차년도(2027E) 컨센서스 EPS와 최근 확정 실적 EPS를 네이버 개별종목 페이지가
-    쓰는 컨센서스 API(WiseReport)에서 가져옵니다.<br><br>
-    <b>선행 PER 계산</b> — 종목별 선행 PER = 종가 &divide; 추정 EPS. 후행 PER은 최근 확정 연간 EPS 기준입니다.<br><br>
-    <b>지수 집계</b> — 개별 종목 PER을 시가총액 가중 <b>조화평균</b>으로 묶어 지수 대표값을 만듭니다:
-    지수 PER = &Sigma;(시총) &divide; &Sigma;(시총 &divide; 종목PER). 단순평균이 아니라 조화평균이라 대형주의
-    이익 비중이 크게 반영되고, PER이 0 이하인(적자) 종목은 집계에서 제외합니다.<br><br>
-    <b>후행선 vs 선행선</b> — 컨센서스 기반 선행 PER은 과거 시점의 컨센서스를 알 방법이 없어(백필 불가)
+    각 종목의 당해년도(2026E)&middot;차년도(2027E) 컨센서스 EPS&middot;BPS와 최근 확정 실적치를 네이버 개별종목
+    페이지가 쓰는 컨센서스 API(WiseReport)에서 가져옵니다.<br><br>
+    <b>선행 PER/PBR 계산</b> — 종목별 선행 PER = 종가 &divide; 추정 EPS, 선행 PBR = 종가 &divide; 추정 BPS(주당순자산).
+    후행치는 최근 확정 연간 실적 기준입니다.<br><br>
+    <b>지수 집계</b> — 개별 종목 PER/PBR을 시가총액 가중 <b>조화평균</b>으로 묶어 지수 대표값을 만듭니다:
+    지수 PER(PBR) = &Sigma;(시총) &divide; &Sigma;(시총 &divide; 종목PER(PBR)). 단순평균이 아니라 조화평균이라 대형주의
+    비중이 크게 반영되고, 값이 0 이하인(적자·자본잠식) 종목은 집계에서 제외합니다.<br><br>
+    <b>후행선 vs 선행선</b> — 컨센서스 기반 선행치는 과거 시점의 컨센서스를 알 방법이 없어(백필 불가)
     <b>이 트래커를 실행하기 시작한 날부터 하루씩 축적</b>됩니다. 오늘 추정치로 과거를 채우면 왜곡되므로 그렇게 하지 않습니다.<br><br>
     <b>한계</b> — 시총 상위 50종목 자체 계산이라 KRX 공식 지수 산출식과는 정확히 일치하지 않는 근사치입니다.
-    KRX 공식 PBR 히스토리(2004~)와 미국 기준금리&middot;OECD 경기선행지수(CLI) 오버레이는 아직 없고 추가 예정입니다.
+    KRX 공식 PER/PBR 히스토리(2004~)와 미국 기준금리&middot;OECD 경기선행지수(CLI) 오버레이는 아직 없고 추가 예정입니다.
   </div>
 
 <script>
@@ -136,6 +156,9 @@ const dates = {dates_json};
 const perTrailing = {per_trailing_json};
 const per2026e = {per_2026e_json};
 const per2027e = {per_2027e_json};
+const pbrTrailing = {pbr_trailing_json};
+const pbr2026e = {pbr_2026e_json};
+const pbr2027e = {pbr_2027e_json};
 const indexClose = {index_json};
 
 new Chart(document.getElementById('perChart').getContext('2d'), {{
@@ -155,6 +178,28 @@ new Chart(document.getElementById('perChart').getContext('2d'), {{
     scales: {{
       x: {{ ticks: {{ color: '#9aa0a6', maxTicksLimit: 12 }}, grid: {{ color: '#23262e' }} }},
       yPer: {{ position: 'left', title: {{ display: true, text: 'PER(배)', color: '#9aa0a6' }}, ticks: {{ color: '#9aa0a6' }}, grid: {{ color: '#23262e' }} }},
+      yIdx: {{ position: 'right', title: {{ display: true, text: '{market_label} 지수', color: '#63e6be' }}, ticks: {{ color: '#63e6be' }}, grid: {{ drawOnChartArea: false }} }},
+    }}
+  }}
+}});
+
+new Chart(document.getElementById('pbrChart').getContext('2d'), {{
+  type: 'line',
+  data: {{
+    labels: dates,
+    datasets: [
+      {{ label: '후행(TTM) PBR', data: pbrTrailing, borderColor: '#adb5bd', backgroundColor: '#adb5bd', yAxisID: 'yPbr', tension: 0.15, pointRadius: 4, pointBackgroundColor: '#adb5bd', pointBorderColor: '#adb5bd' }},
+      {{ label: '당해선행(2026E) PBR', data: pbr2026e, borderColor: '#ffa94d', backgroundColor: '#ffa94d', yAxisID: 'yPbr', tension: 0.15, pointRadius: 4, pointBackgroundColor: '#ffa94d', pointBorderColor: '#ffa94d' }},
+      {{ label: '차년선행(2027E) PBR', data: pbr2027e, borderColor: '#b197fc', backgroundColor: '#b197fc', yAxisID: 'yPbr', tension: 0.15, pointRadius: 4, pointBackgroundColor: '#b197fc', pointBorderColor: '#b197fc' }},
+      {{ label: '{market_label} 지수(우축)', data: indexClose, borderColor: '#63e6be', backgroundColor: 'transparent', yAxisID: 'yIdx', borderDash: [3,3], tension: 0.15, pointRadius: 0 }},
+    ]
+  }},
+  options: {{
+    responsive: true, maintainAspectRatio: false,
+    plugins: {{ legend: {{ labels: {{ color: '#e6e6e6' }} }} }},
+    scales: {{
+      x: {{ ticks: {{ color: '#9aa0a6', maxTicksLimit: 12 }}, grid: {{ color: '#23262e' }} }},
+      yPbr: {{ position: 'left', title: {{ display: true, text: 'PBR(배)', color: '#9aa0a6' }}, ticks: {{ color: '#9aa0a6' }}, grid: {{ color: '#23262e' }} }},
       yIdx: {{ position: 'right', title: {{ display: true, text: '{market_label} 지수', color: '#63e6be' }}, ticks: {{ color: '#63e6be' }}, grid: {{ drawOnChartArea: false }} }},
     }}
   }}

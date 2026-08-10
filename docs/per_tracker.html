@@ -27,7 +27,7 @@
   <a class="back" href="per_tracker.html">코스피</a>
   <a class="back" href="kosdaq_per_tracker.html">코스닥</a>
   <h1>코스피 선행 PER 트래커</h1>
-  <div class="updated">최종 갱신: 2026-08-10 17:01 &middot; 최신 기준일 2026-08-07 &middot; PER 수집 1일치(지수는 참고용으로 최근 1년 표시)</div>
+  <div class="updated">최종 갱신: 2026-08-10 18:20 &middot; 최신 기준일 2026-08-07 &middot; PER 수집 1일치(지수는 참고용으로 최근 1년 표시)</div>
 
   <div class="badges">
     <div class="badge trailing"><div class="label">후행(TTM) PER</div><div class="value">23.00배</div></div>
@@ -37,19 +37,29 @@
 
   <div class="chart-wrap"><canvas id="perChart"></canvas></div>
 
+  <h2 style="font-size:16px; margin:28px 0 4px 0;">PBR (주가순자산비율)</h2>
+  <div class="badges">
+    <div class="badge trailing"><div class="label">후행(TTM) PBR</div><div class="value">2.53배</div></div>
+    <div class="badge y2026"><div class="label">당해선행(2026E) PBR</div><div class="value">1.76배</div></div>
+    <div class="badge y2027"><div class="label">차년선행(2027E) PBR</div><div class="value">1.29배</div></div>
+  </div>
+
+  <div class="chart-wrap"><canvas id="pbrChart"></canvas></div>
+
   <div class="note">
     <h3>산출 방법론</h3>
     <b>수집 주기·소스</b> — 실행 시점 기준 코스피 시가총액 상위 50종목(우선주 제외)을 KRX Open API로,
-    각 종목의 당해년도(2026E)&middot;차년도(2027E) 컨센서스 EPS와 최근 확정 실적 EPS를 네이버 개별종목 페이지가
-    쓰는 컨센서스 API(WiseReport)에서 가져옵니다.<br><br>
-    <b>선행 PER 계산</b> — 종목별 선행 PER = 종가 &divide; 추정 EPS. 후행 PER은 최근 확정 연간 EPS 기준입니다.<br><br>
-    <b>지수 집계</b> — 개별 종목 PER을 시가총액 가중 <b>조화평균</b>으로 묶어 지수 대표값을 만듭니다:
-    지수 PER = &Sigma;(시총) &divide; &Sigma;(시총 &divide; 종목PER). 단순평균이 아니라 조화평균이라 대형주의
-    이익 비중이 크게 반영되고, PER이 0 이하인(적자) 종목은 집계에서 제외합니다.<br><br>
-    <b>후행선 vs 선행선</b> — 컨센서스 기반 선행 PER은 과거 시점의 컨센서스를 알 방법이 없어(백필 불가)
+    각 종목의 당해년도(2026E)&middot;차년도(2027E) 컨센서스 EPS&middot;BPS와 최근 확정 실적치를 네이버 개별종목
+    페이지가 쓰는 컨센서스 API(WiseReport)에서 가져옵니다.<br><br>
+    <b>선행 PER/PBR 계산</b> — 종목별 선행 PER = 종가 &divide; 추정 EPS, 선행 PBR = 종가 &divide; 추정 BPS(주당순자산).
+    후행치는 최근 확정 연간 실적 기준입니다.<br><br>
+    <b>지수 집계</b> — 개별 종목 PER/PBR을 시가총액 가중 <b>조화평균</b>으로 묶어 지수 대표값을 만듭니다:
+    지수 PER(PBR) = &Sigma;(시총) &divide; &Sigma;(시총 &divide; 종목PER(PBR)). 단순평균이 아니라 조화평균이라 대형주의
+    비중이 크게 반영되고, 값이 0 이하인(적자·자본잠식) 종목은 집계에서 제외합니다.<br><br>
+    <b>후행선 vs 선행선</b> — 컨센서스 기반 선행치는 과거 시점의 컨센서스를 알 방법이 없어(백필 불가)
     <b>이 트래커를 실행하기 시작한 날부터 하루씩 축적</b>됩니다. 오늘 추정치로 과거를 채우면 왜곡되므로 그렇게 하지 않습니다.<br><br>
     <b>한계</b> — 시총 상위 50종목 자체 계산이라 KRX 공식 지수 산출식과는 정확히 일치하지 않는 근사치입니다.
-    KRX 공식 PBR 히스토리(2004~)와 미국 기준금리&middot;OECD 경기선행지수(CLI) 오버레이는 아직 없고 추가 예정입니다.
+    KRX 공식 PER/PBR 히스토리(2004~)와 미국 기준금리&middot;OECD 경기선행지수(CLI) 오버레이는 아직 없고 추가 예정입니다.
   </div>
 
 <script>
@@ -57,6 +67,9 @@ const dates = ["2025-08-11", "2025-08-12", "2025-08-13", "2025-08-14", "2025-08-
 const perTrailing = [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 23.0, null];
 const per2026e = [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 5.88, null];
 const per2027e = [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 4.61, null];
+const pbrTrailing = [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 2.53, null];
+const pbr2026e = [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 1.76, null];
+const pbr2027e = [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 1.29, null];
 const indexClose = [3206.77, 3189.91, 3224.37, 3225.66, 3177.28, 3151.56, 3130.09, 3141.74, 3168.73, 3209.86, 3179.36, 3187.16, 3196.32, 3186.01, 3142.93, 3172.35, 3184.42, 3200.83, 3205.12, 3219.59, 3260.05, 3314.53, 3344.2, 3395.54, 3407.31, 3449.62, 3413.4, 3461.3, 3445.24, 3468.65, 3486.19, 3472.14, 3471.11, 3386.05, 3431.21, 3424.6, 3455.83, 3549.21, 3610.6, 3584.55, 3561.81, 3657.28, 3748.37, 3748.89, 3814.69, 3823.84, 3883.68, 3845.56, 3941.59, 4042.83, 4010.41, 4081.15, 4086.89, 4107.5, 4221.87, 4121.74, 4004.42, 4026.45, 3953.76, 4073.24, 4106.39, 4150.39, 4170.63, 4011.57, 4089.25, 3953.62, 3929.51, 4004.85, 3853.26, 3846.06, 3857.78, 3960.87, 3986.91, 3926.59, 3920.37, 3994.93, 4036.3, 4028.51, 4100.05, 4154.85, 4143.55, 4135.0, 4110.62, 4167.16, 4090.59, 3999.13, 4056.41, 3994.51, 4020.55, 4105.93, 4117.32, 4108.62, 4129.68, 4220.56, 4214.17, 4309.63, 4457.52, 4525.48, 4551.06, 4552.37, 4586.32, 4624.79, 4692.64, 4723.1, 4797.55, 4840.74, 4904.66, 4885.75, 4909.93, 4952.53, 4990.07, 4949.59, 5084.85, 5170.81, 5221.25, 5224.36, 4949.67, 5288.08, 5371.1, 5163.57, 5089.14, 5298.04, 5301.69, 5354.49, 5522.27, 5507.01, 5677.25, 5808.53, 5846.09, 5969.64, 6083.86, 6307.27, 6244.13, 5791.91, 5093.54, 5583.9, 5584.87, 5251.87, 5532.59, 5609.95, 5583.25, 5487.24, 5549.85, 5640.48, 5925.03, 5763.22, 5781.2, 5405.75, 5553.92, 5642.21, 5460.46, 5438.87, 5277.3, 5052.46, 5478.7, 5234.05, 5377.3, 5450.33, 5494.78, 5872.34, 5778.01, 5858.87, 5808.62, 5967.75, 6091.39, 6226.05, 6191.92, 6219.09, 6388.47, 6417.93, 6475.81, 6475.63, 6615.03, 6641.02, 6690.9, 6598.87, 6936.99, 7384.56, 7490.05, 7498.0, 7822.24, 7643.15, 7844.01, 7981.41, 7493.18, 7516.04, 7271.66, 7208.95, 7815.59, 7847.71, 8047.51, 8228.7, 8185.29, 8476.15, 8788.38, 8801.49, 8639.41, 8160.59, 7484.41, 8096.93, 7730.82, 7763.95, 8123.62, 8545.98, 8726.6, 8864.24, 9063.84, 9052.42, 9114.55, 8203.84, 8471.02, 8930.3, 8411.21, 8394.65, 8476.48, 8303.41, 7648.09, 8088.34, 8051.33, 7656.31, 7246.79, 7291.91, 7475.94, 6806.93, 6856.83, 7284.41, 6820.6, 6516.27, 6747.95, 6797.7, 7096.89, 6690.62, 6755.75, 6023.66, 5663.24, 5593.56, 6595.45, 6257.45, 6358.95, 6598.26, 6296.38, 6258.77, 6299.66];
 
 new Chart(document.getElementById('perChart').getContext('2d'), {
@@ -76,6 +89,28 @@ new Chart(document.getElementById('perChart').getContext('2d'), {
     scales: {
       x: { ticks: { color: '#9aa0a6', maxTicksLimit: 12 }, grid: { color: '#23262e' } },
       yPer: { position: 'left', title: { display: true, text: 'PER(배)', color: '#9aa0a6' }, ticks: { color: '#9aa0a6' }, grid: { color: '#23262e' } },
+      yIdx: { position: 'right', title: { display: true, text: '코스피 지수', color: '#63e6be' }, ticks: { color: '#63e6be' }, grid: { drawOnChartArea: false } },
+    }
+  }
+});
+
+new Chart(document.getElementById('pbrChart').getContext('2d'), {
+  type: 'line',
+  data: {
+    labels: dates,
+    datasets: [
+      { label: '후행(TTM) PBR', data: pbrTrailing, borderColor: '#adb5bd', backgroundColor: '#adb5bd', yAxisID: 'yPbr', tension: 0.15, pointRadius: 4, pointBackgroundColor: '#adb5bd', pointBorderColor: '#adb5bd' },
+      { label: '당해선행(2026E) PBR', data: pbr2026e, borderColor: '#ffa94d', backgroundColor: '#ffa94d', yAxisID: 'yPbr', tension: 0.15, pointRadius: 4, pointBackgroundColor: '#ffa94d', pointBorderColor: '#ffa94d' },
+      { label: '차년선행(2027E) PBR', data: pbr2027e, borderColor: '#b197fc', backgroundColor: '#b197fc', yAxisID: 'yPbr', tension: 0.15, pointRadius: 4, pointBackgroundColor: '#b197fc', pointBorderColor: '#b197fc' },
+      { label: '코스피 지수(우축)', data: indexClose, borderColor: '#63e6be', backgroundColor: 'transparent', yAxisID: 'yIdx', borderDash: [3,3], tension: 0.15, pointRadius: 0 },
+    ]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { labels: { color: '#e6e6e6' } } },
+    scales: {
+      x: { ticks: { color: '#9aa0a6', maxTicksLimit: 12 }, grid: { color: '#23262e' } },
+      yPbr: { position: 'left', title: { display: true, text: 'PBR(배)', color: '#9aa0a6' }, ticks: { color: '#9aa0a6' }, grid: { color: '#23262e' } },
       yIdx: { position: 'right', title: { display: true, text: '코스피 지수', color: '#63e6be' }, ticks: { color: '#63e6be' }, grid: { drawOnChartArea: false } },
     }
   }
