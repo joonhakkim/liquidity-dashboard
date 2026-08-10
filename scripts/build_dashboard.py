@@ -117,6 +117,13 @@ def build_merged():
         if "kospi_trading_value" in raw_latest and "kospi_market_cap" in raw_latest:
             raw_latest["kospi_turnover_ratio"] = min(raw_latest["kospi_trading_value"], raw_latest["kospi_market_cap"])
 
+    if {"leading_index", "coincident_index"}.issubset(merged.columns):
+        # 경기선행지수-동행지수 격차: 양수면 선행지수가 동행지수보다 높다(경기 개선 기대),
+        # 음수면 반대(둔화 우려) - 흔히 쓰는 경기국면 판단용 스프레드.
+        merged["leading_coincident_gap"] = merged["leading_index"] - merged["coincident_index"]
+        if "leading_index" in raw_latest and "coincident_index" in raw_latest:
+            raw_latest["leading_coincident_gap"] = min(raw_latest["leading_index"], raw_latest["coincident_index"])
+
     if {"m2", "kospi_market_cap"}.issubset(merged.columns):
         # m2 단위는 십억원(ECOS), kospi_market_cap 단위는 원(KRX Open API)
         merged["m2_to_marketcap_ratio"] = (merged["m2"] * 1_000_000_000) / merged["kospi_market_cap"] * 100
@@ -178,6 +185,8 @@ PANEL_SOURCES = {
     "전산업 업황BSI vs 코스피": "한국은행 ECOS 512Y013(기업경기조사-실적, 월간) - 전산업 업황실적BSI, 100=중립",
     "미국 10년물 실질금리": "FRED(세인트루이스 연은) DFII10 - Market Yield on U.S. Treasury Securities at 10-Year Constant Maturity, Quoted on an Investment Basis, Inflation-Indexed (일별)",
     "미국 유동성 지수 vs 코스피": "FRED(세인트루이스 연은) WALCL(연준 총자산, 주간) - WTREGEN(재무부 TGA, 주간) - RRPONTSYD(익일역레포, 일별) x 1000. MacroMicro 'Fed Net Liquidity'와 동일 정의",
+    "경기선행지수·동행지수 vs 코스피": "한국은행 ECOS 901Y067(경기종합지수, 국가데이터처 작성, 월간) - 선행종합지수(I16A)·동행종합지수(I16B) 원지수, 100=기준연도",
+    "경기선행-동행지수 격차 vs 코스피": "위 두 지수의 차이(선행-동행) - 양수면 선행지수가 동행지수보다 높아 경기 개선 기대, 음수면 반대(둔화 우려)로 보는 게 일반적 해석",
     "미국 연준 유동성 구성요소": "FRED WALCL(연준 총자산) / WTREGEN(재무부 일반계정 TGA) / RRPONTSYD(익일역레포 ON RRP) - 전부 십억달러, 순유동성 = 총자산-TGA-RRP",
     "연준 총자산 vs 코스피": "FRED WALCL(연준 총자산, 주간, 십억달러)",
     "재무부 TGA vs 코스피": "FRED WTREGEN(재무부 일반계정 TGA, 주간, 십억달러) - 늘면 시중에서 자금을 흡수(유동성 축소), 줄면 반대(유동성 공급)",
@@ -300,6 +309,8 @@ BULK_CANDIDATES = [
     ("credit_card_loan_demand", "신용카드대출수요BSI"), ("credit_loan_total", "신용거래융자합계"),
     ("credit_loan_kospi", "신용거래융자(코스피)"), ("credit_loan_kosdaq", "신용거래융자(코스닥)"),
     ("credit_short_total", "신용대주잔고"), ("leading_index_yoy", "선행종합지수YoY"),
+    ("leading_index", "경기선행지수"), ("coincident_index", "경기동행지수"),
+    ("leading_coincident_gap", "선행-동행지수격차"),
     ("export_amount_daily_avg", "일평균수출금액"), ("us_real_rate_10y", "미국10년실질금리"),
     ("m2_to_marketcap_ratio", "M2/코스피시총비율"), ("kospi_turnover_ratio", "코스피회전율"),
     ("foreign_net_total", "외국인순매수"), ("indiv_net_total", "개인순매수"), ("inst_net_total", "기관순매수"),
@@ -512,6 +523,16 @@ def build_dashboard(merged, raw_latest):
             {"코스피 종가": "kospi_close"},
             {"전산업 업황실적BSI": "bsi_all_industry"},
         ),
+        "경기선행지수·동행지수 vs 코스피": build_dual_panel(
+            merged, recent,
+            {"경기선행지수": "leading_index", "경기동행지수": "coincident_index"},
+            {"코스피 종가": "kospi_close"},
+        ),
+        "경기선행-동행지수 격차 vs 코스피": build_dual_panel(
+            merged, recent,
+            {"코스피 종가": "kospi_close"},
+            {"선행-동행지수 격차": "leading_coincident_gap"},
+        ),
         "미국 10년물 실질금리": build_panel(merged, recent, "multi", {
             "미국 10년물 실질금리(%)": "us_real_rate_10y",
         }),
@@ -569,6 +590,8 @@ def build_dashboard(merged, raw_latest):
     panels["소비자심리지수(CCSI) vs 코스피"]["latest"] = latest_date_str(raw_latest, ["kospi_close", "ccsi"])
     panels["경제심리지수(ESI) vs 코스피"]["latest"] = latest_date_str(raw_latest, ["kospi_close", "esi"])
     panels["전산업 업황BSI vs 코스피"]["latest"] = latest_date_str(raw_latest, ["kospi_close", "bsi_all_industry"])
+    panels["경기선행지수·동행지수 vs 코스피"]["latest"] = latest_date_str(raw_latest, ["kospi_close", "leading_index", "coincident_index"])
+    panels["경기선행-동행지수 격차 vs 코스피"]["latest"] = latest_date_str(raw_latest, ["kospi_close", "leading_coincident_gap"])
     panels["미국 10년물 실질금리"]["latest"] = latest_date_str(raw_latest, ["us_real_rate_10y"])
     panels["미국 유동성 지수 vs 코스피"]["latest"] = latest_date_str(raw_latest, ["kospi_close", "us_net_liquidity_bil"])
     panels["미국 연준 유동성 구성요소"]["latest"] = latest_date_str(raw_latest, ["fed_total_assets_bil", "us_treasury_tga_bil", "us_reverse_repo", "us_net_liquidity_bil"])

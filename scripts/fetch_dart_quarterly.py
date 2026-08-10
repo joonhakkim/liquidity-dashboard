@@ -101,7 +101,10 @@ def main():
     todo = [n for n in names if set(years_done.get(n, set())) < set(QUARTERLY_YEARS)]
     print(f"오늘 처리 대상: {len(todo)}개 (전체 {len(names)}개 중, 완료 {len(names) - len(todo)}개 제외)")
 
-    call_budget = 8000  # 이 스크립트 하나가 하루 API 한도를 다 쓰지 않도록 상한(나머지 스크립트 몫 남겨둠)
+    # 매출/영업이익 백필이 최우선순위라는 사용자 확인에 따라 상향(8000 -> 13000).
+    # fetch_dart_preliminary.py가 스킵 로직이 없어 매일 전 종목을 재조회하던 낭비를 없앤 것과
+    # 함께, 남는 한도는 fetch_valuation_bands.py(PER/PBR)가 알아서 자기 몫만큼만 쓴다.
+    call_budget = 13000
     calls_made = 0
     quota_hit = False
 

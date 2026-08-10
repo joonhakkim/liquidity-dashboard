@@ -44,6 +44,7 @@ STAT_ITEMS = [
     ("m2", "161Y008", "BBGA00", "M", "M2(말잔, 원계열) [신지표, 2003.10~]"),
     ("mmf", "161Y008", "BBGA04", "M", "M2 구성항목 중 MMF(말잔, 원계열)"),
     ("leading_index", "901Y067", "I16A", "M", "선행종합지수 원지수(경기종합지수, 국가데이터처) - YoY 계산용 (순환변동치 I16E는 이미 추세 제거된 값이라 YoY가 의미 없음)"),
+    ("coincident_index", "901Y067", "I16B", "M", "동행종합지수 원지수(경기종합지수, 국가데이터처) - 선행지수와 비교용"),
     ("export_amount", "901Y118", "T002", "M", "수출금액(통관기준, 월간 합계, 관세청)"),
     ("ccsi", "511Y002", "FME", "M", "소비자심리지수(CCSI, 소비자동향조사) - 100=중립"),
     ("esi", "513Y001", "E1000", "M", "경제심리지수(ESI, 원계열) - 기업+소비자 심리 종합, 100=중립"),
@@ -191,6 +192,11 @@ def main():
 
     if "leading_index" in merged.columns:
         merged["leading_index_yoy"] = merged["leading_index"] / merged["leading_index"].shift(12) * 100 - 100
+
+    if "coincident_index" in merged.columns:
+        merged["coincident_index_yoy"] = (
+            merged["coincident_index"] / merged["coincident_index"].shift(12) * 100 - 100
+        )
 
     merged["net_liquidity"] = (
         merged["bok_total_assets"] - (merged["msb_balance"] + merged["rp_sale_balance"])

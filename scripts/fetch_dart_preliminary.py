@@ -13,6 +13,7 @@ import re
 import time
 import zipfile
 import io
+from datetime import datetime
 
 import pandas as pd
 import requests
@@ -24,7 +25,7 @@ SCREEN_PATH = os.path.join(DATA_DIR, "screening", "op_growth_screen.csv")
 OUT_PATH = os.path.join(DATA_DIR, "screening", "dart_preliminary_q2.csv")
 
 SEARCH_START = "20260601"
-SEARCH_END = "20260810"
+SEARCH_END = datetime.today().strftime("%Y%m%d")  # 예전엔 날짜가 하드코딩돼있어서 매일 갱신이 안 됐음
 
 
 def find_preliminary_rcept(corp_code):
@@ -109,17 +110,34 @@ def parse_preliminary(rcept_no):
     return revenue, op
 
 
+TERMINAL_STATUSES = {"ok", "code_not_found"}
+# 매일 전 종목을 스킵 없이 처음부터 다시 긁고 있어서 DART 호출량을 상당히 잡아먹고 있었다
+# (2,543종목 x 1~2건 호출 = 매일 최소 2,500건 이상, 매출/영업이익 백필보다 우선순위 낮은데도
+# 먼저 소모함). "ok"(잠정실적 찾아서 파싱 성공)나 "code_not_found"(영구 실패)는 결과가 안
+# 바뀌니 건너뛰고, "no_disclosure"(아직 공시 안 함 - 나중에 나올 수 있음)/에러 상태만 재시도.
+
+
 def main():
     screened = pd.read_csv(SCREEN_PATH)
     names = screened["종목명"].tolist()
-    print(f"대상 종목: {len(names)}개")
+
+    rows = []
+    done_names = set()
+    if os.path.exists(OUT_PATH):
+        existing = pd.read_csv(OUT_PATH)
+        rows = existing.to_dict("records")
+        done_names = {row["종목명"] for row in rows if row.get("상태") in TERMINAL_STATUSES}
+        print(f"기존 결과 {len(existing)}개 중 완료(재시도 불필요) {len(done_names)}개는 건너뜁니다.")
+
+    todo = [n for n in names if n not in done_names]
+    rows = [r for r in rows if r["종목명"] not in todo]  # 재시도 대상은 기존 행 빼고 새로 채움
+    print(f"대상 종목: {len(todo)}개 (전체 {len(names)}개 중)")
 
     name_to_code, _, _ = load_corp_code_map()
 
-    rows = []
-    for i, name in enumerate(names, 1):
+    for i, name in enumerate(todo, 1):
         corp_code = name_to_code.get(name)
-        print(f"[{i}/{len(names)}] {name}")
+        print(f"[{i}/{len(todo)}] {name}")
         if not corp_code:
             rows.append({"종목명": name, "상태": "code_not_found"})
             continue
@@ -154,12 +172,13 @@ def main():
             "영업이익_흑자적자전환_YoY": op["흑자적자전환_YoY"] if op else None,
         })
 
-        if i % 10 == 0 or i == len(names):
+        if i % 10 == 0 or i == len(todo):
             pd.DataFrame(rows).to_csv(OUT_PATH, index=False, encoding="utf-8-sig")
-            print(f"  중간 저장 완료 ({i}/{len(names)})")
+            print(f"  중간 저장 완료 ({i}/{len(todo)})")
 
-    pd.DataFrame(rows).to_csv(OUT_PATH, index=False, encoding="utf-8-sig")
-    print(f"\n최종 저장 완료: {OUT_PATH}")
+    final_df = pd.DataFrame(rows).drop_duplicates(subset=["종목명"], keep="last")
+    final_df.to_csv(OUT_PATH, index=False, encoding="utf-8-sig")
+    print(f"\n최종 저장 완료: {OUT_PATH} ({len(final_df)}행)")
 
 
 if __name__ == "__main__":
