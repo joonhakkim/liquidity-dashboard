@@ -104,8 +104,11 @@ def main():
 
     df = pd.DataFrame(rows)
     screened = df[df["시가총액(억원)"] >= MIN_MARKET_CAP / 1e8]
+    # 시가총액 큰 종목부터 먼저 처리되도록 정렬한다 - DART 백필이 며칠 걸리는데(2500여개),
+    # 성장률 순으로 두면 삼성전자 같은 대형주가 한참 뒤로 밀려서 오래 기다려야 했다.
+    # 페이지 자체의 기본 정렬(OP 증가율)은 화면(JS)에서 따로 적용되므로 순서를 바꿔도 무방.
     screened = screened.sort_values(
-        "영업이익_증가율", ascending=False, na_position="last"
+        "시가총액(억원)", ascending=False, na_position="last"
     ).reset_index(drop=True)
 
     os.makedirs(os.path.dirname(OUT_PATH), exist_ok=True)
