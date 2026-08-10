@@ -130,6 +130,18 @@ def build_merged():
         if "kospi_close" in raw_latest:
             raw_latest["kospi_yoy"] = raw_latest["kospi_close"]
 
+    if {"fed_total_assets", "us_treasury_tga", "us_reverse_repo"}.issubset(merged.columns):
+        # 미국 순유동성(Fed Net Liquidity) = 연준 총자산 - TGA - ON RRP.
+        # WALCL/WTREGEN은 백만달러, RRPONTSYD는 십억달러 단위라 RRP에 x1000해서 맞춘다.
+        merged["us_net_liquidity"] = (
+            merged["fed_total_assets"] - merged["us_treasury_tga"] - merged["us_reverse_repo"] * 1000
+        )
+        merged["us_net_liquidity_bil"] = merged["us_net_liquidity"] / 1000  # 백만달러 -> 십억달러(가독성)
+        keys = ("fed_total_assets", "us_treasury_tga", "us_reverse_repo")
+        if all(k in raw_latest for k in keys):
+            raw_latest["us_net_liquidity"] = min(raw_latest[k] for k in keys)
+            raw_latest["us_net_liquidity_bil"] = raw_latest["us_net_liquidity"]
+
     os.makedirs(DATA_DIR, exist_ok=True)
     merged.to_csv(MERGED_PATH, index=False, encoding="utf-8-sig")
     print(f"병합 완료: {MERGED_PATH} ({len(merged)}행, {merged['date'].min().date()} ~ {merged['date'].max().date()})")
@@ -161,6 +173,7 @@ PANEL_SOURCES = {
     "경제심리지수(ESI) vs 코스피": "한국은행 ECOS 513Y001(경제심리지수, 원계열, 월간) - 기업+소비자 심리 종합, 100=중립",
     "전산업 업황BSI vs 코스피": "한국은행 ECOS 512Y013(기업경기조사-실적, 월간) - 전산업 업황실적BSI, 100=중립",
     "미국 10년물 실질금리": "FRED(세인트루이스 연은) DFII10 - Market Yield on U.S. Treasury Securities at 10-Year Constant Maturity, Quoted on an Investment Basis, Inflation-Indexed (일별)",
+    "미국 유동성 지수 vs 코스피": "FRED(세인트루이스 연은) WALCL(연준 총자산, 주간) - WTREGEN(재무부 TGA, 주간) - RRPONTSYD(익일역레포, 일별) x 1000. MacroMicro 'Fed Net Liquidity'와 동일 정의",
     "환율·귀금속·구리": "원/달러·금·은: 네이버 금융(marketindex, 일별) / 구리: FRED PCOPPUSDM(IMF 발표, 월간, 네이버엔 구리 시세 없어 대체)",
     "유동성지표": "한국은행 ECOS Open API - 한국은행 주요계정(103Y002), M2(161Y008)",
     "실탄게이지": "KOFIA FreeSIS Open API(자동 수집) 기반 계산",
@@ -284,7 +297,7 @@ BULK_CANDIDATES = [
     ("foreign_net_total", "외국인순매수"), ("indiv_net_total", "개인순매수"), ("inst_net_total", "기관순매수"),
     ("deposit_minus_rp", "예탁금-RP"), ("usd_krw", "원달러환율"), ("copper_usd", "구리가격"),
     ("ccsi", "소비자심리지수"), ("esi", "경제심리지수"), ("bsi_all_industry", "전산업업황BSI"),
-    ("news_sentiment_index", "뉴스심리지수"),
+    ("news_sentiment_index", "뉴스심리지수"), ("us_net_liquidity_bil", "미국유동성지수"),
 ]
 BULK_TRANSFORMS = [
     ("level", "원값", lambda s: s),
@@ -464,6 +477,11 @@ def build_dashboard(merged, raw_latest):
         "미국 10년물 실질금리": build_panel(merged, recent, "multi", {
             "미국 10년물 실질금리(%)": "us_real_rate_10y",
         }),
+        "미국 유동성 지수 vs 코스피": build_dual_panel(
+            merged, recent,
+            {"코스피 종가": "kospi_close"},
+            {"미국 유동성 지수(십억달러)": "us_net_liquidity_bil"},
+        ),
         "환율·귀금속·구리": build_panel(merged, recent, "split", {
             "원/달러 환율": "usd_krw",
             "금 가격(USD)": "gold_usd",
@@ -493,6 +511,7 @@ def build_dashboard(merged, raw_latest):
     panels["경제심리지수(ESI) vs 코스피"]["latest"] = latest_date_str(raw_latest, ["kospi_close", "esi"])
     panels["전산업 업황BSI vs 코스피"]["latest"] = latest_date_str(raw_latest, ["kospi_close", "bsi_all_industry"])
     panels["미국 10년물 실질금리"]["latest"] = latest_date_str(raw_latest, ["us_real_rate_10y"])
+    panels["미국 유동성 지수 vs 코스피"]["latest"] = latest_date_str(raw_latest, ["kospi_close", "us_net_liquidity_bil"])
     panels["환율·귀금속·구리"]["latest"] = latest_date_str(raw_latest, ["usd_krw", "gold_usd", "silver_usd", "copper_usd"])
 
     updated_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")

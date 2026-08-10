@@ -25,7 +25,7 @@ CANDIDATES = [
     "export_amount_daily_avg", "us_real_rate_10y", "m2_to_marketcap_ratio",
     "kospi_turnover_ratio", "foreign_net_total", "indiv_net_total", "inst_net_total",
     "deposit_minus_rp", "usd_krw", "copper_usd",
-    "ccsi", "esi", "bsi_all_industry", "news_sentiment_index",
+    "ccsi", "esi", "bsi_all_industry", "news_sentiment_index", "us_net_liquidity_bil",
 ]
 WINDOWS = [126, 252, 504, 756, 1260]
 LEADS = [21, 42, 63, 90, 126, 189, 252]
