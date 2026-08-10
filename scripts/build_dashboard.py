@@ -153,6 +153,7 @@ PANEL_SOURCES = {
     "수급주체": "데이터 터미널에서 받은 수급정리 엑셀(data/manual/수급정리*.xlsm, 종목별 개인/기관/외국인 순매수)을 KRX Open API 상장종목 목록으로 코스피/코스닥 분류해 합산 (파일은 사용자가 매일 직접 갱신)",
     "코스피 선행지수 vs YoY": "선행종합지수 YoY: 한국은행 ECOS(901Y067/I16A 원지수, 국가데이터처 작성, 월간) 전년동월대비(%) / 코스피 YoY: 네이버 금융 코스피 종가 기준 전년동일대비(%)",
     "수출금액 (일간)": "관세청 통관기준 수출금액(한국은행 ECOS 901Y118/T002, 월간 합계) ÷ 조업일수. 조업일수는 산업통상부 방식(평일 1일 + 토요일 0.5일 + 공휴일·일요일 0일)으로 자체 계산",
+    "수출금액 YoY vs 코스피": "위 수출금액(일간) 패널과 동일 소스, 전년동월대비(%)로 변환해 코스피와 겹쳐본 것",
     "미국 10년물 실질금리": "FRED(세인트루이스 연은) DFII10 - Market Yield on U.S. Treasury Securities at 10-Year Constant Maturity, Quoted on an Investment Basis, Inflation-Indexed (일별)",
     "환율·귀금속·구리": "원/달러·금·은: 네이버 금융(marketindex, 일별) / 구리: FRED PCOPPUSDM(IMF 발표, 월간, 네이버엔 구리 시세 없어 대체)",
     "유동성지표": "한국은행 ECOS Open API - 한국은행 주요계정(103Y002), M2(161Y008)",
@@ -361,10 +362,16 @@ def build_dashboard(merged, raw_latest):
             {"코스피 YoY(%)": "kospi_yoy"},
             {"선행종합지수 YoY(%)": "leading_index_yoy"},
         ),
-        "수출금액 (일간)": build_panel(merged, recent, "split", {
-            "수출금액(천불/일)": "export_amount_daily_avg",
-            "수출금액 YoY(%)": "export_amount_daily_avg_yoy",
-        }),
+        "수출금액 (일간)": build_dual_panel(
+            merged, recent,
+            {"코스피 종가": "kospi_close"},
+            {"수출금액(천불/일)": "export_amount_daily_avg"},
+        ),
+        "수출금액 YoY vs 코스피": build_dual_panel(
+            merged, recent,
+            {"코스피 종가": "kospi_close"},
+            {"수출금액 YoY(%)": "export_amount_daily_avg_yoy"},
+        ),
         "미국 10년물 실질금리": build_panel(merged, recent, "multi", {
             "미국 10년물 실질금리(%)": "us_real_rate_10y",
         }),
@@ -390,7 +397,8 @@ def build_dashboard(merged, raw_latest):
     panels["신용카드 대출수요 vs 코스피"]["latest"] = latest_date_str(raw_latest, ["kospi_close", "credit_card_loan_demand"])
     panels["비트코인 시가총액 vs 코스피"]["latest"] = latest_date_str(raw_latest, ["kospi_close", "btc_market_cap_usd"])
     panels["코스피 선행지수 vs YoY"]["latest"] = latest_date_str(raw_latest, ["kospi_yoy", "leading_index_yoy"])
-    panels["수출금액 (일간)"]["latest"] = latest_date_str(raw_latest, ["export_amount_daily_avg"])
+    panels["수출금액 (일간)"]["latest"] = latest_date_str(raw_latest, ["kospi_close", "export_amount_daily_avg"])
+    panels["수출금액 YoY vs 코스피"]["latest"] = latest_date_str(raw_latest, ["kospi_close", "export_amount_daily_avg_yoy"])
     panels["미국 10년물 실질금리"]["latest"] = latest_date_str(raw_latest, ["us_real_rate_10y"])
     panels["환율·귀금속·구리"]["latest"] = latest_date_str(raw_latest, ["usd_krw", "gold_usd", "silver_usd", "copper_usd"])
 
