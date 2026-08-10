@@ -578,7 +578,10 @@ def build_dashboard(merged, raw_latest):
   .combined-canvas-wrap {{ height:420px; position:relative; }}
   .chart-canvas-wrap {{ height:380px; position:relative; }}
   .combined-hint {{ color:#7a8290; font-size:11px; margin-bottom:10px; }}
-  .combined-legend {{ display:flex; flex-wrap:wrap; gap:6px; margin-top:14px; }}
+  .combined-legend-search {{ width:100%; box-sizing:border-box; margin-top:14px; padding:8px 10px;
+    background:#12141a; border:1px solid #2a2e37; border-radius:6px; color:#e6e6e6; font-size:13px; }}
+  .combined-legend-search:focus {{ outline:none; border-color:#4dabf7; }}
+  .combined-legend {{ display:flex; flex-wrap:wrap; gap:6px; margin-top:10px; }}
   .combined-legend-item {{ display:flex; align-items:center; gap:6px; background:#12141a; border:1px solid #2a2e37;
     border-radius:6px; padding:5px 10px; cursor:pointer; font-size:12px; color:#e6e6e6; user-select:none; }}
   .combined-legend-item:hover {{ border-color:#4dabf7; }}
@@ -777,6 +780,7 @@ function renderCombined(section) {{
     <div class="source">모든 지표를 한 차트에 모았습니다. 아래 범례를 클릭하면 해당 지표를 켜고 끌 수 있습니다.</div>
     <div class="combined-hint">지표마다 단위가 달라 각자 숨겨진 축(스케일)을 따로 씁니다 - 절대값보다는 시점/추세 비교용입니다.</div>
     <div class="combined-canvas-wrap"><canvas id="combinedChart"></canvas></div>
+    <input type="text" id="combinedLegendSearch" class="combined-legend-search" placeholder="지표 이름으로 검색 (예: M2, 신용융자, RRP)">
     <div class="combined-legend" id="combinedLegend"></div>
   </div>`;
   if (!COMBINED.items.length) return;
@@ -828,6 +832,15 @@ function renderCombined(section) {{
     }};
     legendEl.appendChild(item);
   }});
+
+  const searchEl = document.getElementById('combinedLegendSearch');
+  searchEl.oninput = () => {{
+    const q = searchEl.value.trim().toLowerCase();
+    Array.from(legendEl.children).forEach((item, i) => {{
+      const match = !q || datasets[i].label.toLowerCase().includes(q);
+      item.style.display = match ? '' : 'none';
+    }});
+  }};
 }}
 
 function makeLineChart(canvas, labels, datasets) {{
