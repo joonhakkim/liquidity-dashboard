@@ -33,6 +33,7 @@ STEPS = [
     ("fetch_dart_quarterly.py", "주식 스크리닝: DART 분기별 매출/영업이익"),
     ("fetch_dart_preliminary.py", "주식 스크리닝: DART 잠정실적(2분기 YoY 우선 소스)"),
     ("fetch_valuation_bands.py", "주식 스크리닝: PER/PBR 밴드"),
+    ("fetch_stock_issues.py", "주식 스크리닝: 시총상위50 관련 이슈·뉴스(DART 공시 + 네이버 종목뉴스)"),
     ("build_screening_page.py", "주식 스크리닝 페이지 빌드"),
     ("fetch_kospi_per_tracker.py", "코스피 선행 PER 트래커: 시총상위50 컨센서스 PER 집계(하루 1행 누적)"),
     ("fetch_kosdaq_per_tracker.py", "코스닥 선행 PER 트래커: 시총상위50 컨센서스 PER 집계(하루 1행 누적)"),

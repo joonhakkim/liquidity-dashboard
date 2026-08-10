@@ -146,6 +146,12 @@ def main():
 
     _, _, name_to_stock_code = load_corp_code_map_safe()
 
+    issues_path = os.path.join(SCREEN_DIR, "stock_issues.json")
+    issues_by_name = {}
+    if os.path.exists(issues_path):
+        with open(issues_path, "r", encoding="utf-8") as f:
+            issues_by_name = json.load(f)
+
     companies = []
     for _, row in screen.iterrows():
         name = row["종목명"]
@@ -182,6 +188,7 @@ def main():
             "pbrPercentile": 0 if isinstance(b, pd.Series) and b.get("상태") == "no_positive_bps" else nz(b.get("밴드내_위치_percentile")),
             "quarterly": quarterly_by_name.get(name, {"labels": [], "revenue": [], "op": [], "margin": []}),
             "orderBacklog": backlog_by_name.get(name),
+            "issues": issues_by_name.get(name),
         })
 
     companies.sort(key=lambda c: (c["opGrowth"] is None, -(c["opGrowth"] or 0)))
@@ -229,6 +236,14 @@ TEMPLATE = """<!doctype html>
   .per-band-wrap { margin-bottom:16px; }
   .per-band-title { color:#9aa0a6; font-size:12px; margin-bottom:6px; }
   .per-band-chart-wrap { height:280px; position:relative; }
+  .issue-list { display:flex; flex-direction:column; gap:2px; }
+  .issue-row { display:flex; align-items:baseline; gap:10px; padding:7px 4px; text-decoration:none;
+    color:#e6e6e6; border-bottom:1px solid #23262e; font-size:13px; }
+  .issue-row:hover { background:#20232b; }
+  .issue-row:last-child { border-bottom:none; }
+  .issue-date { color:#9aa0a6; font-size:12px; flex-shrink:0; width:78px; }
+  .issue-title { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .issue-source { color:#748ffc; font-size:12px; flex-shrink:0; }
   #closeBtn { float:right; background:none; border:none; color:#9aa0a6; font-size:20px; cursor:pointer; }
   .band-range-bar { display:flex; gap:6px; margin-bottom:14px; }
   .range-btn { background:#1a1d24; border:1px solid #2a2e37; color:#9aa0a6; padding:5px 12px;
@@ -395,6 +410,7 @@ function openDetail(c) {
       <div class="metric"><div class="label">현재 PER / PBR</div><div class="value">${c.currentPer !== null ? c.currentPer.toFixed(1) : 'N/A'} / ${c.currentPbr !== null ? c.currentPbr.toFixed(2) : 'N/A'}</div></div>
     </div>
     <div class="chart-wrap"><canvas id="trendChart"></canvas></div>
+    <div id="issuesSection"></div>
     <div id="backlogSection"></div>
     <div class="band-range-bar" id="bandRangeBar"></div>
     <div class="per-band-wrap">
@@ -437,8 +453,27 @@ function openDetail(c) {
     }
   });
 
+  renderIssuesSection(c);
   renderBacklogSection(c);
   loadBandCharts(c);
+}
+
+function renderIssuesSection(c) {
+  const el = document.getElementById('issuesSection');
+  if (!c.issues || c.issues.length === 0) { el.innerHTML = ''; return; }
+  const rows = c.issues.map(it => `
+    <a class="issue-row" href="${it.url}" target="_blank" rel="noopener">
+      <span class="issue-date">${it.date}</span>
+      <span class="issue-title">${it.title}</span>
+      <span class="issue-source">${it.source}</span>
+    </a>
+  `).join('');
+  el.innerHTML = `
+    <div class="per-band-wrap">
+      <div class="per-band-title">관련 이슈·뉴스 (DART 공시 + 네이버 종목뉴스, 시총 상위 50종목만 수집)</div>
+      <div class="issue-list">${rows}</div>
+    </div>
+  `;
 }
 
 let backlogChart = null;
