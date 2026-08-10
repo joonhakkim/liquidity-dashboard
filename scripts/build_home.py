@@ -42,7 +42,13 @@ TEMPLATE = """<!doctype html>
     <a class="card" href="screening.html">
       <div class="icon">&#128202;</div>
       <h2>주식 스크리닝</h2>
-      <p>시가총액 2000억원 이상 &amp; 영업이익 컨센서스 고성장 종목 - 분기 실적, PER/PBR 밴드 위치까지 확인.</p>
+      <p>시가총액 3000억원 이상 종목 대상, 영업이익 증가율/PER 밴드 위치로 직접 필터링 - 분기 실적, PER/PBR 밴드까지 확인.</p>
+      <div class="arrow">바로가기 &rarr;</div>
+    </a>
+    <a class="card" href="per_tracker.html">
+      <div class="icon">&#128201;</div>
+      <h2>코스피 선행 PER 트래커</h2>
+      <p>코스피 시총 상위 50종목의 후행/당해선행(2026E)/차년선행(2027E) PER을 시가총액 가중으로 집계 - 코스피 지수와 함께 추적.</p>
       <div class="arrow">바로가기 &rarr;</div>
     </a>
   </div>

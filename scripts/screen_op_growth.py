@@ -22,8 +22,8 @@ DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data")
 MANUAL_DIR = os.path.join(DATA_DIR, "manual")
 OUT_PATH = os.path.join(DATA_DIR, "screening", "op_growth_screen.csv")
 
-MIN_MARKET_CAP = 200_000_000_000  # 2000억원
-MIN_OP_GROWTH = 0.5  # 50%
+MIN_MARKET_CAP = 300_000_000_000  # 3000억원 (DART 일일 API 호출 한도 내에서 최대한 넓힌 값 - 449개)
+MIN_OP_GROWTH = -10  # 사실상 무제한(적자전환 등 극단치만 배제) - 실제 필터링은 웹페이지에서
 
 
 def find_workbook():

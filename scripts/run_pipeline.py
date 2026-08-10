@@ -32,6 +32,8 @@ STEPS = [
     ("fetch_dart_preliminary.py", "주식 스크리닝: DART 잠정실적(2분기 YoY 우선 소스)"),
     ("fetch_valuation_bands.py", "주식 스크리닝: PER/PBR 밴드"),
     ("build_screening_page.py", "주식 스크리닝 페이지 빌드"),
+    ("fetch_kospi_per_tracker.py", "코스피 선행 PER 트래커: 시총상위50 컨센서스 PER 집계(하루 1행 누적)"),
+    ("build_per_tracker_page.py", "코스피 선행 PER 트래커 페이지 빌드"),
     ("build_home.py", "홈페이지 빌드"),
 ]
 

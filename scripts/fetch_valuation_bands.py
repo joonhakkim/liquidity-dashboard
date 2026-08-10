@@ -180,13 +180,21 @@ def value_as_of(points, target_date):
 
 def build_band(price_history, value_points, months, current_price):
     """value_points: ttm_eps_series 또는 bps_series 결과. 반환: (multiples, band_series_by_key, current_ratio, summary)"""
+    if not value_points:
+        return None  # EPS/BPS 자체를 전혀 못 구함(재무제표 조회 실패 등) - 진짜 데이터 없음
+
     ratios = []
     for d, close in months:
         v = value_as_of(value_points, d)
         if v is not None and v > 0:
             ratios.append(close / v)
     if not ratios:
-        return None
+        # 흑자전환 이력이 아예 없음(EPS/BPS가 계속 0 이하) - 빈 차트로 두지 않고 밴드선을
+        # 0에 눌러서 그려 "밴드 맨 밑바닥"이라는 걸 그래프로도 보여준다.
+        zero_line = [[d.isoformat(), 0.0] for d, _ in months]
+        return [0.0], {"x0.0": zero_line}, {
+            "current": None, "band_min": 0.0, "band_max": 0.0, "percentile": 0.0, "n_obs": 0,
+        }
 
     latest_value = value_as_of(value_points, months[-1][0]) if months else None
     current_ratio = (current_price / latest_value) if latest_value and latest_value > 0 else None
@@ -264,12 +272,13 @@ def main():
         eps_points = ttm_eps_series(quarterly)
         per_result = build_band(price_history, eps_points, months, current_price)
         if per_result is None:
-            per_summary_rows.append({"종목명": name, "상태": "no_positive_ttm_eps"})
+            per_summary_rows.append({"종목명": name, "상태": "no_data"})
             per_multiples, per_bands = None, None
         else:
             per_multiples, per_bands, s = per_result
             per_summary_rows.append({
-                "종목명": name, "상태": "ok", "현재PER": s["current"],
+                "종목명": name, "상태": "no_positive_ttm_eps" if s["n_obs"] == 0 else "ok",
+                "현재PER": s["current"],
                 "밴드_최저PER": s["band_min"], "밴드_최고PER": s["band_max"],
                 "밴드내_위치_percentile": s["percentile"], "관측치수": s["n_obs"],
             })
@@ -277,12 +286,13 @@ def main():
         bps_points = bps_series(quarterly, shares)
         pbr_result = build_band(price_history, bps_points, months, current_price)
         if pbr_result is None:
-            pbr_summary_rows.append({"종목명": name, "상태": "no_positive_bps" if shares else "shares_not_found"})
+            pbr_summary_rows.append({"종목명": name, "상태": "no_data" if shares else "shares_not_found"})
             pbr_multiples, pbr_bands = None, None
         else:
             pbr_multiples, pbr_bands, s = pbr_result
             pbr_summary_rows.append({
-                "종목명": name, "상태": "ok", "현재PBR": s["current"],
+                "종목명": name, "상태": "no_positive_bps" if s["n_obs"] == 0 else "ok",
+                "현재PBR": s["current"],
                 "밴드_최저PBR": s["band_min"], "밴드_최고PBR": s["band_max"],
                 "밴드내_위치_percentile": s["percentile"], "관측치수": s["n_obs"],
             })
