@@ -294,13 +294,21 @@ BULK_TRANSFORMS = [
     ("yoy", "YoY", lambda s: s.pct_change(252)),
 ]
 
+# 이미 YoY·비율·%로 변환된 컬럼("한국 M2 YoY"의 QoQ 같은 "변화율의 변화율"은 의미가 불분명함) -
+# 이런 건 원값(level)만 남기고 WoW/MoM/QoQ/YoY 재변환은 안 한다.
+BULK_ALREADY_RATE_COLS = {
+    "korea_m2_yoy", "us_m2_yoy", "margin_liquidation_ratio", "leading_index_yoy",
+    "m2_to_marketcap_ratio", "kospi_turnover_ratio", "us_real_rate_10y",
+}
+
 
 def build_bulk_items(window_df):
     items = []
     for col, kor_label in BULK_CANDIDATES:
         if col not in window_df.columns or not has_data(window_df, col):
             continue
-        for tkey, tlabel, tfunc in BULK_TRANSFORMS:
+        transforms = BULK_TRANSFORMS[:1] if col in BULK_ALREADY_RATE_COLS else BULK_TRANSFORMS
+        for tkey, tlabel, tfunc in transforms:
             series = tfunc(window_df[col]).replace([float("inf"), float("-inf")], None)
             if not series.notna().any():
                 continue
