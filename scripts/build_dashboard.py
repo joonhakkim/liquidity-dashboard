@@ -243,16 +243,22 @@ MASTER_SERIES = [
     # 우상향하는 지표(신용융자·예탁금류)를 원값 그대로 그리면 "그냥 계속 오르는 선"으로만 보여
     # 위험 구간 판단이 안 돼서 percentile로, YoY/금리처럼 원래도 오르내리지만 최적 변환이 따로
     # 있는 지표는 analysis_transform_search.py 탐색 결과로 zscore/ma_gap을 골랐다.
-    ("코스피 종가", "kospi_close", True, 0, None),
-    ("신용거래융자 백분위(252일 선행정렬)", "credit_loan_total", False, 252, "percentile"),  # corr -0.73(level)/-0.54(pct)
-    ("미국 M2 YoY z-score(252일 선행정렬)", "us_m2_yoy", False, 252, "zscore"),  # corr 0.70(zscore_756) > 0.68(level)
-    ("예탁금-RP실탄 백분위(252일 선행정렬)", "deposit_minus_rp", False, 252, "percentile"),  # corr -0.61(level)
-    ("M2/시총%(252일 선행정렬)", "m2_to_marketcap_ratio", False, 252, None),  # corr 0.54
-    ("한국 M2 YoY 이평괴리율(42일 선행정렬)", "korea_m2_yoy", False, 42, "ma_gap"),  # corr 0.51(ma_gap_756) > 0.41(level)
-    ("실탄합계 백분위(252일 선행정렬)", "dry_powder", False, 252, "percentile"),  # corr -0.47(level, 표본 늘면 불안정)
-    ("투자자예탁금 백분위(252일 선행정렬)", "investor_deposit", False, 252, "percentile"),  # corr -0.55(level)
-    ("미국 10년물 실질금리 z-score(21일 선행정렬)", "us_real_rate_10y", False, 21, "zscore"),  # corr -0.65(zscore_756) > -0.48(level)
-    ("신용카드 대출수요BSI(126일 선행정렬)", "credit_card_loan_demand", False, 126, None),  # corr -0.31(QoQ 기준, 표시는 level)
+    # 여섯번째 값(선택) = zscore/ma_gap 계산용 롤링 윈도우를 기본값(TRANSFORM_WINDOW=756=3년) 대신
+    # 다른 값으로 쓰고 싶을 때만 지정. None이면 기본값 사용.
+    ("코스피 종가", "kospi_close", True, 0, None, None),
+    ("신용거래융자 백분위(252일 선행정렬)", "credit_loan_total", False, 252, "percentile", None),  # corr -0.73(level)/-0.54(pct)
+    ("미국 M2 YoY z-score(252일 선행정렬)", "us_m2_yoy", False, 252, "zscore", None),  # corr 0.70(zscore_756) > 0.68(level)
+    ("예탁금-RP실탄 백분위(252일 선행정렬)", "deposit_minus_rp", False, 252, "percentile", None),  # corr -0.61(level)
+    ("M2/시총%(252일 선행정렬)", "m2_to_marketcap_ratio", False, 252, None, None),  # corr 0.54
+    ("한국 M2 YoY 이평괴리율(42일 선행정렬)", "korea_m2_yoy", False, 42, "ma_gap", None),  # corr 0.51(ma_gap_756) > 0.41(level)
+    ("실탄합계 백분위(252일 선행정렬)", "dry_powder", False, 252, "percentile", None),  # corr -0.47(level, 표본 늘면 불안정)
+    ("투자자예탁금 백분위(252일 선행정렬)", "investor_deposit", False, 252, "percentile", None),  # corr -0.55(level)
+    ("미국 10년물 실질금리 z-score(21일 선행정렬)", "us_real_rate_10y", False, 21, "zscore", None),  # corr -0.65(zscore_756) > -0.48(level)
+    ("신용카드 대출수요BSI(126일 선행정렬)", "credit_card_loan_demand", False, 126, None, None),  # corr -0.31(QoQ 기준, 표시는 level)
+    ("소비자심리지수 이평괴리율(252일 선행정렬)", "ccsi", False, 252, "ma_gap", 1260),  # corr -0.60(ma_gap_1260)
+    ("경제심리지수(252일 선행정렬)", "esi", False, 252, None, None),  # corr -0.59(level)
+    ("전산업 업황BSI(252일 선행정렬)", "bsi_all_industry", False, 252, None, None),  # corr -0.50(level)
+    ("뉴스심리지수 이평괴리율(21일 선행정렬)", "news_sentiment_index", False, 21, "ma_gap", None),  # corr 0.48(ma_gap_756)
 ]
 TRANSFORM_WINDOW = 756  # zscore/ma_gap 계산용 이동평균·표준편차 창(3년)
 
@@ -279,10 +285,11 @@ def detect_crash_starts(merged):
 def build_combined(merged, window_df):
     items = []
     percentile_windows = load_percentile_windows()
-    for label, col, default_visible, lead_days, transform in MASTER_SERIES:
+    for label, col, default_visible, lead_days, transform, transform_window in MASTER_SERIES:
         if col not in window_df.columns or not has_data(window_df, col):
             continue
         series = window_df[col]
+        window_n = transform_window or TRANSFORM_WINDOW
         if transform == "percentile":
             window = percentile_windows.get(col, {}).get("window_days", PERCENTILE_WINDOW_DEFAULT)
             if window == "expanding":
@@ -292,10 +299,10 @@ def build_combined(merged, window_df):
                     lambda x: (x.iloc[-1] > x).mean() * 100, raw=False
                 )
         elif transform == "zscore":
-            roll = series.rolling(TRANSFORM_WINDOW, min_periods=60)
+            roll = series.rolling(window_n, min_periods=60)
             series = (series - roll.mean()) / roll.std()
         elif transform == "ma_gap":
-            series = series / series.rolling(TRANSFORM_WINDOW, min_periods=60).mean() - 1
+            series = series / series.rolling(window_n, min_periods=60).mean() - 1
         if lead_days:
             # shift(양수) = lead_days일 전 값을 오늘 자리로 당겨온다 -> 이 지표가 "예측하는"
             # 미래 시점과 같은 x좌표에 그려져서, 급락 세로선과 시간축이 맞는지 바로 비교 가능.
@@ -422,9 +429,7 @@ def build_dashboard(merged, raw_latest):
 <head>
 <meta charset="utf-8">
 <title>한국 증시 유동성 스크리닝 대시보드</title>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
-<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3"></script>
-<style>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script><style>
   body {{ font-family: -apple-system, "Malgun Gothic", sans-serif; background:#0f1115; color:#e6e6e6; margin:0; padding:24px; }}
   h1 {{ font-size:20px; margin-bottom:4px; }}
   .updated {{ color:#9aa0a6; font-size:13px; margin-bottom:20px; }}
@@ -662,16 +667,6 @@ function renderCombined(section) {{
   COMBINED.items.forEach((item, i) => {{
     scales['axis_' + i] = {{ display: false }};
   }});
-  // 코스피 -15%+ 급락이 시작된 시점(고점일)을 세로 점선으로 표시한다 - MASTER_SERIES로
-  // 고른 지표들이 실제로 이 시점보다 먼저 움직였는지 눈으로 검증할 수 있게 하기 위함
-  // (detect_crash_starts, analysis_leading_indicators.py 참고).
-  const crashAnnotations = {{}};
-  (COMBINED.crashStarts || []).forEach((d, i) => {{
-    crashAnnotations['crash' + i] = {{
-      type: 'line', xMin: d, xMax: d, borderColor: '#ff6b6b', borderWidth: 1.5, borderDash: [6, 4],
-      label: {{ display: true, content: '급락 시작', position: 'start', color: '#ff6b6b', font: {{ size: 10 }}, backgroundColor: 'rgba(15,17,21,0.8)' }},
-    }};
-  }});
   const chart = new Chart(document.getElementById('combinedChart'), {{
     type: 'line',
     data: {{ labels: COMBINED.labels, datasets }},
@@ -680,7 +675,7 @@ function renderCombined(section) {{
       maintainAspectRatio: false,
       interaction: {{ mode: 'index', intersect: false }},
       scales,
-      plugins: {{ legend: {{ display: false }}, annotation: {{ annotations: crashAnnotations }} }},
+      plugins: {{ legend: {{ display: false }} }},
     }},
   }});
   registerChart(chart);
