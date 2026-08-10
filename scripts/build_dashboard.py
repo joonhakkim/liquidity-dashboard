@@ -137,10 +137,14 @@ def build_merged():
             merged["fed_total_assets"] - merged["us_treasury_tga"] - merged["us_reverse_repo"] * 1000
         )
         merged["us_net_liquidity_bil"] = merged["us_net_liquidity"] / 1000  # 백만달러 -> 십억달러(가독성)
+        merged["fed_total_assets_bil"] = merged["fed_total_assets"] / 1000
+        merged["us_treasury_tga_bil"] = merged["us_treasury_tga"] / 1000
         keys = ("fed_total_assets", "us_treasury_tga", "us_reverse_repo")
         if all(k in raw_latest for k in keys):
             raw_latest["us_net_liquidity"] = min(raw_latest[k] for k in keys)
             raw_latest["us_net_liquidity_bil"] = raw_latest["us_net_liquidity"]
+            raw_latest["fed_total_assets_bil"] = raw_latest["fed_total_assets"]
+            raw_latest["us_treasury_tga_bil"] = raw_latest["us_treasury_tga"]
 
     os.makedirs(DATA_DIR, exist_ok=True)
     merged.to_csv(MERGED_PATH, index=False, encoding="utf-8-sig")
@@ -174,6 +178,7 @@ PANEL_SOURCES = {
     "전산업 업황BSI vs 코스피": "한국은행 ECOS 512Y013(기업경기조사-실적, 월간) - 전산업 업황실적BSI, 100=중립",
     "미국 10년물 실질금리": "FRED(세인트루이스 연은) DFII10 - Market Yield on U.S. Treasury Securities at 10-Year Constant Maturity, Quoted on an Investment Basis, Inflation-Indexed (일별)",
     "미국 유동성 지수 vs 코스피": "FRED(세인트루이스 연은) WALCL(연준 총자산, 주간) - WTREGEN(재무부 TGA, 주간) - RRPONTSYD(익일역레포, 일별) x 1000. MacroMicro 'Fed Net Liquidity'와 동일 정의",
+    "미국 연준 유동성 구성요소": "FRED WALCL(연준 총자산) / WTREGEN(재무부 일반계정 TGA) / RRPONTSYD(익일역레포 ON RRP) - 전부 십억달러, 순유동성 = 총자산-TGA-RRP",
     "환율·귀금속·구리": "원/달러·금·은: 네이버 금융(marketindex, 일별) / 구리: FRED PCOPPUSDM(IMF 발표, 월간, 네이버엔 구리 시세 없어 대체)",
     "유동성지표": "한국은행 ECOS Open API - 한국은행 주요계정(103Y002), M2(161Y008)",
     "실탄게이지": "KOFIA FreeSIS Open API(자동 수집) 기반 계산",
@@ -482,6 +487,12 @@ def build_dashboard(merged, raw_latest):
             {"코스피 종가": "kospi_close"},
             {"미국 유동성 지수(십억달러)": "us_net_liquidity_bil"},
         ),
+        "미국 연준 유동성 구성요소": build_panel(merged, recent, "split", {
+            "연준 총자산(십억달러)": "fed_total_assets_bil",
+            "재무부 TGA(십억달러)": "us_treasury_tga_bil",
+            "익일역레포 ON RRP(십억달러)": "us_reverse_repo",
+            "미국 유동성 지수(십억달러)": "us_net_liquidity_bil",
+        }),
         "환율·귀금속·구리": build_panel(merged, recent, "split", {
             "원/달러 환율": "usd_krw",
             "금 가격(USD)": "gold_usd",
@@ -512,6 +523,7 @@ def build_dashboard(merged, raw_latest):
     panels["전산업 업황BSI vs 코스피"]["latest"] = latest_date_str(raw_latest, ["kospi_close", "bsi_all_industry"])
     panels["미국 10년물 실질금리"]["latest"] = latest_date_str(raw_latest, ["us_real_rate_10y"])
     panels["미국 유동성 지수 vs 코스피"]["latest"] = latest_date_str(raw_latest, ["kospi_close", "us_net_liquidity_bil"])
+    panels["미국 연준 유동성 구성요소"]["latest"] = latest_date_str(raw_latest, ["fed_total_assets_bil", "us_treasury_tga_bil", "us_reverse_repo", "us_net_liquidity_bil"])
     panels["환율·귀금속·구리"]["latest"] = latest_date_str(raw_latest, ["usd_krw", "gold_usd", "silver_usd", "copper_usd"])
 
     updated_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
