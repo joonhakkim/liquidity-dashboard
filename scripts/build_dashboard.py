@@ -234,22 +234,23 @@ MASTER_SERIES = [
     # 일수만큼 시계열을 앞으로 밀어서(shift) 표시한다 - 각 지표가 자기 축으로 자동 스케일링돼서
     # "다 똑같이 시작하는 것처럼" 보이는 착시를 없애고, 실제로 급락 시점과 시간축이 맞는지
     # (선행성이 진짜인지) 눈으로 검증할 수 있게 하기 위함.
-    # 다섯번째 값(use_percentile=True) = 레벨 자체가 추세적으로 계속 우상향하는 지표들
-    # (신용융자·예탁금류)은 원값을 그대로 그리면 "그냥 계속 오르는 선"으로만 보여 위험 구간
-    # 판단이 안 된다 - 최근 3년(756거래일) 롤링 기준 백분위(0~100, 100=역대 최고 수준)로 바꿔서
-    # "지금이 역사적으로 상위 몇 %인가"를 바로 보이게 한다(예측력은 원값보다 약간 떨어지지만
-    # 해석 가능성이 훨씬 좋아짐 - credit_loan_total 기준 corr -0.73(level) -> -0.54(percentile)).
-    ("코스피 종가", "kospi_close", True, 0, False),
-    ("신용거래융자 백분위(252일 선행정렬)", "credit_loan_total", False, 252, True),  # corr -0.73(level)/-0.54(pct)
-    ("미국 M2 YoY%(21일 선행정렬)", "us_m2_yoy", False, 21, False),  # corr 0.68
-    ("예탁금-RP실탄 백분위(252일 선행정렬)", "deposit_minus_rp", False, 252, True),  # corr -0.61(level)
-    ("M2/시총%(252일 선행정렬)", "m2_to_marketcap_ratio", False, 252, False),  # corr 0.54
-    ("한국 M2 YoY%(21일 선행정렬)", "korea_m2_yoy", False, 21, False),  # corr 0.41
-    ("실탄합계 백분위(252일 선행정렬)", "dry_powder", False, 252, True),  # corr -0.47(level)
-    ("투자자예탁금 백분위(252일 선행정렬)", "investor_deposit", False, 252, True),  # corr -0.55(level)
-    ("미국 10년물 실질금리(21일 선행정렬)", "us_real_rate_10y", False, 21, False),  # corr -0.48
-    ("신용카드 대출수요BSI(126일 선행정렬)", "credit_card_loan_demand", False, 126, False),  # corr -0.31(QoQ 기준, 표시는 level)
+    # 다섯번째 값(transform) = None(원값) / "percentile"(0~100, 역대 상위 몇%) / "zscore"(이동평균
+    # 대비 표준편차 단위 괴리) / "ma_gap"(이동평균 대비 괴리율 %). 레벨 자체가 추세적으로 계속
+    # 우상향하는 지표(신용융자·예탁금류)를 원값 그대로 그리면 "그냥 계속 오르는 선"으로만 보여
+    # 위험 구간 판단이 안 돼서 percentile로, YoY/금리처럼 원래도 오르내리지만 최적 변환이 따로
+    # 있는 지표는 analysis_transform_search.py 탐색 결과로 zscore/ma_gap을 골랐다.
+    ("코스피 종가", "kospi_close", True, 0, None),
+    ("신용거래융자 백분위(252일 선행정렬)", "credit_loan_total", False, 252, "percentile"),  # corr -0.73(level)/-0.54(pct)
+    ("미국 M2 YoY z-score(252일 선행정렬)", "us_m2_yoy", False, 252, "zscore"),  # corr 0.70(zscore_756) > 0.68(level)
+    ("예탁금-RP실탄 백분위(252일 선행정렬)", "deposit_minus_rp", False, 252, "percentile"),  # corr -0.61(level)
+    ("M2/시총%(252일 선행정렬)", "m2_to_marketcap_ratio", False, 252, None),  # corr 0.54
+    ("한국 M2 YoY 이평괴리율(42일 선행정렬)", "korea_m2_yoy", False, 42, "ma_gap"),  # corr 0.51(ma_gap_756) > 0.41(level)
+    ("실탄합계 백분위(252일 선행정렬)", "dry_powder", False, 252, "percentile"),  # corr -0.47(level, 표본 늘면 불안정)
+    ("투자자예탁금 백분위(252일 선행정렬)", "investor_deposit", False, 252, "percentile"),  # corr -0.55(level)
+    ("미국 10년물 실질금리 z-score(21일 선행정렬)", "us_real_rate_10y", False, 21, "zscore"),  # corr -0.65(zscore_756) > -0.48(level)
+    ("신용카드 대출수요BSI(126일 선행정렬)", "credit_card_loan_demand", False, 126, None),  # corr -0.31(QoQ 기준, 표시는 level)
 ]
+TRANSFORM_WINDOW = 756  # zscore/ma_gap 계산용 이동평균·표준편차 창(3년)
 
 PERCENTILE_WINDOW_DEFAULT = 756  # 3년(거래일) - optimize_percentile_window.py가 종목별 최적값을
 # data/percentile_windows.json 에 저장하면 그쪽을 우선 쓰고, 없는 지표는 이 기본값을 쓴다.
@@ -274,11 +275,11 @@ def detect_crash_starts(merged):
 def build_combined(merged, window_df):
     items = []
     percentile_windows = load_percentile_windows()
-    for label, col, default_visible, lead_days, use_percentile in MASTER_SERIES:
+    for label, col, default_visible, lead_days, transform in MASTER_SERIES:
         if col not in window_df.columns or not has_data(window_df, col):
             continue
         series = window_df[col]
-        if use_percentile:
+        if transform == "percentile":
             window = percentile_windows.get(col, {}).get("window_days", PERCENTILE_WINDOW_DEFAULT)
             if window == "expanding":
                 series = series.expanding(min_periods=250).apply(lambda x: (x.iloc[-1] > x).mean() * 100, raw=False)
@@ -286,6 +287,11 @@ def build_combined(merged, window_df):
                 series = series.rolling(window, min_periods=min(250, window)).apply(
                     lambda x: (x.iloc[-1] > x).mean() * 100, raw=False
                 )
+        elif transform == "zscore":
+            roll = series.rolling(TRANSFORM_WINDOW, min_periods=60)
+            series = (series - roll.mean()) / roll.std()
+        elif transform == "ma_gap":
+            series = series / series.rolling(TRANSFORM_WINDOW, min_periods=60).mean() - 1
         if lead_days:
             # shift(양수) = lead_days일 전 값을 오늘 자리로 당겨온다 -> 이 지표가 "예측하는"
             # 미래 시점과 같은 x좌표에 그려져서, 급락 세로선과 시간축이 맞는지 바로 비교 가능.
