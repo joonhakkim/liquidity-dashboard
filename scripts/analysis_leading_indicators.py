@@ -15,6 +15,8 @@
 import numpy as np
 import pandas as pd
 
+from crash_detection import detect_crashes
+
 MERGED_PATH = "../data/merged.csv"
 
 CANDIDATES = [
@@ -39,18 +41,12 @@ CRASH_DRAWDOWN_THRESHOLD = -0.15
 
 
 def detect_crash_starts(kospi):
+    """crash_detection.py의 zigzag 탐지(하락장 안 저점 대비 추가 급락도 잡음)를 재사용."""
     kospi = kospi.copy()
-    kospi["roll_max"] = kospi["kospi_close"].cummax()
-    kospi["drawdown"] = kospi["kospi_close"] / kospi["roll_max"] - 1
-    starts, in_crash, peak_price, peak_date = [], False, None, None
-    for _, row in kospi.iterrows():
-        if row["kospi_close"] >= (peak_price or -np.inf):
-            peak_price, peak_date = row["kospi_close"], row["date"]
-            in_crash = False
-        if row["drawdown"] <= CRASH_DRAWDOWN_THRESHOLD and not in_crash:
-            starts.append(peak_date)
-            in_crash = True
-    return sorted(set(starts)), kospi
+    roll_max = kospi["kospi_close"].cummax()
+    kospi["drawdown"] = kospi["kospi_close"] / roll_max - 1
+    starts = sorted(set(c[0] for c in detect_crashes(kospi)))
+    return starts, kospi
 
 
 def main():

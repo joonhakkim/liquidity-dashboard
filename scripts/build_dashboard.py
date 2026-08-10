@@ -251,44 +251,41 @@ MASTER_SERIES = [
     ("신용카드 대출수요BSI(126일 선행정렬)", "credit_card_loan_demand", False, 126, False),  # corr -0.31(QoQ 기준, 표시는 level)
 ]
 
-PERCENTILE_WINDOW = 756  # 3년(거래일 기준) 롤링 백분위
+PERCENTILE_WINDOW_DEFAULT = 756  # 3년(거래일) - optimize_percentile_window.py가 종목별 최적값을
+# data/percentile_windows.json 에 저장하면 그쪽을 우선 쓰고, 없는 지표는 이 기본값을 쓴다.
+PERCENTILE_WINDOWS_PATH = os.path.join(DATA_DIR, "percentile_windows.json")
 
 
-CRASH_DRAWDOWN_THRESHOLD = -0.15  # analysis_leading_indicators.py와 동일한 기준
+def load_percentile_windows():
+    if os.path.exists(PERCENTILE_WINDOWS_PATH):
+        with open(PERCENTILE_WINDOWS_PATH, encoding="utf-8") as f:
+            return json.load(f)
+    return {}
 
 
 def detect_crash_starts(merged):
-    """코스피가 롤링 고점 대비 CRASH_DRAWDOWN_THRESHOLD 이상 빠지기 시작한 시점(고점일) 리스트.
-    통합차트에 세로선으로 표시해서, MASTER_SERIES로 고른 지표들이 실제로 그 시점 이전에
-    먼저 움직였는지 눈으로 확인할 수 있게 한다(analysis_leading_indicators.py와 같은 로직)."""
-    kospi = merged[["date", "kospi_close"]].dropna().sort_values("date")
-    if kospi.empty:
-        return []
-    roll_max = kospi["kospi_close"].cummax()
-    drawdown = kospi["kospi_close"] / roll_max - 1
-    starts = []
-    in_crash = False
-    peak_price, peak_date = None, None
-    for d, price, dd in zip(kospi["date"], kospi["kospi_close"], drawdown):
-        if price >= (peak_price or float("-inf")):
-            peak_price, peak_date = price, d
-            in_crash = False
-        if dd <= CRASH_DRAWDOWN_THRESHOLD and not in_crash:
-            starts.append(peak_date)
-            in_crash = True
-    return sorted(set(pd.Timestamp(d).strftime("%Y-%m-%d") for d in starts))
+    """코스피 -15%+ 급락 구간(고점일) 리스트. 통합차트에 세로선으로 표시해서, MASTER_SERIES로
+    고른 지표들이 실제로 그 시점 이전에 먼저 움직였는지 눈으로 확인할 수 있게 한다.
+    (crash_detection.py의 zigzag 탐지 - 하락장 안의 저점 대비 추가 급락도 놓치지 않는다.)"""
+    from crash_detection import detect_crash_start_dates
+    return detect_crash_start_dates(merged)
 
 
 def build_combined(merged, window_df):
     items = []
+    percentile_windows = load_percentile_windows()
     for label, col, default_visible, lead_days, use_percentile in MASTER_SERIES:
         if col not in window_df.columns or not has_data(window_df, col):
             continue
         series = window_df[col]
         if use_percentile:
-            series = series.rolling(PERCENTILE_WINDOW, min_periods=250).apply(
-                lambda x: (x.iloc[-1] > x).mean() * 100, raw=False
-            )
+            window = percentile_windows.get(col, {}).get("window_days", PERCENTILE_WINDOW_DEFAULT)
+            if window == "expanding":
+                series = series.expanding(min_periods=250).apply(lambda x: (x.iloc[-1] > x).mean() * 100, raw=False)
+            else:
+                series = series.rolling(window, min_periods=min(250, window)).apply(
+                    lambda x: (x.iloc[-1] > x).mean() * 100, raw=False
+                )
         if lead_days:
             # shift(양수) = lead_days일 전 값을 오늘 자리로 당겨온다 -> 이 지표가 "예측하는"
             # 미래 시점과 같은 x좌표에 그려져서, 급락 세로선과 시간축이 맞는지 바로 비교 가능.
