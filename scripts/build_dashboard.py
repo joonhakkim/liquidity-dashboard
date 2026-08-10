@@ -230,16 +230,20 @@ MASTER_SERIES = [
     # 최대낙폭"과의 상관관계가 뚜렷했던 지표만 남겼다(2026-08 분석, scratchpad/leading_indicator_analysis.py).
     # 표본이 4개뿐이라 확정 법칙은 아니고 "이 데이터에서 방향성이 일관된 지표" 정도로 취급할 것.
     # 개별 패널(수급주체/유동성지표/실탄게이지 등)은 이 리스트와 무관하게 그대로 유지된다.
-    ("코스피 종가", "kospi_close", True),
-    ("신용거래융자 합계", "credit_loan_total", False),  # corr -0.73 (252일 선행) - 레버리지 과열->강제청산
-    ("미국 M2 YoY(%)", "us_m2_yoy", False),  # corr 0.68 (21일 선행) - 글로벌 유동성
-    ("예탁금-RP(실탄)", "deposit_minus_rp", False),  # corr -0.61 (252일 선행)
-    ("M2/코스피 시가총액(%)", "m2_to_marketcap_ratio", False),  # corr 0.54 (252일 선행) - 시총 과열도
-    ("한국 M2 YoY(%)", "korea_m2_yoy", False),  # corr 0.41 (21일 선행) - 통화긴축 선행신호
-    ("실탄 합계(예탁금+CMA)", "dry_powder", False),  # corr -0.47 (252일 선행)
-    ("투자자예탁금", "investor_deposit", False),  # corr -0.55 (252일 선행)
-    ("미국 10년물 실질금리(%)", "us_real_rate_10y", False),  # corr -0.48 (21일 선행)
-    ("신용카드 대출수요(BSI)", "credit_card_loan_demand", False),  # corr -0.31 (QoQ, 126일 선행) - 약하지만 설문 기반이라 태생적으로 선행성
+    # 네번째 값 = analysis_leading_indicators.py에서 찾은 최적 선행일수. 그래프에 그릴 때 이
+    # 일수만큼 시계열을 앞으로 밀어서(shift) 표시한다 - 각 지표가 자기 축으로 자동 스케일링돼서
+    # "다 똑같이 시작하는 것처럼" 보이는 착시를 없애고, 실제로 급락 시점과 시간축이 맞는지
+    # (선행성이 진짜인지) 눈으로 검증할 수 있게 하기 위함.
+    ("코스피 종가", "kospi_close", True, 0),
+    ("신용거래융자 합계(252일 선행정렬)", "credit_loan_total", False, 252),  # corr -0.73
+    ("미국 M2 YoY%(21일 선행정렬)", "us_m2_yoy", False, 21),  # corr 0.68
+    ("예탁금-RP실탄(252일 선행정렬)", "deposit_minus_rp", False, 252),  # corr -0.61
+    ("M2/시총%(252일 선행정렬)", "m2_to_marketcap_ratio", False, 252),  # corr 0.54
+    ("한국 M2 YoY%(21일 선행정렬)", "korea_m2_yoy", False, 21),  # corr 0.41
+    ("실탄합계(252일 선행정렬)", "dry_powder", False, 252),  # corr -0.47
+    ("투자자예탁금(252일 선행정렬)", "investor_deposit", False, 252),  # corr -0.55
+    ("미국 10년물 실질금리(21일 선행정렬)", "us_real_rate_10y", False, 21),  # corr -0.48
+    ("신용카드 대출수요BSI(126일 선행정렬)", "credit_card_loan_demand", False, 126),  # corr -0.31(QoQ 기준, 표시는 level)
 ]
 
 
@@ -270,13 +274,18 @@ def detect_crash_starts(merged):
 
 def build_combined(merged, window_df):
     items = []
-    for label, col, default_visible in MASTER_SERIES:
+    for label, col, default_visible, lead_days in MASTER_SERIES:
         if col not in window_df.columns or not has_data(window_df, col):
             continue
+        series = window_df[col]
+        if lead_days:
+            # shift(양수) = lead_days일 전 값을 오늘 자리로 당겨온다 -> 이 지표가 "예측하는"
+            # 미래 시점과 같은 x좌표에 그려져서, 급락 세로선과 시간축이 맞는지 바로 비교 가능.
+            series = series.shift(lead_days)
         items.append({
             "label": label,
             "column": col,
-            "data": col_or_none(window_df, col),
+            "data": [None if pd.isna(v) else round(float(v), 4) for v in series],
             "default_visible": default_visible,
         })
     dates = window_df["date"].dt.strftime("%Y-%m-%d").tolist()
