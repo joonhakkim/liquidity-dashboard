@@ -37,7 +37,10 @@ PER_SUMMARY_PATH = os.path.join(DATA_DIR, "screening", "per_band.csv")
 PBR_SUMMARY_PATH = os.path.join(DATA_DIR, "screening", "pbr_band.csv")
 DETAIL_OUT_DIR = os.path.join(DOCS_DIR, "screening_data")
 
-EPS_NAMES = ["기본주당이익(손실)", "기본주당이익"]
+EPS_NAMES = [
+    "기본주당이익(손실)", "기본주당이익", "보통주기본주당이익", "보통주기본주당이익(손실)",
+    "보통주 기본주당이익", "기본및희석주당이익", "기본및희석주당이익(손실)",
+]  # 회사마다 표기가 다르다(우선주 발행사는 보통주/우선주로 나눠 공시하기도 함) - 여러 후보 순차 시도
 EQUITY_NAMES = ["지배기업의 소유주에게 귀속되는 자본", "지배기업 소유주지분", "자본총계"]
 
 YEARS = [2023, 2024, 2025, 2026]

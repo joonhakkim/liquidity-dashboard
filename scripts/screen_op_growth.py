@@ -11,12 +11,15 @@ data/manual/*데이터 모음*.xlsm (에프앤가이드류 컨센서스 워크�
 """
 import glob
 import os
+import re
 import warnings
 
 import openpyxl
 import pandas as pd
 
 warnings.filterwarnings("ignore")
+
+EXCLUDE_NAME_RE = re.compile(r"스팩|기업인수목적|ETF|ETN$")
 
 DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data")
 MANUAL_DIR = os.path.join(DATA_DIR, "manual")
@@ -84,6 +87,8 @@ def main():
     for name, cap in market_cap.items():
         if not isinstance(cap, (int, float)):
             continue
+        if EXCLUDE_NAME_RE.search(name):
+            continue  # 스팩(SPAC)·ETF·ETN 등 실적 추적 대상이 아닌 종목 제외
         v2026 = op_2026.get(name)
         v2027 = op_2027.get(name)
         growth = None

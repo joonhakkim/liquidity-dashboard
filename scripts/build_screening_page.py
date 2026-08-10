@@ -225,20 +225,23 @@ TEMPLATE = """<!doctype html>
   .filter-bar input[type="number"] { width:70px; background:#12141a; border:1px solid #2a2e37; color:#e6e6e6;
     border-radius:6px; padding:5px 8px; font-size:13px; }
   .filter-bar input[type="checkbox"] { width:14px; height:14px; }
+  .filter-bar input[type="text"] { width:140px; background:#12141a; border:1px solid #2a2e37; color:#e6e6e6;
+    border-radius:6px; padding:5px 8px; font-size:13px; }
 </style>
 </head>
 <body>
   <a class="back" href="index.html">&larr; 홈</a> &middot; <a class="back" href="liquidity.html">유동성 대시보드 &rarr;</a>
   <h1>주식 스크리닝</h1>
   <div class="note">
-    기본 모집단: 시가총액 3000억원 이상 &amp; 영업이익 컨센서스(에프앤가이드류)가 있는 종목(DART 일일 API 호출
-    한도 안에서 최대한 넓힌 값). 성장률 컷은 없고 아래 필터로 직접 좁혀서 보세요.
+    기본 모집단: 시가총액이 있는 전체 상장사(스팩·ETF 제외, DART 일일 API 호출 한도 때문에 분기실적/PER밴드는
+    며칠에 걸쳐 순차적으로 채워짐). 성장률 컷은 없고 아래 필터로 직접 좁혀서 보세요.
     <b>매출액 컨센서스는 원본 데이터에 없어 영업이익만으로 스크리닝했습니다.</b>
     2분기 실적 YoY는 DART 잠정실적(공정공시) 공시가 있으면 그걸 우선 쓰고, 없으면 반기보고서 제출 마감(8/14) 전이라 결측입니다.
     PER·PBR 밴드는 분기별 TTM EPS/BPS와 월별 종가로 계산한 <b>근사치</b>이며 정식 리서치 밴드차트와는 값이 다를 수 있습니다.
     사업부별 매출비중·제품가격 추이는 자동으로 가져올 무료 소스가 없어 이번 페이지에는 포함하지 않았습니다.
   </div>
   <div class="filter-bar">
+    <label>종목명 검색 <input type="text" id="fSearch" placeholder="예: 삼성전자"></label>
     <label>OP 증가율 &ge; <input type="number" id="fOpGrowth" placeholder="예: 30" step="5">%</label>
     <label>시가총액 &ge; <input type="number" id="fMarketCap" placeholder="예: 5000">억</label>
     <label>PER 밴드위치 &le; <input type="number" id="fPerPct" placeholder="예: 30" min="0" max="100">%ile <span class="muted">(낮을수록 밴드 하단)</span></label>
@@ -274,7 +277,7 @@ TEMPLATE = """<!doctype html>
 <script>
 const COMPANIES = __COMPANIES_JSON__;
 let sortKey = 'opGrowth', sortDir = -1;
-let filters = { opGrowth: null, marketCap: null, perPct: null, hasPer: false };
+let filters = { search: null, opGrowth: null, marketCap: null, perPct: null, hasPer: false };
 
 function pct(v) { return v === null || v === undefined ? '<span class="muted">N/A</span>' : (v*100).toFixed(1) + '%'; }
 function num(v, digits) { return v === null || v === undefined ? '<span class="muted">N/A</span>' : Number(v).toLocaleString(undefined, {maximumFractionDigits: digits ?? 0}); }
@@ -282,6 +285,7 @@ function colorize(v, html) { if (v === null || v === undefined) return html; ret
 
 function applyFilters(list) {
   return list.filter(c => {
+    if (filters.search && !c.name.toLowerCase().includes(filters.search)) return false;
     if (filters.opGrowth !== null && (c.opGrowth === null || c.opGrowth * 100 < filters.opGrowth)) return false;
     if (filters.marketCap !== null && (c.marketCap === null || c.marketCap < filters.marketCap)) return false;
     if (filters.perPct !== null && (c.perPercentile === null || c.perPercentile > filters.perPct)) return false;
@@ -292,7 +296,9 @@ function applyFilters(list) {
 
 function readFilterInputs() {
   const v = id => { const el = document.getElementById(id); const raw = el.value.trim(); return raw === '' ? null : Number(raw); };
+  const searchRaw = document.getElementById('fSearch').value.trim();
   filters = {
+    search: searchRaw === '' ? null : searchRaw.toLowerCase(),
     opGrowth: v('fOpGrowth'),
     marketCap: v('fMarketCap'),
     perPct: v('fPerPct'),
@@ -343,11 +349,13 @@ document.querySelectorAll('th[data-key]').forEach(th => {
 
 document.getElementById('fApply').addEventListener('click', () => { readFilterInputs(); render(); });
 document.getElementById('fReset').addEventListener('click', () => {
+  document.getElementById('fSearch').value = '';
   ['fOpGrowth', 'fMarketCap', 'fPerPct'].forEach(id => document.getElementById(id).value = '');
   document.getElementById('fHasPer').checked = false;
-  filters = { opGrowth: null, marketCap: null, perPct: null, hasPer: false };
+  filters = { search: null, opGrowth: null, marketCap: null, perPct: null, hasPer: false };
   render();
 });
+document.getElementById('fSearch').addEventListener('input', () => { readFilterInputs(); render(); });
 ['fOpGrowth', 'fMarketCap', 'fPerPct'].forEach(id => {
   document.getElementById(id).addEventListener('keydown', e => { if (e.key === 'Enter') { readFilterInputs(); render(); } });
 });
@@ -392,10 +400,10 @@ function openDetail(c) {
     data: {
       labels: q.labels,
       datasets: [
-        { type: 'bar', label: '매출액(원)', data: q.revenue, backgroundColor: barColor('#4dabf7', 'rgba(77,171,247,0.35)'), yAxisID: 'y' },
-        { type: 'bar', label: '영업이익(원)', data: q.op, backgroundColor: barColor('#63e6be', 'rgba(99,230,190,0.35)'), yAxisID: 'y' },
         { type: 'line', label: '영업이익률(%)', data: q.margin.map(v => v === null ? null : v * 100),
-          borderColor: '#ffa94d', backgroundColor: 'transparent', yAxisID: 'y1', tension: 0.2 },
+          borderColor: '#ffa94d', backgroundColor: 'transparent', yAxisID: 'y1', tension: 0.2, order: 0 },
+        { type: 'bar', label: '매출액(원)', data: q.revenue, backgroundColor: barColor('#4dabf7', 'rgba(77,171,247,0.35)'), yAxisID: 'y', order: 1 },
+        { type: 'bar', label: '영업이익(원)', data: q.op, backgroundColor: barColor('#63e6be', 'rgba(99,230,190,0.35)'), yAxisID: 'y', order: 1 },
       ]
     },
     options: {
