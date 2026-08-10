@@ -181,6 +181,10 @@ def main():
         # 일평균 수출액 = 해당월 수출금액 / 조업일수(평일1 + 토요일0.5 + 공휴일·일요일0)
         working_days = merged["date"].apply(lambda d: working_days_in_month(d.year, d.month))
         merged["export_amount_daily_avg"] = merged["export_amount"] / working_days
+        # 일평균 기준 YoY(조업일수 차이는 이미 일평균에서 상쇄됨)
+        merged["export_amount_daily_avg_yoy"] = (
+            merged["export_amount_daily_avg"] / merged["export_amount_daily_avg"].shift(12) * 100 - 100
+        )
 
     if "leading_index" in merged.columns:
         merged["leading_index_yoy"] = merged["leading_index"] / merged["leading_index"].shift(12) * 100 - 100

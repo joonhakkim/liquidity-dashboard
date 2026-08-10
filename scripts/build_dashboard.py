@@ -361,8 +361,9 @@ def build_dashboard(merged, raw_latest):
             {"코스피 YoY(%)": "kospi_yoy"},
             {"선행종합지수 YoY(%)": "leading_index_yoy"},
         ),
-        "수출금액 (일간)": build_panel(merged, recent, "multi", {
+        "수출금액 (일간)": build_panel(merged, recent, "split", {
             "수출금액(천불/일)": "export_amount_daily_avg",
+            "수출금액 YoY(%)": "export_amount_daily_avg_yoy",
         }),
         "미국 10년물 실질금리": build_panel(merged, recent, "multi", {
             "미국 10년물 실질금리(%)": "us_real_rate_10y",
