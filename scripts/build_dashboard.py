@@ -478,9 +478,16 @@ def build_combined(merged, window_df, raw_latest):
     crash_starts = [d for d in detect_crash_starts(merged) if d in set(dates)]
     items.extend(build_bulk_items(window_df, raw_latest))
     items.extend(build_ma_items(window_df, raw_latest))
-    items = [i for i in items if i["label"] in CURATED_ONLY_LABELS]
+    # 큐레이션 목록 외에도, 12주 이동평균선만은 예외적으로 조사했던 모든 원본 지표에 대해
+    # 전부 남긴다(사용자가 12주선끼리 전 지표 비교해보고 싶다고 요청) - 나머지 변환은 그대로 필터.
+    items = [i for i in items if i["label"] in CURATED_ONLY_LABELS or i["label"].endswith("12주선")]
     for i in items:
-        i["default_visible"] = True
+        # 큐레이션 목록만 기본으로 켜두고, 나머지 12주선들은 숨겨둔 채로 검색해서 켜보게 한다
+        # (전부 켜면 30개 넘게 겹쳐서 다시 처음처럼 알아보기 힘들어짐).
+        if i["label"] not in CURATED_ONLY_LABELS:
+            i["default_visible"] = False
+        else:
+            i["default_visible"] = True
     return {"labels": dates, "items": items, "crashStarts": crash_starts}
 
 
