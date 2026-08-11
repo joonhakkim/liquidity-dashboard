@@ -625,7 +625,7 @@ def build_dashboard(merged, raw_latest):
   .card h2 {{ font-size:15px; margin:0 0 4px 0; display:inline-block; }}
   .latest {{ color:#63e6be; font-size:11px; float:right; }}
   .fetched-at {{ color:#5c6270; font-size:11px; margin-top:2px; }}
-  .legend-date {{ color:#5c6270; font-size:10px; }}
+  .legend-date {{ color:#63e6be; font-size:11px; }}
   .source {{ color:#7a8290; font-size:11px; margin-bottom:4px; clear:both; }}
   .formula {{ color:#ffa94d; font-size:11px; margin-bottom:10px; font-family:monospace; }}
   .nodata {{ color:#7a8290; font-size:13px; padding:40px 0; text-align:center; }}
