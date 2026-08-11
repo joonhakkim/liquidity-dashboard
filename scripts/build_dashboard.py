@@ -358,7 +358,7 @@ def build_bulk_items(window_df, raw_latest):
 # 주식 차트의 5주/10주/60주 이동평균선과 같은 개념 - 모든 지표(코스피 종가 포함)의 원값에
 # 대해 단순이동평균(SMA)을 만들어서 서로 비교해볼 수 있게 한다. merged는 1일 간격 daily
 # grid라 "주" 단위는 그냥 7을 곱해서 캘린더일수로 환산한다(거래일 기준 아님).
-MA_WEEKS = [5, 10, 60]
+MA_WEEKS = [5, 10, 12, 60]
 MA_CANDIDATES = [("kospi_close", "코스피종가")] + [
     (col, label) for col, label in BULK_CANDIDATES if col != "kospi_close"
 ]
@@ -403,6 +403,39 @@ def detect_crash_starts(merged):
     return detect_crash_start_dates(merged)
 
 
+# 사용자가 통합차트 전체 후보(200개 이상)를 직접 하나하나 눈으로 훑어보고, 실제로
+# 6~7월 급락 전에 먼저 꺾인 걸로 보이는 조합만 골라낸 최종 리스트(2026-08-11). 이제 이
+# 목록만 통합차트에 남기고 나머지(전체후보/이동평균 나머지 조합)는 숨긴다 - 계산 로직
+# 자체는 그대로 두고 최종 결과만 이 라벨들로 필터링한다(코스피 종가는 항상 유지).
+CURATED_ONLY_LABELS = {
+    "코스피 종가",
+    "신용거래융자 백분위(252일 선행정렬)",
+    "미국 10년물 실질금리 z-score(21일 선행정렬)",
+    "[전체후보] 한국 M2 QoQ",
+    "[전체후보] 실탄합계 MoM",
+    "[전체후보] 실탄합계 QoQ",
+    "[전체후보] 실탄합계 YoY",
+    "[전체후보] CMA잔고 QoQ",
+    "[전체후보] CMA잔고 YoY",
+    "[전체후보] 파생상품거래예수금 MoM",
+    "[전체후보] 대고객RP매도잔고 QoQ",
+    "[전체후보] 대고객RP매도잔고 YoY",
+    "[전체후보] 신용카드대출수요BSI 원값",
+    "[전체후보] 신용대주잔고 원값",
+    "[전체후보] 연준총자산 QoQ",
+    "[전체후보] ON RRP QoQ",
+    "[전체후보] ON RRP YoY",
+    "[이동평균] 미국 M2 YoY 5주선",
+    "[이동평균] 미국 M2 YoY 10주선",
+    "[이동평균] 한국 M2 5주선",
+    "[이동평균] RP매각잔고 60주선",
+    "[이동평균] CMA잔고 5주선",
+    "[이동평균] 신용거래융자(코스닥) 5주선",
+    "[이동평균] 신용거래융자(코스닥) 10주선",
+    "[이동평균] 뉴스심리지수 5주선",
+}
+
+
 def build_combined(merged, window_df, raw_latest):
     items = []
     percentile_windows = load_percentile_windows()
@@ -439,6 +472,9 @@ def build_combined(merged, window_df, raw_latest):
     crash_starts = [d for d in detect_crash_starts(merged) if d in set(dates)]
     items.extend(build_bulk_items(window_df, raw_latest))
     items.extend(build_ma_items(window_df, raw_latest))
+    items = [i for i in items if i["label"] in CURATED_ONLY_LABELS]
+    for i in items:
+        i["default_visible"] = True
     return {"labels": dates, "items": items, "crashStarts": crash_starts}
 
 
