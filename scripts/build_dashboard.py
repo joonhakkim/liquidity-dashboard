@@ -335,7 +335,7 @@ BULK_ALREADY_RATE_COLS = {
 }
 
 
-def build_bulk_items(window_df):
+def build_bulk_items(window_df, raw_latest):
     items = []
     for col, kor_label in BULK_CANDIDATES:
         if col not in window_df.columns or not has_data(window_df, col):
@@ -350,6 +350,7 @@ def build_bulk_items(window_df):
                 "column": f"{col}_{tkey}",
                 "data": [None if pd.isna(v) else round(float(v), 4) for v in series],
                 "default_visible": False,
+                "latest": latest_date_str(raw_latest, [col]),
             })
     return items
 
@@ -363,7 +364,7 @@ MA_CANDIDATES = [("kospi_close", "코스피종가")] + [
 ]
 
 
-def build_ma_items(window_df):
+def build_ma_items(window_df, raw_latest):
     items = []
     for col, kor_label in MA_CANDIDATES:
         if col not in window_df.columns or not has_data(window_df, col):
@@ -378,6 +379,7 @@ def build_ma_items(window_df):
                 "column": f"{col}_ma{w}w",
                 "data": [None if pd.isna(v) else round(float(v), 4) for v in ma],
                 "default_visible": False,
+                "latest": latest_date_str(raw_latest, [col]),
             })
     return items
 
@@ -401,7 +403,7 @@ def detect_crash_starts(merged):
     return detect_crash_start_dates(merged)
 
 
-def build_combined(merged, window_df):
+def build_combined(merged, window_df, raw_latest):
     items = []
     percentile_windows = load_percentile_windows()
     for label, col, default_visible, lead_days, transform, transform_window in MASTER_SERIES:
@@ -431,11 +433,12 @@ def build_combined(merged, window_df):
             "column": col,
             "data": [None if pd.isna(v) else round(float(v), 4) for v in series],
             "default_visible": default_visible,
+            "latest": latest_date_str(raw_latest, [col]),
         })
     dates = window_df["date"].dt.strftime("%Y-%m-%d").tolist()
     crash_starts = [d for d in detect_crash_starts(merged) if d in set(dates)]
-    items.extend(build_bulk_items(window_df))
-    items.extend(build_ma_items(window_df))
+    items.extend(build_bulk_items(window_df, raw_latest))
+    items.extend(build_ma_items(window_df, raw_latest))
     return {"labels": dates, "items": items, "crashStarts": crash_starts}
 
 
@@ -445,7 +448,7 @@ def build_dashboard(merged, raw_latest):
     # 보낸다. 초기 화면은 JS 쪽에서 기본값으로 최근 구간만 보여주고, 날짜 선택
     # UI로 그 이전 구간도 자유롭게 볼 수 있게 한다.
     recent = merged
-    combined = build_combined(merged, recent)
+    combined = build_combined(merged, recent, raw_latest)
 
     panels = {
         "수급주체": build_panel(merged, recent, "multi", {
@@ -622,6 +625,7 @@ def build_dashboard(merged, raw_latest):
   .card h2 {{ font-size:15px; margin:0 0 4px 0; display:inline-block; }}
   .latest {{ color:#63e6be; font-size:11px; float:right; }}
   .fetched-at {{ color:#5c6270; font-size:11px; margin-top:2px; }}
+  .legend-date {{ color:#5c6270; font-size:10px; }}
   .source {{ color:#7a8290; font-size:11px; margin-bottom:4px; clear:both; }}
   .formula {{ color:#ffa94d; font-size:11px; margin-bottom:10px; font-family:monospace; }}
   .nodata {{ color:#7a8290; font-size:13px; padding:40px 0; text-align:center; }}
@@ -895,8 +899,9 @@ function renderCombined(section) {{
     const el = document.createElement('div');
     el.className = 'combined-legend-item' + (item.default_visible ? '' : ' inactive');
     const valClass = (v !== null && v < 0) ? 'val negative' : 'val';
+    const dateSuffix = item.latest ? ` <span class="legend-date">(${{item.latest}})</span>` : '';
     el.innerHTML = `<span class="swatch" style="background:${{color}}"></span>` +
-                      `<span>${{item.label}}</span><span class="${{valClass}}">${{formatLatestSuffix(v)}}</span>`;
+                      `<span>${{item.label}}</span><span class="${{valClass}}">${{formatLatestSuffix(v)}}</span>${{dateSuffix}}`;
     el.onclick = () => {{
       if (!(i in dsIndexByItem)) {{
         const ds = makeDataset(item, i);
