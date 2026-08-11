@@ -55,6 +55,32 @@ def get_tokens(rcept_no):
 
 BACKLOG_LABEL_RE = re.compile(r"수주잔고|수주잔액|계약\s*분기말잔액|계약\s*기말잔액|건설계약\s*수주잔고")
 
+# 표마다 단위(원/천원/백만원/억원)가 회사·보고서별로 다른데, 예전엔 무조건 "백만원"으로
+# 가정해서 뽑아버렸다 - 그래서 실제로 "천원"이나 "원" 단위인 회사는 시가총액 대비 수십 배로
+# 튀는 오류가 있었다(예: 아이엠티가 시총 711억인데 수주잔고 12,800억으로 잡힌 사례 - 알고보니
+# 이건 원화도 아니고 "단위 : 대, USD"로 달러 표시 수출계약 표였다. 128만 달러를 128만
+# "백만원"으로 잘못 읽은 것). 그래서 1) 라벨과 가장 가까운(먼 게 아니라) 단위 선언을 찾고,
+# 2) 원화가 아닌 통화(USD 등)면 환산하지 않고 아예 버린다(환율 변환은 범위 밖).
+UNIT_TO_BAEKMANWON = {"억원": 100, "조원": 1_000_000, "백만원": 1, "천원": 0.001, "원": 0.000001}
+FOREIGN_CCY_RE = re.compile(r"USD|CNY|JPY|EUR|VND|GBP|HKD")
+UNIT_DECLARE_RE = re.compile(r"단위")
+
+
+def _detect_unit_multiplier(tokens, i):
+    """수주잔고 라벨(인덱스 i) 바로 앞쪽에서 가장 가까운 '단위 : OOO' 선언을 찾아 백만원
+    기준 배수를 돌려준다. 외화(USD 등) 표시면 환산 불가이므로 None을 돌려줘서 이 매치 자체를
+    버리게 한다. 단위 선언을 못 찾으면 1(백만원 그대로)로 가정."""
+    lo = max(0, i - 150)
+    for j in range(i - 1, lo - 1, -1):  # 라벨에 가장 가까운 것부터(역순)
+        if UNIT_DECLARE_RE.search(tokens[j]):
+            if FOREIGN_CCY_RE.search(tokens[j]):
+                return None
+            for unit, mult in UNIT_TO_BAEKMANWON.items():
+                if unit in tokens[j]:
+                    return mult
+            return None  # "단위" 선언은 있는데 아는 KRW 단위가 아니면(예: 알 수 없는 표기) 버림
+    return 1
+
 
 def find_backlog_total(tokens):
     idxs = [i for i, t in enumerate(tokens) if BACKLOG_LABEL_RE.search(t) and "=" not in t]
@@ -63,7 +89,18 @@ def find_backlog_total(tokens):
     if not idxs:
         return None
     for i in idxs:
-        lo, hi = max(0, i - 10), min(len(tokens), i + 80)
+        mult = _detect_unit_multiplier(tokens, i)
+        if mult is None:
+            continue  # 외화 표시 등 원화로 환산 불가한 표 - 이 매치는 버리고 다음 라벨 시도
+        # "합계"를 너무 멀리(예전 80토큰)까지 찾다보면 바로 뒤에 나오는 완전히 다른 표(연구개발비용
+        # 등)의 "합계" 행을 잘못 집어오는 사고가 있었다(RFHIC 사례) - 다음 "(단위" 선언이 나오면
+        # 그건 이미 다른 표로 넘어간 것이므로 거기서 탐색을 멈춘다.
+        hi = min(len(tokens), i + 80)
+        for k in range(i + 1, hi):
+            if UNIT_DECLARE_RE.search(tokens[k]):
+                hi = k
+                break
+        lo = max(0, i - 10)
         for j in range(lo, hi):
             if tokens[j] in ("합계", "합 계", "부문  합계", "부문 합계"):
                 nums = []
@@ -74,14 +111,18 @@ def find_backlog_total(tokens):
                     elif t not in ("-", "　"):
                         break
                 if nums:
-                    return nums[-1]
-    i = idxs[0]
-    for t in tokens[i + 1:i + 15]:
-        v = to_num(t)
-        if v is not None:
-            return v
-        if t not in ("-", "　"):
-            break
+                    return round(nums[-1] * mult, 3)
+        # 라벨 바로 뒤에 오는 숫자를 찾되, 품목명 등 텍스트 토큰 한두 개는 건너뛴다(라벨=숫자가
+        # 바로 안 붙고 "수주잔액 / 품목명 / 188,133,655"처럼 한 칸 끼는 표 구조가 있음).
+        skipped = 0
+        for t in tokens[i + 1:hi]:
+            v = to_num(t)
+            if v is not None:
+                return round(v * mult, 3)
+            if t not in ("-", "　"):
+                skipped += 1
+                if skipped > 2:
+                    break
     return None
 
 
