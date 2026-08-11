@@ -176,10 +176,14 @@ def has_data(df, col):
 
 
 def latest_date_str(raw_latest, cols):
+    # 예전엔 max(가장 최신)를 썼는데, "X vs 코스피" 패널처럼 코스피(매일 갱신)랑 발표가
+    # 느린 지표(월간 등)를 같이 넣으면 코스피 날짜에 가려서 정작 느린 지표가 실제로 어디서
+    # 멈춰있는지 안 보였다. min(가장 오래된 = 그 패널 전체가 "확실히" 최신인 지점)으로
+    # 바꿔서, 여러 지표 중 하나라도 느리면 그 느린 지표 기준으로 뱃지가 뜨게 한다.
     dates = [raw_latest[c] for c in cols if c in raw_latest]
     if not dates:
         return None
-    return max(dates).strftime("%Y-%m-%d")
+    return min(dates).strftime("%Y-%m-%d")
 
 
 PANEL_SOURCES = {
