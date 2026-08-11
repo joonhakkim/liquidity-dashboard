@@ -130,6 +130,14 @@ def build_merged():
         if "m2" in raw_latest and "kospi_market_cap" in raw_latest:
             raw_latest["m2_to_marketcap_ratio"] = min(raw_latest["m2"], raw_latest["kospi_market_cap"])
 
+    if {"usd_jpy", "us_treasury_10y"}.issubset(merged.columns):
+        # 사용자 가설: 엔달러환율이 너무 오르면(엔화 약세) 일본이 보유 미국채를 팔아서
+        # 개입에 나서고, 그게 미 국채금리 상승 압력 + 유동성 부담으로 이어질 수 있다는
+        # 논리라 두 값을 비율로 묶어서 같이 관찰해본다(엔화 약세 압력 대비 금리 수준).
+        merged["jpy_ust10y_ratio"] = merged["usd_jpy"] / merged["us_treasury_10y"]
+        if "usd_jpy" in raw_latest and "us_treasury_10y" in raw_latest:
+            raw_latest["jpy_ust10y_ratio"] = min(raw_latest["usd_jpy"], raw_latest["us_treasury_10y"])
+
     if "kospi_close" in merged.columns:
         # 코스피 YoY(%) = (오늘 종가 / 365일 전 종가 - 1) x 100. merged는 1일 간격 daily grid라
         # 365행 shift가 정확히 1년 전과 대응한다.
@@ -180,6 +188,8 @@ PANEL_SOURCES = {
     "수출금액 (일간)": "관세청 통관기준 수출금액(한국은행 ECOS 901Y118/T002, 월간 합계) ÷ 조업일수. 조업일수는 산업통상부 방식(평일 1일 + 토요일 0.5일 + 공휴일·일요일 0일)으로 자체 계산",
     "수출금액 YoY vs 코스피": "위 수출금액(일간) 패널과 동일 소스, 전년동월대비(%)로 변환해 코스피와 겹쳐본 것",
     "뉴스심리지수 vs 코스피": "한국은행 ECOS 521Y001(뉴스심리지수, 실험적 통계, 일별) - 뉴스 텍스트 감성분석 기반, 100=중립, 100 초과면 평소보다 긍정적 톤",
+    "일본 미국채 보유액 vs 코스피": "FRED FORTREASPOS42609(미 재무부 TIC 통계, 월간) - 일본의 미국채(장단기 합산) 보유액. 엔화 약세가 심해지면 일본이 외환개입 재원 마련으로 미국채를 매각할 수 있다는 가설 검증용",
+    "엔달러/미국채10년 비율 vs 코스피": "엔달러환율(네이버) ÷ 미국채10년물 명목금리(FRED DGS10) - 엔화 약세압력 대비 미 국채금리 수준을 함께 본 사용자 정의 비율. 높을수록 '엔화는 약세인데 금리는 상대적으로 낮은' 상태",
     "소비자심리지수(CCSI) vs 코스피": "한국은행 ECOS 511Y002(소비자동향조사, 월간) - 소비자심리지수(CCSI), 100=중립",
     "경제심리지수(ESI) vs 코스피": "한국은행 ECOS 513Y001(경제심리지수, 원계열, 월간) - 기업+소비자 심리 종합, 100=중립",
     "전산업 업황BSI vs 코스피": "한국은행 ECOS 512Y013(기업경기조사-실적, 월간) - 전산업 업황실적BSI, 100=중립",
@@ -315,7 +325,8 @@ BULK_CANDIDATES = [
     ("m2_to_marketcap_ratio", "M2/코스피시총비율"), ("kospi_turnover_ratio", "코스피회전율"),
     ("foreign_net_total", "외국인순매수"), ("indiv_net_total", "개인순매수"), ("inst_net_total", "기관순매수"),
     ("deposit_minus_rp", "예탁금-RP"), ("usd_krw", "원달러환율"), ("copper_usd", "구리가격"),
-    ("usd_jpy", "엔달러환율"),
+    ("usd_jpy", "엔달러환율"), ("us_treasury_10y", "미국채10년물"), ("japan_ust_holdings", "일본미국채보유액"),
+    ("jpy_ust10y_ratio", "엔달러_미국채10년비율"),
     ("ccsi", "소비자심리지수"), ("esi", "경제심리지수"), ("bsi_all_industry", "전산업업황BSI"),
     ("news_sentiment_index", "뉴스심리지수"), ("us_net_liquidity_bil", "미국유동성지수"),
     ("fed_total_assets_bil", "연준총자산"), ("us_treasury_tga_bil", "재무부TGA"), ("us_reverse_repo", "ON RRP"),
@@ -427,6 +438,8 @@ CURATED_ONLY_LABELS = {
     "[전체후보] ON RRP QoQ",
     "[전체후보] ON RRP YoY",
     "[전체후보] 엔달러환율 원값",
+    "[전체후보] 엔달러_미국채10년비율 원값",
+    "[전체후보] 일본미국채보유액 원값",
     "[전체후보] 엔달러환율 WoW",
     "[전체후보] 엔달러환율 MoM",
     "[전체후보] 엔달러환율 QoQ",
@@ -562,6 +575,16 @@ def build_dashboard(merged, raw_latest):
             {"코스피 종가": "kospi_close"},
             {"뉴스심리지수": "news_sentiment_index"},
         ),
+        "일본 미국채 보유액 vs 코스피": build_dual_panel(
+            merged, recent,
+            {"코스피 종가": "kospi_close"},
+            {"일본 미국채 보유액(백만달러)": "japan_ust_holdings"},
+        ),
+        "엔달러/미국채10년 비율 vs 코스피": build_dual_panel(
+            merged, recent,
+            {"코스피 종가": "kospi_close"},
+            {"엔달러/미국채10년 비율": "jpy_ust10y_ratio"},
+        ),
         "소비자심리지수(CCSI) vs 코스피": build_dual_panel(
             merged, recent,
             {"코스피 종가": "kospi_close"},
@@ -641,6 +664,8 @@ def build_dashboard(merged, raw_latest):
     panels["수출금액 (일간)"]["latest"] = latest_date_str(raw_latest, ["kospi_close", "export_amount_daily_avg"])
     panels["수출금액 YoY vs 코스피"]["latest"] = latest_date_str(raw_latest, ["kospi_close", "export_amount_daily_avg_yoy"])
     panels["뉴스심리지수 vs 코스피"]["latest"] = latest_date_str(raw_latest, ["kospi_close", "news_sentiment_index"])
+    panels["일본 미국채 보유액 vs 코스피"]["latest"] = latest_date_str(raw_latest, ["kospi_close", "japan_ust_holdings"])
+    panels["엔달러/미국채10년 비율 vs 코스피"]["latest"] = latest_date_str(raw_latest, ["kospi_close", "jpy_ust10y_ratio"])
     panels["소비자심리지수(CCSI) vs 코스피"]["latest"] = latest_date_str(raw_latest, ["kospi_close", "ccsi"])
     panels["경제심리지수(ESI) vs 코스피"]["latest"] = latest_date_str(raw_latest, ["kospi_close", "esi"])
     panels["전산업 업황BSI vs 코스피"]["latest"] = latest_date_str(raw_latest, ["kospi_close", "bsi_all_industry"])

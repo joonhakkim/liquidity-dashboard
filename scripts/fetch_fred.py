@@ -39,6 +39,8 @@ FRED_SERIES = [
     ("fed_total_assets", "WALCL", "2003-01-01"),  # 연준 총자산(주간, 수요일 기준, 백만달러)
     ("us_treasury_tga", "WTREGEN", "2003-01-01"),  # 미 재무부 일반계정 TGA 잔액(주간, 백만달러)
     ("us_reverse_repo", "RRPONTSYD", "2003-01-01"),  # 익일 역레포(ON RRP) 잔액(일별, 십억달러)
+    ("us_treasury_10y", "DGS10", "2000-01-01"),  # 미국채 10년물 명목금리(일별, %) - us_real_rate_10y(DFII10, 물가연동채 실질금리)와는 다름
+    ("japan_ust_holdings", "FORTREASPOS42609", "2003-01-01"),  # 일본의 미국채(장단기 합산) 보유액(월간, 백만달러)
 ]
 
 
