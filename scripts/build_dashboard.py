@@ -601,6 +601,7 @@ def build_dashboard(merged, raw_latest):
     panels["환율·귀금속·구리"]["latest"] = latest_date_str(raw_latest, ["usd_krw", "gold_usd", "silver_usd", "copper_usd"])
 
     updated_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    updated_at_json = json.dumps(updated_at, ensure_ascii=False)
     panels_json = json.dumps(panels, ensure_ascii=False)
     sources_json = json.dumps(PANEL_SOURCES, ensure_ascii=False)
     formulas_json = json.dumps(PANEL_FORMULAS, ensure_ascii=False)
@@ -620,6 +621,7 @@ def build_dashboard(merged, raw_latest):
   .card.wide {{ grid-column: 1 / -1; }}
   .card h2 {{ font-size:15px; margin:0 0 4px 0; display:inline-block; }}
   .latest {{ color:#63e6be; font-size:11px; float:right; }}
+  .fetched-at {{ color:#5c6270; font-size:11px; margin-top:2px; }}
   .source {{ color:#7a8290; font-size:11px; margin-bottom:4px; clear:both; }}
   .formula {{ color:#ffa94d; font-size:11px; margin-bottom:10px; font-family:monospace; }}
   .nodata {{ color:#7a8290; font-size:13px; padding:40px 0; text-align:center; }}
@@ -685,6 +687,8 @@ const PANELS = {panels_json};
 const SOURCES = {sources_json};
 const FORMULAS = {formulas_json};
 const COMBINED = {combined_json};
+const PIPELINE_UPDATED_AT = {updated_at_json};  // 이 대시보드를 마지막으로 빌드(데이터 확인)한 시각 -
+// panel.latest(그 지표가 실제로 관측/발표된 날짜)와는 다른 개념이라 패널마다 둘 다 보여준다.
 const COLORS = ["#4dabf7","#f783ac","#69db7c","#ffa94d","#b197fc","#63e6be","#ff8787","#66d9e8","#eebefa","#a9e34b","#ffd43b","#e599f7"];
 
 const content = document.getElementById('sectionContainer');
@@ -829,6 +833,7 @@ function activateSection(id) {{
 function renderCombined(section) {{
   section.innerHTML = `<div class="card wide">
     <h2>통합 차트 (전체 지표 겹쳐보기)</h2>
+    <div class="fetched-at">데이터 확인(빌드) 시각: ${{PIPELINE_UPDATED_AT}} (지표마다 실제 관측일은 다름 - 범례의 값 옆 날짜 없이 표시되는 건 최근값 기준)</div>
     <div class="source">모든 지표를 한 차트에 모았습니다. 아래 범례를 클릭하면 해당 지표를 켜고 끌 수 있습니다.</div>
     <div class="combined-hint">지표마다 단위가 달라 각자 숨겨진 축(스케일)을 따로 씁니다 - 절대값보다는 시점/추세 비교용입니다.</div>
     <div class="combined-canvas-wrap"><canvas id="combinedChart"></canvas></div>
@@ -978,9 +983,10 @@ function renderPanel(title, panel, section) {{
   card.className = 'card wide';
   const source = SOURCES[title] || '';
   const formula = FORMULAS[title];
-  const latest = panel.latest ? `<span class="latest">최신: ${{panel.latest}}</span>` : '';
+  const latest = panel.latest ? `<span class="latest">최신 관측치: ${{panel.latest}}</span>` : '';
   card.innerHTML = `<h2>${{title}}</h2>${{latest}}<div class="source">데이터 출처: ${{source}}</div>` +
-                    (formula ? `<div class="formula">${{formula}}</div>` : '');
+                    (formula ? `<div class="formula">${{formula}}</div>` : '') +
+                    `<div class="fetched-at">데이터 확인(빌드) 시각: ${{PIPELINE_UPDATED_AT}}</div>`;
   section.appendChild(card);
 
   if (!panel.has_data) {{
