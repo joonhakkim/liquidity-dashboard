@@ -488,7 +488,7 @@ def build_combined(merged, window_df, raw_latest):
     # 하지만 최종 출력에서 완전히 제외(범례에 아예 안 뜸).
     items = [i for i in items if i["label"] in CURATED_ONLY_LABELS]
     for i in items:
-        i["default_visible"] = True
+        i["default_visible"] = (i["label"] == "코스피 종가")
     return {"labels": dates, "items": items, "crashStarts": crash_starts}
 
 
