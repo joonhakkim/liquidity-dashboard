@@ -27,7 +27,6 @@ STEPS = [
     ("fetch_markets.py", "네이버 금융(원/달러 환율, 금, 은) 수집"),
     ("fetch_investor_flow.py", "수급주체(data/manual/수급정리*.xlsm 병합, 코스피/코스닥 분류)"),
     ("fetch_news_sentiment.py", "한국은행 뉴스심리지수(ECOS 521Y001, 일별) 수집"),
-    ("fetch_kr_bond_yield.py", "한국 국고채(3년) 금리(ECOS 817Y002, 일별) 수집"),
     ("optimize_percentile_window.py", "통합차트 백분위 지표 최적 기간 재탐색(데이터 누적에 따라 자동 조정)"),
     ("build_dashboard.py", "유동성 대시보드 빌드"),
     ("screen_op_growth.py", "주식 스크리닝: 전체 상장사 목록 + 영업이익 컨센서스 매칭"),

@@ -9,7 +9,8 @@
   - 원/달러: https://finance.naver.com/marketindex/exchangeDailyQuote.naver?marketindexCd=FX_USDKRW&page=N
   - 금(국제): https://finance.naver.com/marketindex/worldDailyQuote.naver?marketindexCd=CMDT_GC&fdtc=2&page=N
   - 은(국제): https://finance.naver.com/marketindex/worldDailyQuote.naver?marketindexCd=CMDT_SI&fdtc=2&page=N
-  (marketindexCd는 /marketindex/worldGoldDetail.naver 페이지에서 관련 시세 링크로 확인)
+  - 달러/엔: https://finance.naver.com/marketindex/worldDailyQuote.naver?marketindexCd=FX_USDJPY&fdtc=4&page=N
+  (marketindexCd는 /marketindex/worldGoldDetail.naver, /marketindex/worldExchangeDetail.naver 등 상세페이지의 iframe src에서 확인)
 """
 import os
 import time
@@ -32,6 +33,7 @@ SOURCES = [
     ("usd_krw", EXCHANGE_URL, {"marketindexCd": "FX_USDKRW"}),
     ("gold_usd", WORLD_URL, {"marketindexCd": "CMDT_GC", "fdtc": 2}),
     ("silver_usd", WORLD_URL, {"marketindexCd": "CMDT_SI", "fdtc": 2}),
+    ("usd_jpy", WORLD_URL, {"marketindexCd": "FX_USDJPY", "fdtc": 4}),  # 달러/엔(1달러=몇엔)
 ]
 
 

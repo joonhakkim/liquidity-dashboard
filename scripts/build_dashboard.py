@@ -35,7 +35,6 @@ BITCOIN_PATH = os.path.join(DATA_DIR, "bitcoin_raw.csv")
 INVESTOR_FLOW_PATH = os.path.join(DATA_DIR, "investor_flow_raw.csv")
 MARKETS_PATH = os.path.join(DATA_DIR, "markets_raw.csv")
 NEWS_SENTIMENT_PATH = os.path.join(DATA_DIR, "news_sentiment_raw.csv")
-KR_BOND_YIELD_PATH = os.path.join(DATA_DIR, "kr_bond_yield_raw.csv")
 MERGED_PATH = os.path.join(DATA_DIR, "merged.csv")
 DASHBOARD_PATH = os.path.join(DIST_DIR, "liquidity.html")
 
@@ -57,7 +56,6 @@ def build_merged():
     investor_flow = load_csv(INVESTOR_FLOW_PATH)
     markets = load_csv(MARKETS_PATH)
     news_sentiment = load_csv(NEWS_SENTIMENT_PATH)  # 이미 일별이라 ffill 대상 외 별도 처리 불필요
-    kr_bond_yield = load_csv(KR_BOND_YIELD_PATH)  # 국고채(3년), 마찬가지로 일별
 
     # M2 YoY(전년동월대비 %)는 각자 월별 원본에서 12개월 shift로 계산한다
     # (일별로 ffill된 시계열에서 12"일" shift하면 틀리므로 ffill 전에 계산).
@@ -73,7 +71,7 @@ def build_merged():
         fred = fred.merge(m2_monthly[["date", "us_m2_yoy"]], on="date", how="left")
 
     all_dates = pd.concat(
-        [ecos["date"], krx["date"], kofia["date"], fred["date"], bitcoin["date"], investor_flow["date"], markets["date"], news_sentiment["date"], kr_bond_yield["date"]],
+        [ecos["date"], krx["date"], kofia["date"], fred["date"], bitcoin["date"], investor_flow["date"], markets["date"], news_sentiment["date"]],
         ignore_index=True,
     ).dropna()
     if all_dates.empty:
@@ -82,7 +80,7 @@ def build_merged():
     # ffill 전, 컬럼별 실제 마지막 관측일을 따로 기록해둔다 (대시보드의 "최신" 배지가
     # ffill로 늘어난 날짜가 아니라 진짜 관측된 마지막 날짜를 보여주도록).
     raw_latest = {}
-    for df in (ecos, krx, kofia, fred, bitcoin, investor_flow, markets, news_sentiment, kr_bond_yield):
+    for df in (ecos, krx, kofia, fred, bitcoin, investor_flow, markets, news_sentiment):
         if df.empty:
             continue
         for col in df.columns:
@@ -95,7 +93,7 @@ def build_merged():
     full_range = pd.date_range(all_dates.min(), all_dates.max(), freq="D")
     merged = pd.DataFrame({"date": full_range})
 
-    for df in (ecos, krx, kofia, fred, bitcoin, investor_flow, markets, news_sentiment, kr_bond_yield):
+    for df in (ecos, krx, kofia, fred, bitcoin, investor_flow, markets, news_sentiment):
         if df.empty or len(df.columns) <= 1:
             continue
         df = df.drop_duplicates(subset="date").sort_values("date")
@@ -182,7 +180,6 @@ PANEL_SOURCES = {
     "수출금액 (일간)": "관세청 통관기준 수출금액(한국은행 ECOS 901Y118/T002, 월간 합계) ÷ 조업일수. 조업일수는 산업통상부 방식(평일 1일 + 토요일 0.5일 + 공휴일·일요일 0일)으로 자체 계산",
     "수출금액 YoY vs 코스피": "위 수출금액(일간) 패널과 동일 소스, 전년동월대비(%)로 변환해 코스피와 겹쳐본 것",
     "뉴스심리지수 vs 코스피": "한국은행 ECOS 521Y001(뉴스심리지수, 실험적 통계, 일별) - 뉴스 텍스트 감성분석 기반, 100=중립, 100 초과면 평소보다 긍정적 톤",
-    "국고채(3년) 금리 vs 코스피": "한국은행 ECOS 817Y002(시장금리, 일별) - 국고채(3년) 수익률(연%)",
     "소비자심리지수(CCSI) vs 코스피": "한국은행 ECOS 511Y002(소비자동향조사, 월간) - 소비자심리지수(CCSI), 100=중립",
     "경제심리지수(ESI) vs 코스피": "한국은행 ECOS 513Y001(경제심리지수, 원계열, 월간) - 기업+소비자 심리 종합, 100=중립",
     "전산업 업황BSI vs 코스피": "한국은행 ECOS 512Y013(기업경기조사-실적, 월간) - 전산업 업황실적BSI, 100=중립",
@@ -313,11 +310,12 @@ BULK_CANDIDATES = [
     ("credit_loan_kospi", "신용거래융자(코스피)"), ("credit_loan_kosdaq", "신용거래융자(코스닥)"),
     ("credit_short_total", "신용대주잔고"), ("leading_index_yoy", "선행종합지수YoY"),
     ("leading_index", "경기선행지수"), ("coincident_index", "경기동행지수"),
-    ("leading_coincident_gap", "선행-동행지수격차"), ("kr_bond_3y", "국고채3년"),
+    ("leading_coincident_gap", "선행-동행지수격차"),
     ("export_amount_daily_avg", "일평균수출금액"), ("us_real_rate_10y", "미국10년실질금리"),
     ("m2_to_marketcap_ratio", "M2/코스피시총비율"), ("kospi_turnover_ratio", "코스피회전율"),
     ("foreign_net_total", "외국인순매수"), ("indiv_net_total", "개인순매수"), ("inst_net_total", "기관순매수"),
     ("deposit_minus_rp", "예탁금-RP"), ("usd_krw", "원달러환율"), ("copper_usd", "구리가격"),
+    ("usd_jpy", "엔달러환율"),
     ("ccsi", "소비자심리지수"), ("esi", "경제심리지수"), ("bsi_all_industry", "전산업업황BSI"),
     ("news_sentiment_index", "뉴스심리지수"), ("us_net_liquidity_bil", "미국유동성지수"),
     ("fed_total_assets_bil", "연준총자산"), ("us_treasury_tga_bil", "재무부TGA"), ("us_reverse_repo", "ON RRP"),
@@ -361,7 +359,7 @@ def build_bulk_items(window_df, raw_latest):
 # 주식 차트의 5주/10주/60주 이동평균선과 같은 개념 - 모든 지표(코스피 종가 포함)의 원값에
 # 대해 단순이동평균(SMA)을 만들어서 서로 비교해볼 수 있게 한다. merged는 1일 간격 daily
 # grid라 "주" 단위는 그냥 7을 곱해서 캘린더일수로 환산한다(거래일 기준 아님).
-MA_WEEKS = [5, 10, 12, 60]
+MA_WEEKS = [5, 10, 12, 20, 60]
 MA_CANDIDATES = [("kospi_close", "코스피종가")] + [
     (col, label) for col, label in BULK_CANDIDATES if col != "kospi_close"
 ]
@@ -428,13 +426,15 @@ CURATED_ONLY_LABELS = {
     "[전체후보] 연준총자산 QoQ",
     "[전체후보] ON RRP QoQ",
     "[전체후보] ON RRP YoY",
-    "[전체후보] 국고채3년 WoW",
-    "[전체후보] 국고채3년 MoM",
-    "[전체후보] 국고채3년 YoY",
-    "[이동평균] 국고채3년 5주선",
-    "[이동평균] 국고채3년 10주선",
-    "[이동평균] 국고채3년 12주선",
-    "[이동평균] 국고채3년 60주선",
+    "[전체후보] 엔달러환율 WoW",
+    "[전체후보] 엔달러환율 MoM",
+    "[전체후보] 엔달러환율 QoQ",
+    "[전체후보] 엔달러환율 YoY",
+    "[이동평균] 엔달러환율 5주선",
+    "[이동평균] 엔달러환율 10주선",
+    "[이동평균] 엔달러환율 12주선",
+    "[이동평균] 엔달러환율 20주선",
+    "[이동평균] 엔달러환율 60주선",
     "[이동평균] 미국 M2 YoY 5주선",
     "[이동평균] 미국 M2 YoY 10주선",
     "[이동평균] 한국 M2 5주선",
@@ -561,11 +561,6 @@ def build_dashboard(merged, raw_latest):
             {"코스피 종가": "kospi_close"},
             {"뉴스심리지수": "news_sentiment_index"},
         ),
-        "국고채(3년) 금리 vs 코스피": build_dual_panel(
-            merged, recent,
-            {"코스피 종가": "kospi_close"},
-            {"국고채(3년) 금리(%)": "kr_bond_3y"},
-        ),
         "소비자심리지수(CCSI) vs 코스피": build_dual_panel(
             merged, recent,
             {"코스피 종가": "kospi_close"},
@@ -645,7 +640,6 @@ def build_dashboard(merged, raw_latest):
     panels["수출금액 (일간)"]["latest"] = latest_date_str(raw_latest, ["kospi_close", "export_amount_daily_avg"])
     panels["수출금액 YoY vs 코스피"]["latest"] = latest_date_str(raw_latest, ["kospi_close", "export_amount_daily_avg_yoy"])
     panels["뉴스심리지수 vs 코스피"]["latest"] = latest_date_str(raw_latest, ["kospi_close", "news_sentiment_index"])
-    panels["국고채(3년) 금리 vs 코스피"]["latest"] = latest_date_str(raw_latest, ["kospi_close", "kr_bond_3y"])
     panels["소비자심리지수(CCSI) vs 코스피"]["latest"] = latest_date_str(raw_latest, ["kospi_close", "ccsi"])
     panels["경제심리지수(ESI) vs 코스피"]["latest"] = latest_date_str(raw_latest, ["kospi_close", "esi"])
     panels["전산업 업황BSI vs 코스피"]["latest"] = latest_date_str(raw_latest, ["kospi_close", "bsi_all_industry"])
