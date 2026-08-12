@@ -217,25 +217,12 @@ def latest_date_str(raw_latest, cols):
 PANEL_SOURCES = {
     "수급주체": "데이터 터미널에서 받은 수급정리 엑셀(data/manual/수급정리*.xlsm, 종목별 개인/기관/외국인 순매수)을 KRX Open API 상장종목 목록으로 코스피/코스닥 분류해 합산 (파일은 사용자가 매일 직접 갱신)",
     "코스피 선행지수 vs YoY": "선행종합지수 YoY: 한국은행 ECOS(901Y067/I16A 원지수, 국가데이터처 작성, 월간) 전년동월대비(%) / 코스피 YoY: 네이버 금융 코스피 종가 기준 전년동일대비(%)",
-    "수출금액 (일간)": "관세청 통관기준 수출금액(한국은행 ECOS 901Y118/T002, 월간 합계) ÷ 조업일수. 조업일수는 산업통상부 방식(평일 1일 + 토요일 0.5일 + 공휴일·일요일 0일)으로 자체 계산",
-    "수출금액 YoY vs 코스피": "위 수출금액(일간) 패널과 동일 소스, 전년동월대비(%)로 변환해 코스피와 겹쳐본 것",
-    "뉴스심리지수 vs 코스피": "한국은행 ECOS 521Y001(뉴스심리지수, 실험적 통계, 일별) - 뉴스 텍스트 감성분석 기반, 100=중립, 100 초과면 평소보다 긍정적 톤",
-    "일본 미국채 보유액 vs 코스피": "FRED FORTREASPOS42609(미 재무부 TIC 통계, 월간) - 일본의 미국채(장단기 합산) 보유액. 엔화 약세가 심해지면 일본이 외환개입 재원 마련으로 미국채를 매각할 수 있다는 가설 검증용",
     "코스피·코스닥 ADR": "KRX Open API(stk_bydd_trd/ksq_bydd_trd, 종목별 전일대비 등락) 기준 자체 계산 - ADR(등락비율) = 최근 20거래일 상승종목수 누계 ÷ 하락종목수 누계 x 100%. 120% 이상 과열권, 75% 이하 바닥권으로 보는 게 일반적",
     "코스피 이격도(20일-100일)": "네이버 금융 코스피 종가 기준 자체 계산 - 20일(약 1개월) 이동평균과 100일(중기) 이동평균의 괴리율(%) = (20일이평/100일이평-1)x100. 마이너스로 갈수록 중기 추세 대비 단기 과매도(조정) 신호로 보는 지표",
     "금광기업ETF(GDX) vs 코스피": "Yahoo Finance GDX(VanEck Gold Miners ETF, 일별) - 대신증권 리포트의 '금은 유동성 프록시' 주장을 검증한 결과, 순수 금현물보다 GDX가 코스피 급락에 대해 더 나은 선행성을 보임(2006~2026년 17개 급락 이벤트 중 65% 적중, 2008년 금융위기 때 4연속 60~139일 선행)",
-    "엔달러/미국채10년 비율 vs 코스피": "엔달러환율(네이버) ÷ 미국채10년물 명목금리(FRED DGS10) - 엔화 약세압력 대비 미 국채금리 수준을 함께 본 사용자 정의 비율. 높을수록 '엔화는 약세인데 금리는 상대적으로 낮은' 상태",
-    "소비자심리지수(CCSI) vs 코스피": "한국은행 ECOS 511Y002(소비자동향조사, 월간) - 소비자심리지수(CCSI), 100=중립",
-    "경제심리지수(ESI) vs 코스피": "한국은행 ECOS 513Y001(경제심리지수, 원계열, 월간) - 기업+소비자 심리 종합, 100=중립",
-    "전산업 업황BSI vs 코스피": "한국은행 ECOS 512Y013(기업경기조사-실적, 월간) - 전산업 업황실적BSI, 100=중립",
+    "경기선행지수·동행지수": "한국은행 ECOS 901Y067(경기종합지수, 국가데이터처 작성, 월간) - 선행종합지수(I16A)·동행종합지수(I16B) 원지수(100=기준연도) 및 그 격차(선행-동행). 격차가 양수면 선행지수가 동행지수보다 높아 경기 개선 기대, 음수면 반대(둔화 우려)로 보는 게 일반적 해석",
     "미국 10년물 실질금리": "FRED(세인트루이스 연은) DFII10 - Market Yield on U.S. Treasury Securities at 10-Year Constant Maturity, Quoted on an Investment Basis, Inflation-Indexed (일별)",
-    "미국 유동성 지수 vs 코스피": "FRED(세인트루이스 연은) WALCL(연준 총자산, 주간) - WTREGEN(재무부 TGA, 주간) - RRPONTSYD(익일역레포, 일별) x 1000. MacroMicro 'Fed Net Liquidity'와 동일 정의",
-    "경기선행지수·동행지수 vs 코스피": "한국은행 ECOS 901Y067(경기종합지수, 국가데이터처 작성, 월간) - 선행종합지수(I16A)·동행종합지수(I16B) 원지수, 100=기준연도",
-    "경기선행-동행지수 격차 vs 코스피": "위 두 지수의 차이(선행-동행) - 양수면 선행지수가 동행지수보다 높아 경기 개선 기대, 음수면 반대(둔화 우려)로 보는 게 일반적 해석",
     "미국 연준 유동성 구성요소": "FRED WALCL(연준 총자산) / WTREGEN(재무부 일반계정 TGA) / RRPONTSYD(익일역레포 ON RRP) - 전부 십억달러, 순유동성 = 총자산-TGA-RRP",
-    "연준 총자산 vs 코스피": "FRED WALCL(연준 총자산, 주간, 십억달러)",
-    "재무부 TGA vs 코스피": "FRED WTREGEN(재무부 일반계정 TGA, 주간, 십억달러) - 늘면 시중에서 자금을 흡수(유동성 축소), 줄면 반대(유동성 공급)",
-    "익일역레포(ON RRP) vs 코스피": "FRED RRPONTSYD(익일역레포, 일별, 십억달러) - 늘면 자금이 연준에 묶임(유동성 축소), 줄면 시중에 풀림(유동성 공급)",
     "환율·귀금속·구리": "원/달러·금·은: 네이버 금융(marketindex, 일별) / 구리: FRED PCOPPUSDM(IMF 발표, 월간, 네이버엔 구리 시세 없어 대체)",
     "유동성지표": "한국은행 ECOS Open API - 한국은행 주요계정(103Y002), M2(161Y008)",
     "실탄게이지": "KOFIA FreeSIS Open API(자동 수집) 기반 계산",
@@ -243,7 +230,6 @@ PANEL_SOURCES = {
     "신용거래융자 · MMF 현황": "KOFIA FreeSIS (meta/getMetaDataList.do, 자동 수집)",
     "M2 통화공급 (한국·미국)": "한국: ECOS Open API(161Y008) / 미국: FRED M2SL (둘 다 월별, 단위 다름 - 각각 자체 축)",
     "시가총액 회전율 · M2 비율": "코스피 거래대금: 네이버 금융 / 코스피 시가총액: KRX Open API(stk_bydd_trd, MKTCAP 합산) / M2: ECOS",
-    "신용카드 대출수요 vs 코스피": "코스피: 네이버 금융 / 대출수요: 한국은행 ECOS 대출행태서베이(514Y003, 신용카드회사, 분기)",
     "비트코인 시가총액 vs 코스피": "비트코인: CoinGecko (무료 API, 최근 365일만 제공) / 코스피: 네이버 금융",
 }
 
@@ -573,11 +559,6 @@ def build_dashboard(merged, raw_latest):
         "시가총액 회전율 · M2 비율": build_panel(merged, recent, "split", {
             "코스피 회전율(%)": "kospi_turnover_ratio", "M2/코스피 시가총액(%)": "m2_to_marketcap_ratio",
         }),
-        "신용카드 대출수요 vs 코스피": build_dual_panel(
-            merged, recent,
-            {"코스피 종가": "kospi_close"},
-            {"신용카드 대출수요(BSI)": "credit_card_loan_demand"},
-        ),
         "비트코인 시가총액 vs 코스피": build_dual_panel(
             merged, recent,
             {"코스피 종가": "kospi_close"},
@@ -587,31 +568,6 @@ def build_dashboard(merged, raw_latest):
             merged, recent,
             {"코스피 YoY(%)": "kospi_yoy"},
             {"선행종합지수 YoY(%)": "leading_index_yoy"},
-        ),
-        "수출금액 (일간)": build_dual_panel(
-            merged, recent,
-            {"코스피 종가": "kospi_close"},
-            {"수출금액(천불/일)": "export_amount_daily_avg"},
-        ),
-        "수출금액 YoY vs 코스피": build_dual_panel(
-            merged, recent,
-            {"코스피 종가": "kospi_close"},
-            {"수출금액 YoY(%)": "export_amount_daily_avg_yoy"},
-        ),
-        "뉴스심리지수 vs 코스피": build_dual_panel(
-            merged, recent,
-            {"코스피 종가": "kospi_close"},
-            {"뉴스심리지수": "news_sentiment_index"},
-        ),
-        "일본 미국채 보유액 vs 코스피": build_dual_panel(
-            merged, recent,
-            {"코스피 종가": "kospi_close"},
-            {"일본 미국채 보유액(백만달러)": "japan_ust_holdings"},
-        ),
-        "엔달러/미국채10년 비율 vs 코스피": build_dual_panel(
-            merged, recent,
-            {"코스피 종가": "kospi_close"},
-            {"엔달러/미국채10년 비율": "jpy_ust10y_ratio"},
         ),
         "코스피·코스닥 ADR": build_dual_panel(
             merged, recent,
@@ -628,60 +584,20 @@ def build_dashboard(merged, raw_latest):
             {"코스피 종가": "kospi_close"},
             {"GDX(USD)": "gdx_close"},
         ),
-        "소비자심리지수(CCSI) vs 코스피": build_dual_panel(
-            merged, recent,
-            {"코스피 종가": "kospi_close"},
-            {"소비자심리지수(CCSI)": "ccsi"},
-        ),
-        "경제심리지수(ESI) vs 코스피": build_dual_panel(
-            merged, recent,
-            {"코스피 종가": "kospi_close"},
-            {"경제심리지수(ESI)": "esi"},
-        ),
-        "전산업 업황BSI vs 코스피": build_dual_panel(
-            merged, recent,
-            {"코스피 종가": "kospi_close"},
-            {"전산업 업황실적BSI": "bsi_all_industry"},
-        ),
-        "경기선행지수·동행지수 vs 코스피": build_dual_panel(
+        "경기선행지수·동행지수": build_dual_panel(
             merged, recent,
             {"경기선행지수": "leading_index", "경기동행지수": "coincident_index"},
-            {"코스피 종가": "kospi_close"},
-        ),
-        "경기선행-동행지수 격차 vs 코스피": build_dual_panel(
-            merged, recent,
-            {"코스피 종가": "kospi_close"},
             {"선행-동행지수 격차": "leading_coincident_gap"},
         ),
         "미국 10년물 실질금리": build_panel(merged, recent, "multi", {
             "미국 10년물 실질금리(%)": "us_real_rate_10y",
         }),
-        "미국 유동성 지수 vs 코스피": build_dual_panel(
-            merged, recent,
-            {"코스피 종가": "kospi_close"},
-            {"미국 유동성 지수(십억달러)": "us_net_liquidity_bil"},
-        ),
         "미국 연준 유동성 구성요소": build_panel(merged, recent, "split", {
             "연준 총자산(십억달러)": "fed_total_assets_bil",
             "재무부 TGA(십억달러)": "us_treasury_tga_bil",
             "익일역레포 ON RRP(십억달러)": "us_reverse_repo",
             "미국 유동성 지수(십억달러)": "us_net_liquidity_bil",
         }),
-        "연준 총자산 vs 코스피": build_dual_panel(
-            merged, recent,
-            {"코스피 종가": "kospi_close"},
-            {"연준 총자산(십억달러)": "fed_total_assets_bil"},
-        ),
-        "재무부 TGA vs 코스피": build_dual_panel(
-            merged, recent,
-            {"코스피 종가": "kospi_close"},
-            {"재무부 TGA(십억달러)": "us_treasury_tga_bil"},
-        ),
-        "익일역레포(ON RRP) vs 코스피": build_dual_panel(
-            merged, recent,
-            {"코스피 종가": "kospi_close"},
-            {"ON RRP(십억달러)": "us_reverse_repo"},
-        ),
         "환율·귀금속·구리": build_panel(merged, recent, "split", {
             "원/달러 환율": "usd_krw",
             "금 가격(USD)": "gold_usd",
@@ -701,28 +617,14 @@ def build_dashboard(merged, raw_latest):
     ])
     panels["시가총액 회전율 · M2 비율"]["latest"] = latest_date_str(raw_latest, ["kospi_turnover_ratio", "m2_to_marketcap_ratio"])
     panels["신용거래융자 · MMF 현황"]["latest"] = latest_date_str(raw_latest, ["credit_loan_kospi", "credit_loan_kosdaq", "mmf_indiv", "mmf_corp"])
-    panels["신용카드 대출수요 vs 코스피"]["latest"] = latest_date_str(raw_latest, ["kospi_close", "credit_card_loan_demand"])
     panels["비트코인 시가총액 vs 코스피"]["latest"] = latest_date_str(raw_latest, ["kospi_close", "btc_market_cap_usd"])
     panels["코스피 선행지수 vs YoY"]["latest"] = latest_date_str(raw_latest, ["kospi_yoy", "leading_index_yoy"])
-    panels["수출금액 (일간)"]["latest"] = latest_date_str(raw_latest, ["kospi_close", "export_amount_daily_avg"])
-    panels["수출금액 YoY vs 코스피"]["latest"] = latest_date_str(raw_latest, ["kospi_close", "export_amount_daily_avg_yoy"])
-    panels["뉴스심리지수 vs 코스피"]["latest"] = latest_date_str(raw_latest, ["kospi_close", "news_sentiment_index"])
-    panels["일본 미국채 보유액 vs 코스피"]["latest"] = latest_date_str(raw_latest, ["kospi_close", "japan_ust_holdings"])
-    panels["엔달러/미국채10년 비율 vs 코스피"]["latest"] = latest_date_str(raw_latest, ["kospi_close", "jpy_ust10y_ratio"])
     panels["코스피·코스닥 ADR"]["latest"] = latest_date_str(raw_latest, ["kospi_adr", "kosdaq_adr"])
     panels["코스피 이격도(20일-100일)"]["latest"] = latest_date_str(raw_latest, ["kospi_close", "kospi_gap_20_100"])
     panels["금광기업ETF(GDX) vs 코스피"]["latest"] = latest_date_str(raw_latest, ["kospi_close", "gdx_close"])
-    panels["소비자심리지수(CCSI) vs 코스피"]["latest"] = latest_date_str(raw_latest, ["kospi_close", "ccsi"])
-    panels["경제심리지수(ESI) vs 코스피"]["latest"] = latest_date_str(raw_latest, ["kospi_close", "esi"])
-    panels["전산업 업황BSI vs 코스피"]["latest"] = latest_date_str(raw_latest, ["kospi_close", "bsi_all_industry"])
-    panels["경기선행지수·동행지수 vs 코스피"]["latest"] = latest_date_str(raw_latest, ["kospi_close", "leading_index", "coincident_index"])
-    panels["경기선행-동행지수 격차 vs 코스피"]["latest"] = latest_date_str(raw_latest, ["kospi_close", "leading_coincident_gap"])
+    panels["경기선행지수·동행지수"]["latest"] = latest_date_str(raw_latest, ["leading_index", "coincident_index"])
     panels["미국 10년물 실질금리"]["latest"] = latest_date_str(raw_latest, ["us_real_rate_10y"])
-    panels["미국 유동성 지수 vs 코스피"]["latest"] = latest_date_str(raw_latest, ["kospi_close", "us_net_liquidity_bil"])
     panels["미국 연준 유동성 구성요소"]["latest"] = latest_date_str(raw_latest, ["fed_total_assets_bil", "us_treasury_tga_bil", "us_reverse_repo", "us_net_liquidity_bil"])
-    panels["연준 총자산 vs 코스피"]["latest"] = latest_date_str(raw_latest, ["kospi_close", "fed_total_assets_bil"])
-    panels["재무부 TGA vs 코스피"]["latest"] = latest_date_str(raw_latest, ["kospi_close", "us_treasury_tga_bil"])
-    panels["익일역레포(ON RRP) vs 코스피"]["latest"] = latest_date_str(raw_latest, ["kospi_close", "us_reverse_repo"])
     panels["환율·귀금속·구리"]["latest"] = latest_date_str(raw_latest, ["usd_krw", "gold_usd", "silver_usd", "copper_usd"])
 
     updated_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
