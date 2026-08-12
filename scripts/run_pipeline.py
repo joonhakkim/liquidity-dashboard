@@ -26,6 +26,7 @@ STEPS = [
     ("fetch_bitcoin.py", "CoinGecko(비트코인 시가총액) 수집"),
     ("fetch_markets.py", "네이버 금융(원/달러 환율, 금, 은, 엔/달러) 수집"),
     ("fetch_adr.py", "코스피/코스닥 등락비율(ADR) 계산용 상승/하락 종목수 수집(KRX Open API)"),
+    ("fetch_gdx.py", "금광기업 ETF(GDX) 수집(Yahoo Finance, 유동성 선행성 검증됨)"),
     ("fetch_investor_flow.py", "수급주체(data/manual/수급정리*.xlsm 병합, 코스피/코스닥 분류)"),
     ("fetch_news_sentiment.py", "한국은행 뉴스심리지수(ECOS 521Y001, 일별) 수집"),
     ("optimize_percentile_window.py", "통합차트 백분위 지표 최적 기간 재탐색(데이터 누적에 따라 자동 조정)"),

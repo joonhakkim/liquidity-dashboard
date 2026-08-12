@@ -36,6 +36,7 @@ INVESTOR_FLOW_PATH = os.path.join(DATA_DIR, "investor_flow_raw.csv")
 MARKETS_PATH = os.path.join(DATA_DIR, "markets_raw.csv")
 NEWS_SENTIMENT_PATH = os.path.join(DATA_DIR, "news_sentiment_raw.csv")
 ADR_PATH = os.path.join(DATA_DIR, "adr_raw.csv")
+GDX_PATH = os.path.join(DATA_DIR, "gdx_raw.csv")
 MERGED_PATH = os.path.join(DATA_DIR, "merged.csv")
 DASHBOARD_PATH = os.path.join(DIST_DIR, "liquidity.html")
 
@@ -58,6 +59,7 @@ def build_merged():
     markets = load_csv(MARKETS_PATH)
     news_sentiment = load_csv(NEWS_SENTIMENT_PATH)  # 이미 일별이라 ffill 대상 외 별도 처리 불필요
     adr = load_csv(ADR_PATH)  # 거래일에만 값 있음(주말·휴장일 행 없음)
+    gdx = load_csv(GDX_PATH)  # 미국 거래소 일별 데이터라 ffill 대상 외 별도 처리 불필요
 
     # M2 YoY(전년동월대비 %)는 각자 월별 원본에서 12개월 shift로 계산한다
     # (일별로 ffill된 시계열에서 12"일" shift하면 틀리므로 ffill 전에 계산).
@@ -97,7 +99,7 @@ def build_merged():
         krx["kospi_gap_20_100"] = (krx["kospi_ma20"] / krx["kospi_ma100"] - 1) * 100
 
     all_dates = pd.concat(
-        [ecos["date"], krx["date"], kofia["date"], fred["date"], bitcoin["date"], investor_flow["date"], markets["date"], news_sentiment["date"], adr["date"]],
+        [ecos["date"], krx["date"], kofia["date"], fred["date"], bitcoin["date"], investor_flow["date"], markets["date"], news_sentiment["date"], adr["date"], gdx["date"]],
         ignore_index=True,
     ).dropna()
     if all_dates.empty:
@@ -106,7 +108,7 @@ def build_merged():
     # ffill 전, 컬럼별 실제 마지막 관측일을 따로 기록해둔다 (대시보드의 "최신" 배지가
     # ffill로 늘어난 날짜가 아니라 진짜 관측된 마지막 날짜를 보여주도록).
     raw_latest = {}
-    for df in (ecos, krx, kofia, fred, bitcoin, investor_flow, markets, news_sentiment, adr):
+    for df in (ecos, krx, kofia, fred, bitcoin, investor_flow, markets, news_sentiment, adr, gdx):
         if df.empty:
             continue
         for col in df.columns:
@@ -119,7 +121,7 @@ def build_merged():
     full_range = pd.date_range(all_dates.min(), all_dates.max(), freq="D")
     merged = pd.DataFrame({"date": full_range})
 
-    for df in (ecos, krx, kofia, fred, bitcoin, investor_flow, markets, news_sentiment, adr):
+    for df in (ecos, krx, kofia, fred, bitcoin, investor_flow, markets, news_sentiment, adr, gdx):
         if df.empty or len(df.columns) <= 1:
             continue
         df = df.drop_duplicates(subset="date").sort_values("date")
@@ -221,6 +223,7 @@ PANEL_SOURCES = {
     "일본 미국채 보유액 vs 코스피": "FRED FORTREASPOS42609(미 재무부 TIC 통계, 월간) - 일본의 미국채(장단기 합산) 보유액. 엔화 약세가 심해지면 일본이 외환개입 재원 마련으로 미국채를 매각할 수 있다는 가설 검증용",
     "코스피·코스닥 ADR": "KRX Open API(stk_bydd_trd/ksq_bydd_trd, 종목별 전일대비 등락) 기준 자체 계산 - ADR(등락비율) = 최근 20거래일 상승종목수 누계 ÷ 하락종목수 누계 x 100%. 120% 이상 과열권, 75% 이하 바닥권으로 보는 게 일반적",
     "코스피 이격도(20일-100일)": "네이버 금융 코스피 종가 기준 자체 계산 - 20일(약 1개월) 이동평균과 100일(중기) 이동평균의 괴리율(%) = (20일이평/100일이평-1)x100. 마이너스로 갈수록 중기 추세 대비 단기 과매도(조정) 신호로 보는 지표",
+    "금광기업ETF(GDX) vs 코스피": "Yahoo Finance GDX(VanEck Gold Miners ETF, 일별) - 대신증권 리포트의 '금은 유동성 프록시' 주장을 검증한 결과, 순수 금현물보다 GDX가 코스피 급락에 대해 더 나은 선행성을 보임(2006~2026년 17개 급락 이벤트 중 65% 적중, 2008년 금융위기 때 4연속 60~139일 선행)",
     "엔달러/미국채10년 비율 vs 코스피": "엔달러환율(네이버) ÷ 미국채10년물 명목금리(FRED DGS10) - 엔화 약세압력 대비 미 국채금리 수준을 함께 본 사용자 정의 비율. 높을수록 '엔화는 약세인데 금리는 상대적으로 낮은' 상태",
     "소비자심리지수(CCSI) vs 코스피": "한국은행 ECOS 511Y002(소비자동향조사, 월간) - 소비자심리지수(CCSI), 100=중립",
     "경제심리지수(ESI) vs 코스피": "한국은행 ECOS 513Y001(경제심리지수, 원계열, 월간) - 기업+소비자 심리 종합, 100=중립",
@@ -360,7 +363,7 @@ BULK_CANDIDATES = [
     ("gold_usd", "금가격"),
     ("usd_jpy", "엔달러환율"), ("us_treasury_10y", "미국채10년물"), ("japan_ust_holdings", "일본미국채보유액"),
     ("jpy_ust10y_ratio", "엔달러_미국채10년비율"), ("kospi_adr", "코스피ADR"), ("kosdaq_adr", "코스닥ADR"),
-    ("kospi_gap_20_100", "코스피20일100일이격도"),
+    ("kospi_gap_20_100", "코스피20일100일이격도"), ("gdx_close", "금광기업ETF"),
     ("ccsi", "소비자심리지수"), ("esi", "경제심리지수"), ("bsi_all_industry", "전산업업황BSI"),
     ("news_sentiment_index", "뉴스심리지수"), ("us_net_liquidity_bil", "미국유동성지수"),
     ("fed_total_assets_bil", "연준총자산"), ("us_treasury_tga_bil", "재무부TGA"), ("us_reverse_repo", "ON RRP"),
@@ -476,6 +479,7 @@ CURATED_ONLY_LABELS = {
     "[전체후보] 코스피ADR 원값",
     "[전체후보] 코스닥ADR 원값",
     "[전체후보] 금가격 원값",
+    "[전체후보] 금광기업ETF 원값",
     "[이동평균] 미국 M2 YoY 5주선",
     "[이동평균] 미국 M2 YoY 10주선",
     "[이동평균] 한국 M2 5주선",
@@ -619,6 +623,11 @@ def build_dashboard(merged, raw_latest):
             {"코스피 종가": "kospi_close", "20일 이평선": "kospi_ma20", "100일 이평선": "kospi_ma100"},
             {"20일-100일 이격도(%)": "kospi_gap_20_100"},
         ),
+        "금광기업ETF(GDX) vs 코스피": build_dual_panel(
+            merged, recent,
+            {"코스피 종가": "kospi_close"},
+            {"GDX(USD)": "gdx_close"},
+        ),
         "소비자심리지수(CCSI) vs 코스피": build_dual_panel(
             merged, recent,
             {"코스피 종가": "kospi_close"},
@@ -702,6 +711,7 @@ def build_dashboard(merged, raw_latest):
     panels["엔달러/미국채10년 비율 vs 코스피"]["latest"] = latest_date_str(raw_latest, ["kospi_close", "jpy_ust10y_ratio"])
     panels["코스피·코스닥 ADR"]["latest"] = latest_date_str(raw_latest, ["kospi_adr", "kosdaq_adr"])
     panels["코스피 이격도(20일-100일)"]["latest"] = latest_date_str(raw_latest, ["kospi_close", "kospi_gap_20_100"])
+    panels["금광기업ETF(GDX) vs 코스피"]["latest"] = latest_date_str(raw_latest, ["kospi_close", "gdx_close"])
     panels["소비자심리지수(CCSI) vs 코스피"]["latest"] = latest_date_str(raw_latest, ["kospi_close", "ccsi"])
     panels["경제심리지수(ESI) vs 코스피"]["latest"] = latest_date_str(raw_latest, ["kospi_close", "esi"])
     panels["전산업 업황BSI vs 코스피"]["latest"] = latest_date_str(raw_latest, ["kospi_close", "bsi_all_industry"])
