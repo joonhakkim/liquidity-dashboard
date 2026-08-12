@@ -86,6 +86,16 @@ def build_merged():
             / adr["kosdaq_dec"].rolling(20, min_periods=20).sum() * 100
         )
 
+    if not krx.empty and "kospi_close" in krx.columns:
+        # 사용자가 보여준 리포트 차트의 "20일-100일 이격도"(단기 vs 중기 이평 괴리) 재현.
+        # 거래일 기준 20일/100일 이동평균이라 krx(거래일에만 행 있음) 위에서 미리 계산한 뒤
+        # 합친다 - ffill된 캘린더일 그리드에서 rolling하면 "20일"이 주말 낀 진짜 20일이
+        # 아니라 20영업일+주말이 섞여버림(ADR과 동일한 이유).
+        krx = krx.sort_values("date").reset_index(drop=True)
+        krx["kospi_ma20"] = krx["kospi_close"].rolling(20, min_periods=20).mean()
+        krx["kospi_ma100"] = krx["kospi_close"].rolling(100, min_periods=100).mean()
+        krx["kospi_gap_20_100"] = (krx["kospi_ma20"] / krx["kospi_ma100"] - 1) * 100
+
     all_dates = pd.concat(
         [ecos["date"], krx["date"], kofia["date"], fred["date"], bitcoin["date"], investor_flow["date"], markets["date"], news_sentiment["date"], adr["date"]],
         ignore_index=True,
@@ -210,6 +220,7 @@ PANEL_SOURCES = {
     "뉴스심리지수 vs 코스피": "한국은행 ECOS 521Y001(뉴스심리지수, 실험적 통계, 일별) - 뉴스 텍스트 감성분석 기반, 100=중립, 100 초과면 평소보다 긍정적 톤",
     "일본 미국채 보유액 vs 코스피": "FRED FORTREASPOS42609(미 재무부 TIC 통계, 월간) - 일본의 미국채(장단기 합산) 보유액. 엔화 약세가 심해지면 일본이 외환개입 재원 마련으로 미국채를 매각할 수 있다는 가설 검증용",
     "코스피·코스닥 ADR": "KRX Open API(stk_bydd_trd/ksq_bydd_trd, 종목별 전일대비 등락) 기준 자체 계산 - ADR(등락비율) = 최근 20거래일 상승종목수 누계 ÷ 하락종목수 누계 x 100%. 120% 이상 과열권, 75% 이하 바닥권으로 보는 게 일반적",
+    "코스피 이격도(20일-100일)": "네이버 금융 코스피 종가 기준 자체 계산 - 20일(약 1개월) 이동평균과 100일(중기) 이동평균의 괴리율(%) = (20일이평/100일이평-1)x100. 마이너스로 갈수록 중기 추세 대비 단기 과매도(조정) 신호로 보는 지표",
     "엔달러/미국채10년 비율 vs 코스피": "엔달러환율(네이버) ÷ 미국채10년물 명목금리(FRED DGS10) - 엔화 약세압력 대비 미 국채금리 수준을 함께 본 사용자 정의 비율. 높을수록 '엔화는 약세인데 금리는 상대적으로 낮은' 상태",
     "소비자심리지수(CCSI) vs 코스피": "한국은행 ECOS 511Y002(소비자동향조사, 월간) - 소비자심리지수(CCSI), 100=중립",
     "경제심리지수(ESI) vs 코스피": "한국은행 ECOS 513Y001(경제심리지수, 원계열, 월간) - 기업+소비자 심리 종합, 100=중립",
@@ -348,6 +359,7 @@ BULK_CANDIDATES = [
     ("deposit_minus_rp", "예탁금-RP"), ("usd_krw", "원달러환율"), ("copper_usd", "구리가격"),
     ("usd_jpy", "엔달러환율"), ("us_treasury_10y", "미국채10년물"), ("japan_ust_holdings", "일본미국채보유액"),
     ("jpy_ust10y_ratio", "엔달러_미국채10년비율"), ("kospi_adr", "코스피ADR"), ("kosdaq_adr", "코스닥ADR"),
+    ("kospi_gap_20_100", "코스피20일100일이격도"),
     ("ccsi", "소비자심리지수"), ("esi", "경제심리지수"), ("bsi_all_industry", "전산업업황BSI"),
     ("news_sentiment_index", "뉴스심리지수"), ("us_net_liquidity_bil", "미국유동성지수"),
     ("fed_total_assets_bil", "연준총자산"), ("us_treasury_tga_bil", "재무부TGA"), ("us_reverse_repo", "ON RRP"),
@@ -365,7 +377,7 @@ BULK_TRANSFORMS = [
 BULK_ALREADY_RATE_COLS = {
     "korea_m2_yoy", "us_m2_yoy", "margin_liquidation_ratio", "leading_index_yoy",
     "m2_to_marketcap_ratio", "kospi_turnover_ratio", "us_real_rate_10y",
-    "us_treasury_10y", "kospi_adr", "kosdaq_adr",
+    "us_treasury_10y", "kospi_adr", "kosdaq_adr", "kospi_gap_20_100",
 }
 
 
@@ -600,6 +612,11 @@ def build_dashboard(merged, raw_latest):
             {"코스피 ADR(%)": "kospi_adr", "코스닥 ADR(%)": "kosdaq_adr"},
             {"코스피 종가": "kospi_close"},
         ),
+        "코스피 이격도(20일-100일)": build_dual_panel(
+            merged, recent,
+            {"코스피 종가": "kospi_close", "20일 이평선": "kospi_ma20", "100일 이평선": "kospi_ma100"},
+            {"20일-100일 이격도(%)": "kospi_gap_20_100"},
+        ),
         "소비자심리지수(CCSI) vs 코스피": build_dual_panel(
             merged, recent,
             {"코스피 종가": "kospi_close"},
@@ -682,6 +699,7 @@ def build_dashboard(merged, raw_latest):
     panels["일본 미국채 보유액 vs 코스피"]["latest"] = latest_date_str(raw_latest, ["kospi_close", "japan_ust_holdings"])
     panels["엔달러/미국채10년 비율 vs 코스피"]["latest"] = latest_date_str(raw_latest, ["kospi_close", "jpy_ust10y_ratio"])
     panels["코스피·코스닥 ADR"]["latest"] = latest_date_str(raw_latest, ["kospi_adr", "kosdaq_adr"])
+    panels["코스피 이격도(20일-100일)"]["latest"] = latest_date_str(raw_latest, ["kospi_close", "kospi_gap_20_100"])
     panels["소비자심리지수(CCSI) vs 코스피"]["latest"] = latest_date_str(raw_latest, ["kospi_close", "ccsi"])
     panels["경제심리지수(ESI) vs 코스피"]["latest"] = latest_date_str(raw_latest, ["kospi_close", "esi"])
     panels["전산업 업황BSI vs 코스피"]["latest"] = latest_date_str(raw_latest, ["kospi_close", "bsi_all_industry"])

@@ -34,6 +34,9 @@ SOURCES = [
     ("gold_usd", WORLD_URL, {"marketindexCd": "CMDT_GC", "fdtc": 2}),
     ("silver_usd", WORLD_URL, {"marketindexCd": "CMDT_SI", "fdtc": 2}),
     ("usd_jpy", WORLD_URL, {"marketindexCd": "FX_USDJPY", "fdtc": 4}),  # 달러/엔(1달러=몇엔)
+    ("copper_usd", WORLD_URL, {"marketindexCd": "CMDT_CDY", "fdtc": 2}),  # 구리 - 예전엔 네이버에
+    # 없는 줄 알고 FRED(IMF 발표, 월간)로 대체했었는데 실제로는 있었음(사용자가 찾아줌). 매일
+    # 갱신되는 이 소스로 교체하고 FRED 쪽 copper_usd는 fetch_fred.py에서 제거함(컬럼명 충돌 방지).
 ]
 
 

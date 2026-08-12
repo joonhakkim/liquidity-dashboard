@@ -33,7 +33,6 @@ API_URL = "https://api.stlouisfed.org/fred/series/observations"
 FRED_SERIES = [
     ("us_m2", "M2SL", "2000-01-01"),
     ("us_real_rate_10y", "DFII10", "2003-01-01"),  # DFII10은 2003년부터 존재
-    ("copper_usd", "PCOPPUSDM", "2000-01-01"),  # 구리(IMF 발표, 월간) - 네이버엔 구리 시세가 없어서 FRED로 대체
     # 미국 순유동성(Net Liquidity) = 연준 총자산 - TGA(재무부 일반계정) - ON RRP(익일역레포)
     # MacroMicro 등에서 흔히 쓰는 "Fed Net Liquidity" 정의와 동일. 단위는 build_dashboard.py에서 통일.
     ("fed_total_assets", "WALCL", "2003-01-01"),  # 연준 총자산(주간, 수요일 기준, 백만달러)
