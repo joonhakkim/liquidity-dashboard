@@ -219,11 +219,10 @@ PANEL_SOURCES = {
     "코스피 선행지수 vs YoY": "선행종합지수 YoY: 한국은행 ECOS(901Y067/I16A 원지수, 국가데이터처 작성, 월간) 전년동월대비(%) / 코스피 YoY: 네이버 금융 코스피 종가 기준 전년동일대비(%)",
     "코스피·코스닥 ADR": "KRX Open API(stk_bydd_trd/ksq_bydd_trd, 종목별 전일대비 등락) 기준 자체 계산 - ADR(등락비율) = 최근 20거래일 상승종목수 누계 ÷ 하락종목수 누계 x 100%. 120% 이상 과열권, 75% 이하 바닥권으로 보는 게 일반적",
     "코스피 이격도(20일-100일)": "네이버 금융 코스피 종가 기준 자체 계산 - 20일(약 1개월) 이동평균과 100일(중기) 이동평균의 괴리율(%) = (20일이평/100일이평-1)x100. 마이너스로 갈수록 중기 추세 대비 단기 과매도(조정) 신호로 보는 지표",
-    "금광기업ETF(GDX) vs 코스피": "Yahoo Finance GDX(VanEck Gold Miners ETF, 일별) - 대신증권 리포트의 '금은 유동성 프록시' 주장을 검증한 결과, 순수 금현물보다 GDX가 코스피 급락에 대해 더 나은 선행성을 보임(2006~2026년 17개 급락 이벤트 중 65% 적중, 2008년 금융위기 때 4연속 60~139일 선행)",
     "경기선행지수·동행지수": "한국은행 ECOS 901Y067(경기종합지수, 국가데이터처 작성, 월간) - 선행종합지수(I16A)·동행종합지수(I16B) 원지수(100=기준연도) 및 그 격차(선행-동행). 격차가 양수면 선행지수가 동행지수보다 높아 경기 개선 기대, 음수면 반대(둔화 우려)로 보는 게 일반적 해석",
     "미국 10년물 실질금리": "FRED(세인트루이스 연은) DFII10 - Market Yield on U.S. Treasury Securities at 10-Year Constant Maturity, Quoted on an Investment Basis, Inflation-Indexed (일별)",
     "미국 연준 유동성 구성요소": "FRED WALCL(연준 총자산) / WTREGEN(재무부 일반계정 TGA) / RRPONTSYD(익일역레포 ON RRP) - 전부 십억달러, 순유동성 = 총자산-TGA-RRP",
-    "환율·귀금속·구리": "원/달러·금·은: 네이버 금융(marketindex, 일별) / 구리: FRED PCOPPUSDM(IMF 발표, 월간, 네이버엔 구리 시세 없어 대체)",
+    "환율·귀금속·구리": "원/달러·금·은·구리: 네이버 금융(marketindex, 일별) / 금광기업ETF(GDX): Yahoo Finance(VanEck Gold Miners ETF, 일별) - 대신증권 리포트의 '금은 유동성 프록시' 주장을 검증한 결과, 순수 금현물보다 GDX가 코스피 급락에 대해 더 나은 선행성을 보임(2006~2026년 17개 급락 이벤트 중 65% 적중, 2008년 금융위기 때 4연속 60~139일 선행)",
     "유동성지표": "한국은행 ECOS Open API - 한국은행 주요계정(103Y002), M2(161Y008)",
     "실탄게이지": "KOFIA FreeSIS Open API(자동 수집) 기반 계산",
     "예수금·신용거래 현황": "KOFIA FreeSIS (meta/getMetaDataList.do, 자동 수집)",
@@ -277,19 +276,33 @@ def build_panel(merged, window_df, panel_type, series_map):
     }
 
 
-def build_dual_panel(merged, window_df, left_map, right_map):
+def build_dual_panel(merged, window_df, left_map, right_map, extra_title=None, extra_left=None, extra_right=None):
     """왼쪽/오른쪽 축이 다른 두 지표를 한 차트에 겹쳐 그린다 (예: 코스피 vs 분기 지수).
-    두 지표가 모두 존재하는 교집합 구간만 보여준다 (한쪽이 짧으면 그 시작점부터)."""
+    두 지표가 모두 존재하는 교집합 구간만 보여준다 (한쪽이 짧으면 그 시작점부터).
+    extra_*를 주면 같은 패널 카드 안에 완전히 독립된(자기 날짜범위·축을 따로 갖는)
+    두 번째 차트를 하나 더 그린다 - 발표 주기가 다른 지표를 억지로 같은 축에 욱여넣지
+    않고 별도 차트로 분리할 때 씀(예: 분기 지표를 월간 지표 패널에 얹을 때)."""
     cols = list(left_map.values()) + list(right_map.values())
     trimmed = trim_to_common_data(window_df, cols)
     dates = trimmed["date"].dt.strftime("%Y-%m-%d").tolist()
-    return {
+    result = {
         "type": "dual",
         "labels": dates,
         "left": {name: col_or_none(trimmed, col) for name, col in left_map.items()},
         "right": {name: col_or_none(trimmed, col) for name, col in right_map.items()},
         "has_data": any(has_data(trimmed, c) for c in cols),
     }
+    if extra_left or extra_right:
+        extra_cols = list((extra_left or {}).values()) + list((extra_right or {}).values())
+        extra_trimmed = trim_to_common_data(window_df, extra_cols)
+        result["extra"] = {
+            "title": extra_title,
+            "labels": extra_trimmed["date"].dt.strftime("%Y-%m-%d").tolist(),
+            "left": {name: col_or_none(extra_trimmed, col) for name, col in (extra_left or {}).items()},
+            "right": {name: col_or_none(extra_trimmed, col) for name, col in (extra_right or {}).items()},
+            "has_data": any(has_data(extra_trimmed, c) for c in extra_cols),
+        }
+    return result
 
 
 MASTER_SERIES = [
@@ -445,8 +458,6 @@ def detect_crash_starts(merged):
 # 자체는 그대로 두고 최종 결과만 이 라벨들로 필터링한다(코스피 종가는 항상 유지).
 CURATED_ONLY_LABELS = {
     "코스피 종가",
-    "신용거래융자 백분위(252일 선행정렬)",
-    "미국 10년물 실질금리 z-score(21일 선행정렬)",
     "[전체후보] 한국 M2 QoQ",
     "[전체후보] 실탄합계 MoM",
     "[전체후보] 실탄합계 QoQ",
@@ -456,7 +467,6 @@ CURATED_ONLY_LABELS = {
     "[전체후보] 파생상품거래예수금 MoM",
     "[전체후보] 대고객RP매도잔고 QoQ",
     "[전체후보] 대고객RP매도잔고 YoY",
-    "[전체후보] 신용카드대출수요BSI 원값",
     "[전체후보] 신용대주잔고 원값",
     "[전체후보] 연준총자산 QoQ",
     "[전체후보] ON RRP QoQ",
@@ -466,8 +476,6 @@ CURATED_ONLY_LABELS = {
     "[전체후보] 코스닥ADR 원값",
     "[전체후보] 금가격 원값",
     "[전체후보] 금광기업ETF 원값",
-    "[이동평균] 미국 M2 YoY 5주선",
-    "[이동평균] 미국 M2 YoY 10주선",
     "[이동평균] 한국 M2 5주선",
     "[이동평균] RP매각잔고 60주선",
     "[이동평균] CMA잔고 5주선",
@@ -579,15 +587,13 @@ def build_dashboard(merged, raw_latest):
             {"코스피 종가": "kospi_close", "20일 이평선": "kospi_ma20", "100일 이평선": "kospi_ma100"},
             {"20일-100일 이격도(%)": "kospi_gap_20_100"},
         ),
-        "금광기업ETF(GDX) vs 코스피": build_dual_panel(
-            merged, recent,
-            {"코스피 종가": "kospi_close"},
-            {"GDX(USD)": "gdx_close"},
-        ),
         "경기선행지수·동행지수": build_dual_panel(
             merged, recent,
             {"경기선행지수": "leading_index", "경기동행지수": "coincident_index"},
             {"선행-동행지수 격차": "leading_coincident_gap"},
+            extra_title="신용카드 대출수요BSI vs 코스피",
+            extra_left={"코스피 종가": "kospi_close"},
+            extra_right={"신용카드 대출수요(BSI)": "credit_card_loan_demand"},
         ),
         "미국 10년물 실질금리": build_panel(merged, recent, "multi", {
             "미국 10년물 실질금리(%)": "us_real_rate_10y",
@@ -603,6 +609,7 @@ def build_dashboard(merged, raw_latest):
             "금 가격(USD)": "gold_usd",
             "은 가격(USD)": "silver_usd",
             "구리 가격(USD/MT)": "copper_usd",
+            "금광기업ETF(GDX, USD)": "gdx_close",
         }),
     }
 
@@ -621,11 +628,10 @@ def build_dashboard(merged, raw_latest):
     panels["코스피 선행지수 vs YoY"]["latest"] = latest_date_str(raw_latest, ["kospi_yoy", "leading_index_yoy"])
     panels["코스피·코스닥 ADR"]["latest"] = latest_date_str(raw_latest, ["kospi_adr", "kosdaq_adr"])
     panels["코스피 이격도(20일-100일)"]["latest"] = latest_date_str(raw_latest, ["kospi_close", "kospi_gap_20_100"])
-    panels["금광기업ETF(GDX) vs 코스피"]["latest"] = latest_date_str(raw_latest, ["kospi_close", "gdx_close"])
     panels["경기선행지수·동행지수"]["latest"] = latest_date_str(raw_latest, ["leading_index", "coincident_index"])
     panels["미국 10년물 실질금리"]["latest"] = latest_date_str(raw_latest, ["us_real_rate_10y"])
     panels["미국 연준 유동성 구성요소"]["latest"] = latest_date_str(raw_latest, ["fed_total_assets_bil", "us_treasury_tga_bil", "us_reverse_repo", "us_net_liquidity_bil"])
-    panels["환율·귀금속·구리"]["latest"] = latest_date_str(raw_latest, ["usd_krw", "gold_usd", "silver_usd", "copper_usd"])
+    panels["환율·귀금속·구리"]["latest"] = latest_date_str(raw_latest, ["usd_krw", "gold_usd", "silver_usd", "copper_usd", "gdx_close"])
 
     updated_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     updated_at_json = json.dumps(updated_at, ensure_ascii=False)
@@ -1033,6 +1039,18 @@ function renderPanel(title, panel, section) {{
     wrap.appendChild(canvas);
     card.appendChild(wrap);
     makeDualAxisChart(canvas, panel.labels, panel.left, panel.right);
+    if (panel.extra && panel.extra.has_data) {{
+      const extraTitle = document.createElement('h3');
+      extraTitle.style.cssText = 'font-size:14px; margin:20px 0 8px 0; color:#c7cbd1;';
+      extraTitle.textContent = panel.extra.title || '';
+      card.appendChild(extraTitle);
+      const extraWrap = document.createElement('div');
+      extraWrap.className = 'chart-canvas-wrap';
+      const extraCanvas = document.createElement('canvas');
+      extraWrap.appendChild(extraCanvas);
+      card.appendChild(extraWrap);
+      makeDualAxisChart(extraCanvas, panel.extra.labels, panel.extra.left, panel.extra.right);
+    }}
     return;
   }}
 
