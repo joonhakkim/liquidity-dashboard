@@ -173,6 +173,19 @@ def build_merged():
         if "kospi_close" in raw_latest:
             raw_latest["kospi_yoy"] = raw_latest["kospi_close"]
 
+    # 특정 변환(QoQ/YoY)에 이동평균을 얹어서 보고 싶다는 요청 - MA는 원값 컬럼에만 적용되는
+    # 구조라, "이미 변환된 값" 자체를 하나의 컬럼으로 미리 만들어둬야 그 위에 이동평균을
+    # 씌울 수 있다. cma_balance/dry_powder는 근사적으로 매일 갱신되는 값이라 M2처럼
+    # ffill 전에 따로 계산할 필요 없이 merged(이미 ffill된 캘린더그리드)에서 바로 계산해도 됨.
+    if "cma_balance" in merged.columns:
+        merged["cma_balance_qoq"] = merged["cma_balance"].pct_change(63) * 100
+        if "cma_balance" in raw_latest:
+            raw_latest["cma_balance_qoq"] = raw_latest["cma_balance"]
+    if "dry_powder" in merged.columns:
+        merged["dry_powder_yoy"] = merged["dry_powder"].pct_change(252) * 100
+        if "dry_powder" in raw_latest:
+            raw_latest["dry_powder_yoy"] = raw_latest["dry_powder"]
+
     if {"fed_total_assets", "us_treasury_tga", "us_reverse_repo"}.issubset(merged.columns):
         # 미국 순유동성(Fed Net Liquidity) = 연준 총자산 - TGA - ON RRP.
         # WALCL/WTREGEN은 백만달러, RRPONTSYD는 십억달러 단위라 RRP에 x1000해서 맞춘다.
@@ -366,6 +379,7 @@ BULK_CANDIDATES = [
     ("usd_jpy", "엔달러환율"), ("us_treasury_10y", "미국채10년물"), ("japan_ust_holdings", "일본미국채보유액"),
     ("jpy_ust10y_ratio", "엔달러_미국채10년비율"), ("kospi_adr", "코스피ADR"), ("kosdaq_adr", "코스닥ADR"),
     ("kospi_gap_20_100", "코스피20일100일이격도"), ("gdx_close", "금광기업ETF"),
+    ("cma_balance_qoq", "CMA잔고QoQ"), ("dry_powder_yoy", "실탄합계YoY"),
     ("ccsi", "소비자심리지수"), ("esi", "경제심리지수"), ("bsi_all_industry", "전산업업황BSI"),
     ("news_sentiment_index", "뉴스심리지수"), ("us_net_liquidity_bil", "미국유동성지수"),
     ("fed_total_assets_bil", "연준총자산"), ("us_treasury_tga_bil", "재무부TGA"), ("us_reverse_repo", "ON RRP"),
@@ -384,6 +398,7 @@ BULK_ALREADY_RATE_COLS = {
     "korea_m2_yoy", "us_m2_yoy", "margin_liquidation_ratio", "leading_index_yoy",
     "m2_to_marketcap_ratio", "kospi_turnover_ratio", "us_real_rate_10y",
     "us_treasury_10y", "kospi_adr", "kosdaq_adr", "kospi_gap_20_100",
+    "cma_balance_qoq", "dry_powder_yoy",
 }
 
 
@@ -461,8 +476,6 @@ def detect_crash_starts(merged):
 # 자체는 그대로 두고 최종 결과만 이 라벨들로 필터링한다(코스피 종가는 항상 유지).
 CURATED_ONLY_LABELS = {
     "코스피 종가",
-    "[전체후보] 한국 M2 QoQ",
-    "[전체후보] 실탄합계 MoM",
     "[전체후보] 실탄합계 QoQ",
     "[전체후보] 실탄합계 YoY",
     "[전체후보] CMA잔고 QoQ",
@@ -479,6 +492,8 @@ CURATED_ONLY_LABELS = {
     "[전체후보] 금광기업ETF 원값",
     "[이동평균] RP매각잔고 60주선",
     "[이동평균] CMA잔고 5주선",
+    "[이동평균] CMA잔고QoQ 12주선",
+    "[이동평균] 실탄합계YoY 12주선",
     "[이동평균] 뉴스심리지수 5주선",
     "[이동평균] 뉴스심리지수 12주선",
 }
