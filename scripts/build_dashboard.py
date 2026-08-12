@@ -276,12 +276,14 @@ def build_panel(merged, window_df, panel_type, series_map):
     }
 
 
-def build_dual_panel(merged, window_df, left_map, right_map, extra_title=None, extra_left=None, extra_right=None):
+def build_dual_panel(merged, window_df, left_map, right_map, extra_title=None, extra_left=None, extra_right=None, right_chart_type=None):
     """왼쪽/오른쪽 축이 다른 두 지표를 한 차트에 겹쳐 그린다 (예: 코스피 vs 분기 지수).
     두 지표가 모두 존재하는 교집합 구간만 보여준다 (한쪽이 짧으면 그 시작점부터).
     extra_*를 주면 같은 패널 카드 안에 완전히 독립된(자기 날짜범위·축을 따로 갖는)
     두 번째 차트를 하나 더 그린다 - 발표 주기가 다른 지표를 억지로 같은 축에 욱여넣지
-    않고 별도 차트로 분리할 때 씀(예: 분기 지표를 월간 지표 패널에 얹을 때)."""
+    않고 별도 차트로 분리할 때 씀(예: 분기 지표를 월간 지표 패널에 얹을 때).
+    right_chart_type="bar"로 주면 오른쪽 축 시리즈를 선(line) 대신 막대로 그린다
+    (사용자가 보여준 리포트 차트처럼 스프레드/이격도류를 막대로 표시하고 싶을 때)."""
     cols = list(left_map.values()) + list(right_map.values())
     trimmed = trim_to_common_data(window_df, cols)
     dates = trimmed["date"].dt.strftime("%Y-%m-%d").tolist()
@@ -291,6 +293,7 @@ def build_dual_panel(merged, window_df, left_map, right_map, extra_title=None, e
         "left": {name: col_or_none(trimmed, col) for name, col in left_map.items()},
         "right": {name: col_or_none(trimmed, col) for name, col in right_map.items()},
         "has_data": any(has_data(trimmed, c) for c in cols),
+        "right_type": right_chart_type,
     }
     if extra_left or extra_right:
         extra_cols = list((extra_left or {}).values()) + list((extra_right or {}).values())
@@ -467,7 +470,6 @@ CURATED_ONLY_LABELS = {
     "[전체후보] 파생상품거래예수금 MoM",
     "[전체후보] 대고객RP매도잔고 QoQ",
     "[전체후보] 대고객RP매도잔고 YoY",
-    "[전체후보] 신용대주잔고 원값",
     "[전체후보] 연준총자산 QoQ",
     "[전체후보] ON RRP QoQ",
     "[전체후보] ON RRP YoY",
@@ -476,7 +478,6 @@ CURATED_ONLY_LABELS = {
     "[전체후보] 코스닥ADR 원값",
     "[전체후보] 금가격 원값",
     "[전체후보] 금광기업ETF 원값",
-    "[이동평균] 한국 M2 5주선",
     "[이동평균] RP매각잔고 60주선",
     "[이동평균] CMA잔고 5주선",
     "[이동평균] 뉴스심리지수 5주선",
@@ -586,6 +587,7 @@ def build_dashboard(merged, raw_latest):
             merged, recent,
             {"코스피 종가": "kospi_close", "20일 이평선": "kospi_ma20", "100일 이평선": "kospi_ma100"},
             {"20일-100일 이격도(%)": "kospi_gap_20_100"},
+            right_chart_type="bar",
         ),
         "경기선행지수·동행지수": build_dual_panel(
             merged, recent,
@@ -982,17 +984,27 @@ function makeLineChart(canvas, labels, datasets) {{
   registerChart(chart);
 }}
 
-function makeDualAxisChart(canvas, labels, leftSeries, rightSeries) {{
+function makeDualAxisChart(canvas, labels, leftSeries, rightSeries, rightType) {{
+  const isBar = rightType === 'bar';
   const datasets = [
     ...Object.entries(leftSeries).map(([name, data], i) => ({{
+      type: 'line',
       label: name, data, yAxisID: 'y', borderColor: COLORS[i % COLORS.length],
       backgroundColor: COLORS[i % COLORS.length] + '33',
       spanGaps: true, pointRadius: 0, borderWidth: 1.5,
+      order: 1,
     }})),
-    ...Object.entries(rightSeries).map(([name, data], i) => ({{
+    ...Object.entries(rightSeries).map(([name, data], i) => (isBar ? {{
+      type: 'bar',
+      label: name, data, yAxisID: 'y1', backgroundColor: COLORS[(i + 3) % COLORS.length] + '99',
+      borderColor: COLORS[(i + 3) % COLORS.length], borderWidth: 0,
+      order: 2,
+    }} : {{
+      type: 'line',
       label: name, data, yAxisID: 'y1', borderColor: COLORS[(i + 3) % COLORS.length],
       backgroundColor: COLORS[(i + 3) % COLORS.length] + '33',
       spanGaps: true, pointRadius: 0, borderWidth: 1.5, borderDash: [5, 3],
+      order: 2,
     }})),
   ];
   const chart = new Chart(canvas, {{
@@ -1038,7 +1050,7 @@ function renderPanel(title, panel, section) {{
     const canvas = document.createElement('canvas');
     wrap.appendChild(canvas);
     card.appendChild(wrap);
-    makeDualAxisChart(canvas, panel.labels, panel.left, panel.right);
+    makeDualAxisChart(canvas, panel.labels, panel.left, panel.right, panel.right_type);
     if (panel.extra && panel.extra.has_data) {{
       const extraTitle = document.createElement('h3');
       extraTitle.style.cssText = 'font-size:14px; margin:20px 0 8px 0; color:#c7cbd1;';
