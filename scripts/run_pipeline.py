@@ -5,8 +5,13 @@
 - 성공/실패와 관계없이 logs/YYYY-MM-DD.log 에 전체 출력을 남긴다.
 - 하나라도 실패하면 logs/error.log 에 이어서(append) 에러를 기록하고,
   나머지 단계는 계속 진행한다 (한 소스가 막혀도 나머지는 갱신되도록).
-- 대시보드 빌드까지 끝나면 git commit + push까지 자동으로 해서 GitHub Pages가 갱신되게 한다.
-- 마지막에 docs/index.html 빌드까지 성공하면 exit code 0, 아니면 1 (git push 실패는 경고만).
+- git commit + push는 두 번 한다: (1) 유동성 대시보드/트로이 MP/크랙스프레드처럼 빠른 핵심
+  단계들이 끝난 직후 한 번, (2) DART 스크리닝처럼 종목이 577개라 API 레이트리밋에 걸려 몇 시간씩
+  걸리기도 하는 느린 단계들까지 다 끝난 뒤 마지막에 한 번 더. 원래는 맨 끝에 한 번만 커밋했는데,
+  Windows 작업 스케줄러의 실행시간 제한(1시간)에 걸려 DART 단계가 안 끝나면 프로세스가 강제
+  종료(SCHED_S_TASK_TERMINATED)되면서 유동성 대시보드 배포까지 며칠씩 안 되는 문제가 있었다
+  (2026-08-13, 사용자가 "금투협 데이터가 8/10에서 멈춰있다"고 알려줘서 발견). 중간 체크포인트를
+  추가하면 뒤쪽이 잘려도 앞쪽 핵심 배포는 이미 끝난 상태라 이 문제가 사라진다.
 """
 import subprocess
 import sys
@@ -18,7 +23,9 @@ SCRIPTS_DIR = BASE_DIR / "scripts"
 LOGS_DIR = BASE_DIR / "logs"
 PYTHON = sys.executable
 
-STEPS = [
+# 빠른 핵심 단계 - 유동성 대시보드/트로이 MP/크랙스프레드처럼 몇 분이면 끝나는 것들.
+# 여기까지 끝나면 바로 한 번 커밋+푸시해서, 뒤쪽 느린 단계가 시간제한에 걸려도 이미 배포돼 있다.
+CORE_STEPS = [
     ("fetch_ecos.py", "ECOS 수집"),
     ("fetch_krx.py", "KRX/네이버 수집"),
     ("fetch_kofia.py", "KOFIA 수집(수동 파일 병합)"),
@@ -35,6 +42,12 @@ STEPS = [
     ("build_dashboard.py", "유동성 대시보드 빌드"),
     ("fetch_troy_mp_prices.py", "트로이 MP: 편입 종목 일별 종가 수집(네이버 차트 API)"),
     ("build_troy_mp_page.py", "트로이 MP 트래커 페이지 빌드(data/manual/troy_mp_trades.csv 매매일지 기반)"),
+    ("build_home.py", "홈페이지 빌드"),
+]
+
+# 느린 단계 - DART 스크리닝은 종목이 577개라 API 레이트리밋(하루 13000회)에 걸리면 다음날로
+# 이어서 처리되고, 전체가 끝나기까지 1시간을 넘기는 날도 있다. CORE_STEPS 배포 이후에 실행한다.
+SLOW_STEPS = [
     ("screen_op_growth.py", "주식 스크리닝: 전체 상장사 목록 + 영업이익 컨센서스 매칭"),
     ("fetch_dart_quarterly.py", "주식 스크리닝: DART 분기별 매출/영업이익"),
     ("fetch_dart_preliminary.py", "주식 스크리닝: DART 잠정실적(2분기 YoY 우선 소스)"),
@@ -44,8 +57,50 @@ STEPS = [
     ("fetch_kospi_per_tracker.py", "코스피 선행 PER 트래커: 시총상위50 컨센서스 PER 집계(하루 1행 누적)"),
     ("fetch_kosdaq_per_tracker.py", "코스닥 선행 PER 트래커: 시총상위50 컨센서스 PER 집계(하루 1행 누적)"),
     ("build_per_tracker_page.py", "코스피·코스닥 선행 PER 트래커 페이지 빌드"),
-    ("build_home.py", "홈페이지 빌드"),
+    ("build_home.py", "홈페이지 빌드(스크리닝/PER 트래커 최신 링크 반영용으로 한 번 더)"),
 ]
+
+
+def run_steps(steps, write, error_log_path):
+    overall_ok = True
+    for script, label in steps:
+        write(f"\n--- {label} ({script}) ---")
+        result = subprocess.run(
+            [PYTHON, str(SCRIPTS_DIR / script)],
+            capture_output=True, text=True, encoding="utf-8", errors="replace",
+        )
+        write(result.stdout)
+        if result.stderr:
+            write("[STDERR]\n" + result.stderr)
+
+        if result.returncode != 0:
+            overall_ok = False
+            error_msg = (
+                f"[{datetime.now().isoformat()}] {script} 실패 "
+                f"(exit code {result.returncode})\n{result.stderr}\n"
+            )
+            write(f"경고: {script} 실패, 다음 단계는 계속 진행합니다.")
+            with open(error_log_path, "a", encoding="utf-8") as err_f:
+                err_f.write(error_msg)
+    return overall_ok
+
+
+def git_deploy(write, commit_msg):
+    write(f"\n--- GitHub 배포 (git commit + push): {commit_msg} ---")
+    try:
+        subprocess.run(["git", "add", "-A"], cwd=BASE_DIR, check=True, capture_output=True, text=True)
+        diff = subprocess.run(["git", "diff", "--cached", "--quiet"], cwd=BASE_DIR)
+        if diff.returncode == 0:
+            write("변경 사항 없음, 커밋 스킵")
+            return
+        subprocess.run(["git", "commit", "-m", commit_msg], cwd=BASE_DIR, check=True, capture_output=True, text=True)
+        push = subprocess.run(["git", "push"], cwd=BASE_DIR, capture_output=True, text=True)
+        if push.returncode == 0:
+            write("git push 완료")
+        else:
+            write(f"경고: git push 실패\n{push.stderr}")
+    except Exception as e:
+        write(f"경고: git 배포 단계 실패 ({e})")
 
 
 def main():
@@ -54,8 +109,6 @@ def main():
     log_path = LOGS_DIR / f"{today}.log"
     error_log_path = LOGS_DIR / "error.log"
 
-    overall_ok = True
-
     with open(log_path, "a", encoding="utf-8") as log_f:
         def write(line):
             print(line)
@@ -63,43 +116,13 @@ def main():
 
         write(f"\n===== 파이프라인 실행 시작: {datetime.now().isoformat()} =====")
 
-        for script, label in STEPS:
-            write(f"\n--- {label} ({script}) ---")
-            result = subprocess.run(
-                [PYTHON, str(SCRIPTS_DIR / script)],
-                capture_output=True, text=True, encoding="utf-8", errors="replace",
-            )
-            write(result.stdout)
-            if result.stderr:
-                write("[STDERR]\n" + result.stderr)
+        core_ok = run_steps(CORE_STEPS, write, error_log_path)
+        git_deploy(write, f"데이터 자동 갱신 {today}")
 
-            if result.returncode != 0:
-                overall_ok = False
-                error_msg = (
-                    f"[{datetime.now().isoformat()}] {script} 실패 "
-                    f"(exit code {result.returncode})\n{result.stderr}\n"
-                )
-                write(f"경고: {script} 실패, 다음 단계는 계속 진행합니다.")
-                with open(error_log_path, "a", encoding="utf-8") as err_f:
-                    err_f.write(error_msg)
+        slow_ok = run_steps(SLOW_STEPS, write, error_log_path)
+        git_deploy(write, f"데이터 자동 갱신(스크리닝/PER) {today}")
 
-        write("\n--- GitHub 배포 (git commit + push) ---")
-        try:
-            subprocess.run(["git", "add", "-A"], cwd=BASE_DIR, check=True, capture_output=True, text=True)
-            diff = subprocess.run(["git", "diff", "--cached", "--quiet"], cwd=BASE_DIR)
-            if diff.returncode == 0:
-                write("변경 사항 없음, 커밋 스킵")
-            else:
-                commit_msg = f"데이터 자동 갱신 {today}"
-                subprocess.run(["git", "commit", "-m", commit_msg], cwd=BASE_DIR, check=True, capture_output=True, text=True)
-                push = subprocess.run(["git", "push"], cwd=BASE_DIR, capture_output=True, text=True)
-                if push.returncode == 0:
-                    write("git push 완료")
-                else:
-                    write(f"경고: git push 실패\n{push.stderr}")
-        except Exception as e:
-            write(f"경고: git 배포 단계 실패 ({e})")
-
+        overall_ok = core_ok and slow_ok
         write(f"\n===== 파이프라인 실행 종료: {datetime.now().isoformat()} (성공={overall_ok}) =====")
 
     sys.exit(0 if overall_ok else 1)
