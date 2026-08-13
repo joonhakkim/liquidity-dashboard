@@ -63,6 +63,12 @@ TEMPLATE = """<!doctype html>
       <p>리서치팀 모델 포트폴리오 - 종목별 매수단가/수익률과 코스피 대비 초과성과(TWR 지수, 편입일=100)를 추적.</p>
       <div class="arrow">바로가기 &rarr;</div>
     </a>
+    <a class="card" href="crack_spread.html">
+      <div class="icon">&#9981;</div>
+      <h2>정유화학 정제마진 트래커</h2>
+      <p>EIA 공식 데이터 기반 3:2:1 크랙 스프레드(WTI/휘발유/경유) - 2006년~ 일별 추이, 엑셀 다운로드 지원.</p>
+      <div class="arrow">바로가기 &rarr;</div>
+    </a>
   </div>
 </body>
 </html>
