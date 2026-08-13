@@ -1,7 +1,7 @@
 {
   "credit_loan_total": {
     "window_days": 1512,
-    "corr": -0.592,
+    "corr": -0.591,
     "n": 1914
   },
   "deposit_minus_rp": {
@@ -20,7 +20,7 @@
     "n": 1914
   },
   "_meta": {
-    "generated_at": "2026-08-13T07:31:23.034491",
+    "generated_at": "2026-08-14T07:31:28.580678",
     "n_crash_events": 6,
     "future_window_days": 126
   }

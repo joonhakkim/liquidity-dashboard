@@ -29,7 +29,14 @@ def main():
     overall_ok = True
     with open(log_path, "a", encoding="utf-8") as log_f:
         def write(line):
-            print(line)
+            try:
+                print(line)
+            except UnicodeEncodeError:
+                # 콘솔 코드페이지(cp949)가 못 그리는 문자(예: UTF-8 디코딩시 생긴 대체문자 U+FFFD)가
+                # 섞이면 print() 자체가 죽어서 파이프라인 전체가 중단된다 - 로그 파일(UTF-8)에는
+                # 항상 정상 기록되니, 콘솔 출력만 깨진 문자를 물음표로 바꿔서 죽지 않게 한다.
+                enc = sys.stdout.encoding or "utf-8"
+                print(line.encode(enc, errors="replace").decode(enc, errors="replace"))
             log_f.write(line + "\n")
 
         write(f"\n===== 수주잔고 파이프라인 실행 시작: {datetime.now().isoformat()} =====")
