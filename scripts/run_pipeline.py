@@ -31,6 +31,8 @@ STEPS = [
     ("fetch_news_sentiment.py", "한국은행 뉴스심리지수(ECOS 521Y001, 일별) 수집"),
     ("optimize_percentile_window.py", "통합차트 백분위 지표 최적 기간 재탐색(데이터 누적에 따라 자동 조정)"),
     ("build_dashboard.py", "유동성 대시보드 빌드"),
+    ("fetch_troy_mp_prices.py", "트로이 MP: 편입 종목 일별 종가 수집(네이버 차트 API)"),
+    ("build_troy_mp_page.py", "트로이 MP 트래커 페이지 빌드(data/manual/troy_mp_trades.csv 매매일지 기반)"),
     ("screen_op_growth.py", "주식 스크리닝: 전체 상장사 목록 + 영업이익 컨센서스 매칭"),
     ("fetch_dart_quarterly.py", "주식 스크리닝: DART 분기별 매출/영업이익"),
     ("fetch_dart_preliminary.py", "주식 스크리닝: DART 잠정실적(2분기 YoY 우선 소스)"),

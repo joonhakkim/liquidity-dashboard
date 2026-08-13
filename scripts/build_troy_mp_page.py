@@ -1,0 +1,336 @@
+"""
+트로이 MP(모델 포트폴리오) 트래커 페이지(docs/troy_mp.html)를 만든다.
+
+입력: data/manual/troy_mp_trades.csv (팀이 직접 편집하는 매매일지 - 이 파일에 행을 추가/수정하는 것
+자체가 "포트폴리오 변경"이다. 컬럼: date, code, name, action(BUY/SELL), price(체결단가,원), amount(매매금액,원))
++ data/troy_mp_prices.csv (fetch_troy_mp_prices.py가 종목별로 받아온 일별 종가)
++ data/krx_raw.csv (코스피 종가, BM 비교용)
+
+지수 산출 방법론 - 일별 시간가중수익률(TWR) 연쇄복리:
+  하루 수익률 r(t) = [전일 보유수량으로 오늘 종가 평가한 가치] / [전일 보유수량으로 전일 종가 평가한 가치] - 1
+  즉 "그날의 매매"는 그날 수익률 계산에 전혀 영향을 주지 않고(매매는 종가에 체결된다고 가정, 다음날
+  보유수량에만 반영), 순수하게 "전일 보유 종목바스켓의 가격변동"만 반영한다. 이렇게 하면 신규 편입/비중
+  조절(매매금액 유입출)이 지수 레벨을 왜곡하지 않는다(펀드 성과평가의 표준 TWR 방식과 동일 원리) - 그래서
+  총 투입자본(초기 원금) 같은 걸 별도로 물어볼 필요가 없다. 미보유 현금은 수익률 0%로 취급(별도 비중 없음).
+  MP지수·코스피(BM)지수 둘 다 "MP에 처음 종목이 편입된 날"을 100으로 리베이스한다.
+
+보유종목 테이블 - 이동평균원가법(weighted-average cost)으로 매수단가를 관리한다:
+  BUY: shares += amount/price, cost_basis += amount
+  SELL: sell_shares = amount/price 만큼 원가도 비례 차감(shares_before 대비 비율만큼 cost_basis 차감)
+  평균매수단가 = cost_basis / shares, 수익률 = (현재가-평균매수단가)/평균매수단가
+"""
+import json
+import os
+from datetime import datetime
+
+import pandas as pd
+
+DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data")
+DOCS_DIR = os.path.join(os.path.dirname(__file__), "..", "docs")
+TRADES_PATH = os.path.join(DATA_DIR, "manual", "troy_mp_trades.csv")
+PRICES_PATH = os.path.join(DATA_DIR, "troy_mp_prices.csv")
+KOSPI_PATH = os.path.join(DATA_DIR, "krx_raw.csv")
+OUT_PATH = os.path.join(DOCS_DIR, "troy_mp.html")
+
+
+def load_trades():
+    trades = pd.read_csv(TRADES_PATH, dtype={"code": str}, parse_dates=["date"])
+    trades = trades.dropna(subset=["code", "date", "action", "price", "amount"])
+    trades["code"] = trades["code"].str.zfill(6)
+    trades["action"] = trades["action"].str.upper().str.strip()
+    return trades.sort_values("date").reset_index(drop=True)
+
+
+def compute_holdings_table(trades, latest_prices, name_map):
+    """이동평균원가법으로 종목별 현재 보유수량/원가/평균매수단가를 계산."""
+    pos = {}  # code -> {"shares": x, "cost": y}
+    for _, row in trades.iterrows():
+        code = row["code"]
+        p = pos.setdefault(code, {"shares": 0.0, "cost": 0.0})
+        qty = row["amount"] / row["price"]
+        if row["action"] == "BUY":
+            p["shares"] += qty
+            p["cost"] += row["amount"]
+        elif row["action"] == "SELL":
+            if p["shares"] > 0:
+                ratio = min(qty / p["shares"], 1.0)
+                p["cost"] *= (1 - ratio)
+                p["shares"] -= qty
+            else:
+                p["shares"] -= qty
+
+    rows = []
+    for code, p in pos.items():
+        if p["shares"] <= 1e-6:
+            continue
+        avg_price = p["cost"] / p["shares"]
+        cur_price = latest_prices.get(code)
+        eval_value = p["shares"] * cur_price if cur_price else None
+        ret_pct = (cur_price / avg_price - 1) * 100 if cur_price else None
+        rows.append({
+            "code": code,
+            "name": name_map.get(code, code),
+            "shares": p["shares"],
+            "avg_price": avg_price,
+            "cost_basis": p["cost"],
+            "cur_price": cur_price,
+            "eval_value": eval_value,
+            "ret_pct": ret_pct,
+        })
+
+    total_eval = sum(r["eval_value"] for r in rows if r["eval_value"]) or 1
+    for r in rows:
+        r["weight_pct"] = (r["eval_value"] / total_eval * 100) if r["eval_value"] else None
+
+    rows.sort(key=lambda r: r["eval_value"] or 0, reverse=True)
+    return rows, total_eval
+
+
+def compute_twr_index(trades, prices_wide, kospi):
+    """일별 TWR 지수(MP)와 코스피(BM) 지수를 편입 첫날=100으로 리베이스해서 같이 반환."""
+    inception = trades["date"].min()
+    all_dates = sorted(set(prices_wide.index) & set(kospi.index))
+    all_dates = [d for d in all_dates if d >= inception]
+    if not all_dates:
+        return [], [], []
+
+    codes = sorted(trades["code"].unique())
+    shares = {c: 0.0 for c in codes}
+    trades_by_date = {d: g for d, g in trades.groupby("date")}
+
+    mp_index = [100.0]
+    dates_out = [all_dates[0]]
+
+    prev_date = all_dates[0]
+    if prev_date in trades_by_date:
+        for _, row in trades_by_date[prev_date].iterrows():
+            qty = row["amount"] / row["price"]
+            shares[row["code"]] += qty if row["action"] == "BUY" else -qty
+
+    for d in all_dates[1:]:
+        v_start = sum(shares[c] * prices_wide.at[prev_date, c] for c in codes
+                       if not pd.isna(prices_wide.at[prev_date, c]) and shares[c] != 0)
+        v_end = sum(shares[c] * prices_wide.at[d, c] for c in codes
+                     if not pd.isna(prices_wide.at[d, c]) and shares[c] != 0)
+        if v_start > 0:
+            r = v_end / v_start - 1
+        else:
+            r = 0.0
+        mp_index.append(mp_index[-1] * (1 + r))
+        dates_out.append(d)
+
+        if d in trades_by_date:
+            for _, row in trades_by_date[d].iterrows():
+                qty = row["amount"] / row["price"]
+                shares[row["code"]] += qty if row["action"] == "BUY" else -qty
+        prev_date = d
+
+    kospi_base = kospi.loc[dates_out[0]]
+    bm_index = [kospi.loc[d] / kospi_base * 100 for d in dates_out]
+
+    return dates_out, mp_index, bm_index
+
+
+def main():
+    if not os.path.exists(TRADES_PATH):
+        print("매매일지 파일이 없습니다:", TRADES_PATH)
+        return
+    trades = load_trades()
+
+    kospi_df = pd.read_csv(KOSPI_PATH, parse_dates=["date"]).sort_values("date")
+    kospi = kospi_df.set_index("date")["kospi_close"]
+
+    if trades.empty:
+        render_empty_page(kospi_df)
+        print("트로이 MP에 아직 편입된 종목이 없습니다. 안내 페이지만 생성했습니다.")
+        return
+
+    name_map = dict(zip(trades["code"], trades["name"]))
+
+    if not os.path.exists(PRICES_PATH):
+        print("경고: 종목 가격 데이터가 없습니다. fetch_troy_mp_prices.py를 먼저 실행하세요.")
+        return
+    prices = pd.read_csv(PRICES_PATH, dtype={"code": str}, parse_dates=["date"])
+    prices["code"] = prices["code"].str.zfill(6)
+    prices_wide = prices.pivot_table(index="date", columns="code", values="close").ffill()
+
+    latest_prices = {}
+    for code in trades["code"].unique():
+        if code in prices_wide.columns:
+            s = prices_wide[code].dropna()
+            if not s.empty:
+                latest_prices[code] = float(s.iloc[-1])
+
+    holdings, total_eval = compute_holdings_table(trades, latest_prices, name_map)
+    dates_out, mp_index, bm_index = compute_twr_index(trades, prices_wide, kospi)
+
+    dates_json = json.dumps([d.strftime("%Y-%m-%d") for d in dates_out])
+    mp_json = json.dumps([round(v, 3) for v in mp_index])
+    bm_json = json.dumps([round(v, 3) for v in bm_index])
+
+    mp_latest = mp_index[-1] if mp_index else 100.0
+    bm_latest = bm_index[-1] if bm_index else 100.0
+
+    rows_html = ""
+    for r in holdings:
+        ret = r["ret_pct"]
+        ret_str = "N/A" if ret is None else f"{ret:+.2f}%"
+        ret_color = "#adb5bd" if ret is None else ("#ff6b6b" if ret >= 0 else "#4dabf7")
+        cur_price_str = f"{r['cur_price']:,.0f}" if r["cur_price"] else "N/A"
+        eval_value_str = f"{r['eval_value']:,.0f}" if r["eval_value"] else "N/A"
+        weight_str = f"{r['weight_pct']:.1f}%" if r["weight_pct"] is not None else "N/A"
+        rows_html += f"""
+        <tr>
+          <td>{r['name']}</td>
+          <td>{r['code']}</td>
+          <td>{r['avg_price']:,.0f}</td>
+          <td>{cur_price_str}</td>
+          <td style="color:{ret_color}">{ret_str}</td>
+          <td>{r['cost_basis']:,.0f}</td>
+          <td>{eval_value_str}</td>
+          <td>{weight_str}</td>
+        </tr>"""
+
+    html = TEMPLATE.format(
+        dates_json=dates_json,
+        mp_json=mp_json,
+        bm_json=bm_json,
+        mp_latest=f"{mp_latest:,.2f}",
+        bm_latest=f"{bm_latest:,.2f}",
+        alpha=f"{mp_latest - bm_latest:+.2f}",
+        inception=trades['date'].min().strftime('%Y-%m-%d'),
+        n_holdings=len(holdings),
+        total_eval=f"{total_eval:,.0f}",
+        rows_html=rows_html,
+        updated_at=datetime.now().strftime("%Y-%m-%d %H:%M"),
+    )
+    os.makedirs(DOCS_DIR, exist_ok=True)
+    with open(OUT_PATH, "w", encoding="utf-8") as f:
+        f.write(html)
+    print(f"저장 완료: {OUT_PATH} (보유 {len(holdings)}종목, MP지수 {mp_latest:.2f} vs BM {bm_latest:.2f})")
+
+
+EMPTY_TEMPLATE = """<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>트로이 MP 트래커</title>
+<style>
+  body {{ font-family: -apple-system, "Malgun Gothic", sans-serif; background:#0f1115; color:#e6e6e6; margin:0; padding:24px; }}
+  a.back {{ color:#4dabf7; font-size:13px; text-decoration:none; }}
+  h1 {{ font-size:20px; margin:16px 0 4px 0; }}
+  .note {{ color:#9aa0a6; font-size:13px; line-height:1.8; max-width:640px; background:#1a1d24; border-radius:10px; padding:20px 22px; margin-top:20px; }}
+  code {{ background:#23262e; padding:1px 6px; border-radius:4px; }}
+</style>
+</head>
+<body>
+  <a class="back" href="index.html">&larr; 홈</a>
+  <h1>트로이 MP 트래커</h1>
+  <div class="note">
+    아직 편입된 종목이 없습니다.<br><br>
+    <code>data/manual/troy_mp_trades.csv</code> 파일에 매매 행을 추가하면(date, code, name, action(BUY/SELL),
+    price, amount) 다음 파이프라인 실행부터 자동으로 이 페이지에 반영됩니다.
+  </div>
+</body>
+</html>
+"""
+
+
+def render_empty_page(kospi_df):
+    os.makedirs(DOCS_DIR, exist_ok=True)
+    with open(OUT_PATH, "w", encoding="utf-8") as f:
+        f.write(EMPTY_TEMPLATE)
+
+
+TEMPLATE = """<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>트로이 MP 트래커</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<style>
+  body {{ font-family: -apple-system, "Malgun Gothic", sans-serif; background:#0f1115; color:#e6e6e6; margin:0; padding:24px; }}
+  a.back {{ color:#4dabf7; font-size:13px; text-decoration:none; margin-right:12px; }}
+  h1 {{ font-size:20px; margin:8px 0 4px 0; }}
+  .updated {{ color:#9aa0a6; font-size:13px; margin-bottom:20px; }}
+  .badges {{ display:grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap:12px; margin-bottom:20px; max-width:820px; }}
+  .badge {{ background:#1a1d24; border-radius:10px; padding:14px 16px; }}
+  .badge .label {{ color:#9aa0a6; font-size:12px; }}
+  .badge .value {{ font-size:20px; font-weight:bold; margin-top:4px; }}
+  .badge.mp .value {{ color:#ff8787; }}
+  .badge.bm .value {{ color:#4dabf7; }}
+  .badge.alpha .value {{ color:#63e6be; }}
+  .chart-wrap {{ height:420px; position:relative; max-width:1100px; margin-bottom:28px; }}
+  table {{ border-collapse: collapse; width:100%; max-width:1000px; font-size:13px; }}
+  th, td {{ padding:8px 12px; text-align:right; border-bottom:1px solid #23262e; }}
+  th:first-child, td:first-child {{ text-align:left; }}
+  th:nth-child(2), td:nth-child(2) {{ text-align:left; color:#9aa0a6; }}
+  th {{ color:#9aa0a6; font-weight:normal; font-size:12px; }}
+  .note {{ color:#9aa0a6; font-size:12px; line-height:1.7; max-width:900px; background:#1a1d24; border-radius:10px; padding:16px 18px; margin-top:24px; }}
+  .note b {{ color:#ffa94d; }}
+</style>
+</head>
+<body>
+  <a class="back" href="index.html">&larr; 홈</a>
+  <h1>트로이 MP 트래커</h1>
+  <div class="updated">최종 갱신: {updated_at} &middot; 편입 시작일 {inception} (=100 기준) &middot; 보유 {n_holdings}종목 &middot; 평가금액 합계 {total_eval}원</div>
+
+  <div class="badges">
+    <div class="badge mp"><div class="label">트로이 MP 지수</div><div class="value">{mp_latest}</div></div>
+    <div class="badge bm"><div class="label">코스피(BM) 지수</div><div class="value">{bm_latest}</div></div>
+    <div class="badge alpha"><div class="label">초과성과(알파, %p)</div><div class="value">{alpha}</div></div>
+  </div>
+
+  <div class="chart-wrap"><canvas id="navChart"></canvas></div>
+
+  <table>
+    <thead><tr>
+      <th>종목명</th><th>코드</th><th>평균매수단가</th><th>현재가</th><th>수익률</th><th>매입금액(잔액)</th><th>평가금액</th><th>비중</th>
+    </tr></thead>
+    <tbody>{rows_html}
+    </tbody>
+  </table>
+
+  <div class="note">
+    <h3 style="font-size:13px; color:#c7cbd1; margin:0 0 8px 0;">산출 방법론</h3>
+    <b>포트폴리오 변경</b> — <code>data/manual/troy_mp_trades.csv</code> 매매일지에 행을 추가/수정하는 방식.
+    파이프라인 실행마다 자동으로 반영됩니다.<br><br>
+    <b>지수 산출</b> — 일별 시간가중수익률(TWR) 연쇄복리. 그날의 매매는 그날 수익률에 영향을 주지 않고(매매는
+    종가 체결 가정, 다음날 비중부터 반영) 순수하게 전일 보유 바스켓의 가격변동만 반영합니다. 그래서 신규 편입·비중
+    조절이 지수 레벨을 왜곡하지 않습니다(펀드 성과평가 TWR 방식과 동일). 미보유 현금은 수익률 0%로 취급합니다.
+    MP·코스피(BM) 모두 편입 첫날을 100으로 리베이스합니다.<br><br>
+    <b>평균매수단가</b> — 이동평균원가법. 매수 시 원가에 매입금액을 더하고, 매도 시 매도수량 비율만큼 원가를 비례
+    차감합니다.
+  </div>
+
+<script>
+const dates = {dates_json};
+const mpIndex = {mp_json};
+const bmIndex = {bm_json};
+
+new Chart(document.getElementById('navChart').getContext('2d'), {{
+  type: 'line',
+  data: {{
+    labels: dates,
+    datasets: [
+      {{ label: '트로이 MP', data: mpIndex, borderColor: '#ff8787', backgroundColor: 'transparent', tension: 0.1, pointRadius: 0, borderWidth: 2 }},
+      {{ label: '코스피(BM)', data: bmIndex, borderColor: '#4dabf7', backgroundColor: 'transparent', tension: 0.1, pointRadius: 0, borderWidth: 2, borderDash: [5,3] }},
+    ]
+  }},
+  options: {{
+    responsive: true, maintainAspectRatio: false,
+    plugins: {{ legend: {{ labels: {{ color: '#e6e6e6' }} }} }},
+    scales: {{
+      x: {{ ticks: {{ color: '#9aa0a6', maxTicksLimit: 12 }}, grid: {{ color: '#23262e' }} }},
+      y: {{ title: {{ display: true, text: '지수(편입일=100)', color: '#9aa0a6' }}, ticks: {{ color: '#9aa0a6' }}, grid: {{ color: '#23262e' }} }},
+    }}
+  }}
+}});
+</script>
+</body>
+</html>
+"""
+
+
+if __name__ == "__main__":
+    main()

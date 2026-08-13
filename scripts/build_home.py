@@ -57,6 +57,12 @@ TEMPLATE = """<!doctype html>
       <p>동일한 방식으로 코스닥 시총 상위 50종목 기준 선행/후행 PER을 집계 - 코스닥 지수와 함께 추적.</p>
       <div class="arrow">바로가기 &rarr;</div>
     </a>
+    <a class="card" href="troy_mp.html">
+      <div class="icon">&#128181;</div>
+      <h2>트로이 MP 트래커</h2>
+      <p>리서치팀 모델 포트폴리오 - 종목별 매수단가/수익률과 코스피 대비 초과성과(TWR 지수, 편입일=100)를 추적.</p>
+      <div class="arrow">바로가기 &rarr;</div>
+    </a>
   </div>
 </body>
 </html>
