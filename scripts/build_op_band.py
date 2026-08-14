@@ -350,6 +350,7 @@ TEMPLATE = """<!doctype html>
       <div class="band-controls">
         <label>밴드 개수 <input type="number" id="bandCount" min="1" max="20" step="1"></label>
         <label>직접 배수 지정(콤마구분, 예: 5,10,20) <input type="text" id="bandCustom" placeholder="비워두면 자동"></label>
+        <label>세로축 최대값(억원) <input type="number" id="yAxisMax" placeholder="자동"></label>
         <button id="bandApplyBtn">적용</button>
         <button id="bandResetBtn">자동으로</button>
       </div>
@@ -424,7 +425,7 @@ function pickBandMultiples(mults, targetLines) {{
 
 let currentDetailData = null;
 
-function renderChart(data, bandMultiples) {{
+function renderChart(data, bandMultiples, yMaxOverrideEok) {{
   document.getElementById('detailSub').textContent =
     `밴드선: ${{bandMultiples.length ? bandMultiples.map(m => m + 'x').join(', ') : '(표시할 배수 없음)'}}`;
 
@@ -444,10 +445,11 @@ function renderChart(data, bandMultiples) {{
   // 배수가 극단적으로 큰(FY2026/2027 원거리 컨센서스 이상치 등) 밴드선이 y축을 지배해서
   // 정작 봐야 할 실제 시가총액 선이 바닥에 눌려 안 보이는 문제 방지 - y축을 실제 시총
   // 범위에 맞춰 제한한다(밴드선은 그 위로 잘려 보이는 게 정상 - 그만큼 비싼 배수라는 뜻).
+  // 자동 계산값이 여전히 보기 불편하면 사용자가 "세로축 최대값" 입력으로 직접 덮어쓸 수 있다.
   const mktcapVals = data.mktcap.filter(v => v != null);
   const maxMktcap = mktcapVals.length ? Math.max(...mktcapVals) : null;
   const minMktcap = mktcapVals.length ? Math.min(...mktcapVals) : null;
-  const yMax = maxMktcap != null ? maxMktcap * 4.5 : undefined;
+  const yMax = yMaxOverrideEok != null ? yMaxOverrideEok * 1e8 : (maxMktcap != null ? maxMktcap * 4.5 : undefined);
   const yMin = minMktcap != null && minMktcap < 0 ? minMktcap * 1.5 : 0;
 
   if (chart) chart.destroy();
@@ -475,7 +477,9 @@ function applyBandControls() {{
     const count = parseInt(document.getElementById('bandCount').value, 10) || TARGET_BAND_LINES_DEFAULT;
     bandMultiples = pickBandMultiples(currentDetailData.mult, count);
   }}
-  renderChart(currentDetailData, bandMultiples);
+  const yMaxText = document.getElementById('yAxisMax').value.trim();
+  const yMaxOverride = yMaxText ? parseFloat(yMaxText) : null;
+  renderChart(currentDetailData, bandMultiples, isNaN(yMaxOverride) ? null : yMaxOverride);
 }}
 
 const TARGET_BAND_LINES_DEFAULT = 6;
@@ -490,6 +494,7 @@ function openDetail(code) {{
       document.getElementById('detailName').textContent += latestMult != null ? ` - 최신 배수 ${{latestMult.toFixed(2)}}x` : '';
       document.getElementById('bandCount').value = data.bandMultiples.length || TARGET_BAND_LINES_DEFAULT;
       document.getElementById('bandCustom').value = '';
+      document.getElementById('yAxisMax').value = '';
       renderChart(data, data.bandMultiples);
       document.getElementById('overlay').classList.add('open');
     }})
@@ -500,6 +505,7 @@ document.getElementById('bandApplyBtn').addEventListener('click', applyBandContr
 document.getElementById('bandResetBtn').addEventListener('click', () => {{
   if (!currentDetailData) return;
   document.getElementById('bandCustom').value = '';
+  document.getElementById('yAxisMax').value = '';
   document.getElementById('bandCount').value = currentDetailData.bandMultiples.length || TARGET_BAND_LINES_DEFAULT;
   renderChart(currentDetailData, currentDetailData.bandMultiples);
 }});
