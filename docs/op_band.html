@@ -36,7 +36,7 @@
 <body>
   <a class="back" href="index.html">&larr; 홈</a>
   <h1>OP밴드 트래커</h1>
-  <div class="updated">최종 갱신: 2026-08-14 15:27 &middot; 원본 파일 기준일 2026-08-14 14:59 &middot; 2530종목 &middot; 배수 = 시가총액 / 연간 영업이익 추정치(6월 기준 회계연도 스위칭)</div>
+  <div class="updated">최종 갱신: 2026-08-14 15:50 &middot; 원본 파일 기준일 2026-08-14 14:59 &middot; 2530종목 &middot; 배수 = 시가총액 / 연간 영업이익 추정치(6월 기준 회계연도 스위칭)</div>
 
   <div class="filters">
     <label>검색 <input type="text" id="fSearch" placeholder="종목명/코드"></label>
@@ -141,6 +141,15 @@ function openDetail(code) {
         borderWidth: 2.5, pointRadius: 0, tension: 0, order: 0,
       });
 
+      // 배수가 극단적으로 큰(FY2026/2027 원거리 컨센서스 이상치 등) 밴드선이 y축을 지배해서
+      // 정작 봐야 할 실제 시가총액 선이 바닥에 눌려 안 보이는 문제 방지 - y축을 실제 시총
+      // 범위에 맞춰 제한한다(밴드선은 그 위로 잘려 보이는 게 정상 - 그만큼 비싼 배수라는 뜻).
+      const mktcapVals = data.mktcap.filter(v => v != null);
+      const maxMktcap = mktcapVals.length ? Math.max(...mktcapVals) : null;
+      const minMktcap = mktcapVals.length ? Math.min(...mktcapVals) : null;
+      const yMax = maxMktcap != null ? maxMktcap * 4.5 : undefined;
+      const yMin = minMktcap != null && minMktcap < 0 ? minMktcap * 1.5 : 0;
+
       if (chart) chart.destroy();
       chart = new Chart(document.getElementById('bandChart').getContext('2d'), {
         type: 'line',
@@ -150,7 +159,7 @@ function openDetail(code) {
           plugins: { legend: { labels: { color: '#e6e6e6', boxWidth: 14, font: { size: 11 } } } },
           scales: {
             x: { ticks: { color: '#9aa0a6', maxTicksLimit: 10 }, grid: { color: '#23262e' } },
-            y: { ticks: { color: '#9aa0a6' }, grid: { color: '#23262e' } },
+            y: { min: yMin, max: yMax, ticks: { color: '#9aa0a6' }, grid: { color: '#23262e' } },
           }
         }
       });
