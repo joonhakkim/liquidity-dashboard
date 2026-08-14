@@ -42,6 +42,7 @@ CORE_STEPS = [
     ("build_dashboard.py", "유동성 대시보드 빌드"),
     ("fetch_troy_mp_prices.py", "트로이 MP: 편입 종목 일별 종가 수집(네이버 차트 API)"),
     ("build_troy_mp_page.py", "트로이 MP 트래커 페이지 빌드(data/manual/troy_mp_trades.csv 매매일지 기반)"),
+    ("build_op_band.py", "OP밴드 트래커 빌드(data/manual/*기업*밴드*.xlsx 기반, 영업이익 x N배 밴드)"),
     ("build_home.py", "홈페이지 빌드"),
 ]
 

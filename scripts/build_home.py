@@ -69,6 +69,12 @@ TEMPLATE = """<!doctype html>
       <p>EIA 공식 데이터 기반 3:2:1 크랙 스프레드(WTI/휘발유/경유) - 2006년~ 일별 추이, 엑셀 다운로드 지원.</p>
       <div class="arrow">바로가기 &rarr;</div>
     </a>
+    <a class="card" href="op_band.html">
+      <div class="icon">&#128200;</div>
+      <h2>OP밴드 트래커</h2>
+      <p>전종목 시가총액 대비 영업이익 추정치 배수 밴드 - 최신 배수/과거 대비 백분위로 저평가 종목 필터링.</p>
+      <div class="arrow">바로가기 &rarr;</div>
+    </a>
   </div>
 </body>
 </html>
