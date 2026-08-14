@@ -29,6 +29,13 @@
   .detail-card { background:#14161c; border:1px solid #23262e; border-radius:14px; padding:24px; max-width:900px; width:100%; }
   .detail-card h2 { margin:0 0 4px 0; font-size:18px; }
   .detail-card .sub { color:#9aa0a6; font-size:13px; margin-bottom:16px; }
+  .band-controls { display:flex; gap:12px; flex-wrap:wrap; align-items:center; margin-bottom:12px; font-size:13px; color:#9aa0a6; }
+  .band-controls label { display:flex; align-items:center; gap:6px; }
+  .band-controls input { background:#1a1d24; border:1px solid #2a2e37; color:#e6e6e6; border-radius:6px; padding:5px 8px; font-size:13px; font-family:inherit; }
+  .band-controls input[type="number"] { width:60px; }
+  .band-controls input[type="text"] { width:180px; }
+  .band-controls button { background:#1a1d24; border:1px solid #2a2e37; color:#9aa0a6; padding:6px 14px; border-radius:6px; cursor:pointer; font-size:12px; font-family:inherit; }
+  .band-controls button:hover { color:#c7cbd1; border-color:#4dabf7; }
   .close-btn { float:right; background:none; border:none; color:#9aa0a6; font-size:20px; cursor:pointer; }
   .chart-wrap { height:420px; position:relative; margin-top:8px; }
 </style>
@@ -36,7 +43,7 @@
 <body>
   <a class="back" href="index.html">&larr; 홈</a>
   <h1>OP밴드 트래커</h1>
-  <div class="updated">최종 갱신: 2026-08-14 15:50 &middot; 원본 파일 기준일 2026-08-14 14:59 &middot; 2530종목 &middot; 배수 = 시가총액 / 연간 영업이익 추정치(6월 기준 회계연도 스위칭)</div>
+  <div class="updated">최종 갱신: 2026-08-14 16:16 &middot; 원본 파일 기준일 2026-08-14 14:59 &middot; 2530종목 &middot; 배수 = 시가총액 / 연간 영업이익 추정치(6월 기준 회계연도 스위칭)</div>
 
   <div class="filters">
     <label>검색 <input type="text" id="fSearch" placeholder="종목명/코드"></label>
@@ -65,6 +72,12 @@
       <button class="close-btn" id="closeBtn">&times;</button>
       <h2 id="detailName"></h2>
       <div class="sub" id="detailSub"></div>
+      <div class="band-controls">
+        <label>밴드 개수 <input type="number" id="bandCount" min="1" max="20" step="1"></label>
+        <label>직접 배수 지정(콤마구분, 예: 5,10,20) <input type="text" id="bandCustom" placeholder="비워두면 자동"></label>
+        <button id="bandApplyBtn">적용</button>
+        <button id="bandResetBtn">자동으로</button>
+      </div>
       <div class="chart-wrap"><canvas id="bandChart"></canvas></div>
     </div>
   </div>
@@ -119,54 +132,102 @@ function applyFilters() {
   document.getElementById(id).addEventListener('change', applyFilters);
 });
 
+// 서버(build_op_band.py)의 pick_band_multiples()와 동일한 로직 - 밴드 개수를 사용자가
+// 바꾸면 서버 재실행 없이 브라우저에서 즉시 다시 계산한다.
+const NICE_STEPS = [1, 2, 5, 10, 15, 20, 25, 30, 50, 100, 200, 250, 500, 1000];
+
+function pickBandMultiples(mults, targetLines) {
+  const positive = mults.filter(m => m != null && m > 0);
+  if (!positive.length) return [];
+  const end = Math.ceil(Math.max(...positive)) + 1;
+  const threshold = end / targetLines;
+  const step = NICE_STEPS.find(s => s >= threshold) ?? NICE_STEPS[NICE_STEPS.length - 1];
+  const multiples = [];
+  for (let v = step; v <= end; v += step) multiples.push(v);
+  return multiples.length ? multiples : [step];
+}
+
+let currentDetailData = null;
+
+function renderChart(data, bandMultiples) {
+  document.getElementById('detailSub').textContent =
+    `밴드선: ${bandMultiples.length ? bandMultiples.map(m => m + 'x').join(', ') : '(표시할 배수 없음)'}`;
+
+  const datasets = bandMultiples.map((m, i) => ({
+    label: `${m}x`,
+    data: data.op.map(v => v * m),
+    borderColor: `hsl(${200 + i * 30}, 60%, 55%)`,
+    backgroundColor: 'transparent',
+    borderWidth: 1, borderDash: [4, 3], pointRadius: 0, tension: 0,
+  }));
+  datasets.push({
+    label: '시가총액(실제)', data: data.mktcap,
+    borderColor: '#e6e6e6', backgroundColor: 'transparent',
+    borderWidth: 2.5, pointRadius: 0, tension: 0, order: 0,
+  });
+
+  // 배수가 극단적으로 큰(FY2026/2027 원거리 컨센서스 이상치 등) 밴드선이 y축을 지배해서
+  // 정작 봐야 할 실제 시가총액 선이 바닥에 눌려 안 보이는 문제 방지 - y축을 실제 시총
+  // 범위에 맞춰 제한한다(밴드선은 그 위로 잘려 보이는 게 정상 - 그만큼 비싼 배수라는 뜻).
+  const mktcapVals = data.mktcap.filter(v => v != null);
+  const maxMktcap = mktcapVals.length ? Math.max(...mktcapVals) : null;
+  const minMktcap = mktcapVals.length ? Math.min(...mktcapVals) : null;
+  const yMax = maxMktcap != null ? maxMktcap * 4.5 : undefined;
+  const yMin = minMktcap != null && minMktcap < 0 ? minMktcap * 1.5 : 0;
+
+  if (chart) chart.destroy();
+  chart = new Chart(document.getElementById('bandChart').getContext('2d'), {
+    type: 'line',
+    data: { labels: data.dates, datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { labels: { color: '#e6e6e6', boxWidth: 14, font: { size: 11 } } } },
+      scales: {
+        x: { ticks: { color: '#9aa0a6', maxTicksLimit: 10 }, grid: { color: '#23262e' } },
+        y: { min: yMin, max: yMax, ticks: { color: '#9aa0a6' }, grid: { color: '#23262e' } },
+      }
+    }
+  });
+}
+
+function applyBandControls() {
+  if (!currentDetailData) return;
+  const customText = document.getElementById('bandCustom').value.trim();
+  let bandMultiples;
+  if (customText) {
+    bandMultiples = customText.split(',').map(s => parseFloat(s.trim())).filter(v => !isNaN(v) && v > 0).sort((a, b) => a - b);
+  } else {
+    const count = parseInt(document.getElementById('bandCount').value, 10) || TARGET_BAND_LINES_DEFAULT;
+    bandMultiples = pickBandMultiples(currentDetailData.mult, count);
+  }
+  renderChart(currentDetailData, bandMultiples);
+}
+
+const TARGET_BAND_LINES_DEFAULT = 6;
+
 function openDetail(code) {
   fetch(`op_band_data/${code}.json`)
     .then(r => r.json())
     .then(data => {
+      currentDetailData = data;
       document.getElementById('detailName').textContent = `${data.name} (${data.code})`;
       const latestMult = data.mult[data.mult.length - 1];
-      document.getElementById('detailSub').textContent =
-        `최신 배수 ${latestMult != null ? latestMult.toFixed(2) + 'x' : 'N/A'} · 밴드선: ${data.bandMultiples.map(m => m + 'x').join(', ')}`;
-
-      const datasets = data.bandMultiples.map((m, i) => ({
-        label: `${m}x`,
-        data: data.op.map(v => v * m),
-        borderColor: `hsl(${200 + i * 30}, 60%, 55%)`,
-        backgroundColor: 'transparent',
-        borderWidth: 1, borderDash: [4, 3], pointRadius: 0, tension: 0,
-      }));
-      datasets.push({
-        label: '시가총액(실제)', data: data.mktcap,
-        borderColor: '#e6e6e6', backgroundColor: 'transparent',
-        borderWidth: 2.5, pointRadius: 0, tension: 0, order: 0,
-      });
-
-      // 배수가 극단적으로 큰(FY2026/2027 원거리 컨센서스 이상치 등) 밴드선이 y축을 지배해서
-      // 정작 봐야 할 실제 시가총액 선이 바닥에 눌려 안 보이는 문제 방지 - y축을 실제 시총
-      // 범위에 맞춰 제한한다(밴드선은 그 위로 잘려 보이는 게 정상 - 그만큼 비싼 배수라는 뜻).
-      const mktcapVals = data.mktcap.filter(v => v != null);
-      const maxMktcap = mktcapVals.length ? Math.max(...mktcapVals) : null;
-      const minMktcap = mktcapVals.length ? Math.min(...mktcapVals) : null;
-      const yMax = maxMktcap != null ? maxMktcap * 4.5 : undefined;
-      const yMin = minMktcap != null && minMktcap < 0 ? minMktcap * 1.5 : 0;
-
-      if (chart) chart.destroy();
-      chart = new Chart(document.getElementById('bandChart').getContext('2d'), {
-        type: 'line',
-        data: { labels: data.dates, datasets },
-        options: {
-          responsive: true, maintainAspectRatio: false,
-          plugins: { legend: { labels: { color: '#e6e6e6', boxWidth: 14, font: { size: 11 } } } },
-          scales: {
-            x: { ticks: { color: '#9aa0a6', maxTicksLimit: 10 }, grid: { color: '#23262e' } },
-            y: { min: yMin, max: yMax, ticks: { color: '#9aa0a6' }, grid: { color: '#23262e' } },
-          }
-        }
-      });
+      document.getElementById('detailName').textContent += latestMult != null ? ` - 최신 배수 ${latestMult.toFixed(2)}x` : '';
+      document.getElementById('bandCount').value = data.bandMultiples.length || TARGET_BAND_LINES_DEFAULT;
+      document.getElementById('bandCustom').value = '';
+      renderChart(data, data.bandMultiples);
       document.getElementById('overlay').classList.add('open');
     })
     .catch(() => alert('데이터를 불러올 수 없습니다.'));
 }
+
+document.getElementById('bandApplyBtn').addEventListener('click', applyBandControls);
+document.getElementById('bandResetBtn').addEventListener('click', () => {
+  if (!currentDetailData) return;
+  document.getElementById('bandCustom').value = '';
+  document.getElementById('bandCount').value = currentDetailData.bandMultiples.length || TARGET_BAND_LINES_DEFAULT;
+  renderChart(currentDetailData, currentDetailData.bandMultiples);
+});
 
 document.getElementById('closeBtn').addEventListener('click', () => {
   document.getElementById('overlay').classList.remove('open');
