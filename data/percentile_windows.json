@@ -1,26 +1,26 @@
 {
   "credit_loan_total": {
     "window_days": 1512,
-    "corr": -0.591,
-    "n": 1914
+    "corr": -0.589,
+    "n": 1915
   },
   "deposit_minus_rp": {
     "window_days": "expanding",
-    "corr": -0.562,
-    "n": 1914
+    "corr": -0.561,
+    "n": 1915
   },
   "dry_powder": {
     "window_days": 126,
     "corr": 0.189,
-    "n": 2038
+    "n": 2039
   },
   "investor_deposit": {
     "window_days": 1512,
-    "corr": -0.312,
-    "n": 1914
+    "corr": -0.311,
+    "n": 1915
   },
   "_meta": {
-    "generated_at": "2026-08-14T07:31:28.580678",
+    "generated_at": "2026-08-15T14:06:26.629226",
     "n_crash_events": 6,
     "future_window_days": 126
   }
