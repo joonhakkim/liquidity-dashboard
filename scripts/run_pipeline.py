@@ -58,6 +58,8 @@ SLOW_STEPS = [
     ("fetch_kospi_per_tracker.py", "코스피 선행 PER 트래커: 시총상위50 컨센서스 PER 집계(하루 1행 누적)"),
     ("fetch_kosdaq_per_tracker.py", "코스닥 선행 PER 트래커: 시총상위50 컨센서스 PER 집계(하루 1행 누적)"),
     ("build_per_tracker_page.py", "코스피·코스닥 선행 PER 트래커 페이지 빌드"),
+    ("fetch_op_band_consensus.py", "OP밴드: 전종목 FnGuide 컨센서스 교차검증 수집(종목당 API 호출, 느림)"),
+    ("build_op_band.py", "OP밴드 트래커 재빌드(FnGuide 교차검증 반영)"),
     ("build_home.py", "홈페이지 빌드(스크리닝/PER 트래커 최신 링크 반영용으로 한 번 더)"),
 ]
 

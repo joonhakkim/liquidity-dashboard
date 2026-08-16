@@ -44,6 +44,7 @@ DOCS_DIR = os.path.join(os.path.dirname(__file__), "..", "docs")
 DETAIL_OUT_DIR = os.path.join(DOCS_DIR, "op_band_data")
 SUMMARY_PATH = os.path.join(SCREEN_DIR, "op_band_summary.csv")
 PAGE_OUT_PATH = os.path.join(DOCS_DIR, "op_band.html")
+FNGUIDE_PATH = os.path.join(DATA_DIR, "op_band_fnguide.csv")
 
 SHEETS = ["구성 1", "구성 2", "구성 3"]
 MKTCAP_ITEM = "S102100"
@@ -210,6 +211,48 @@ def build_summary_row(code, data):
     }
 
 
+def load_fnguide_map():
+    """data/op_band_fnguide.csv(fetch_op_band_consensus.py 결과) -> {code: {year: op_won}}."""
+    if not os.path.exists(FNGUIDE_PATH):
+        return {}
+    df = pd.read_csv(FNGUIDE_PATH, dtype={"code": str})
+    m = {}
+    for _, row in df.iterrows():
+        m.setdefault(row["code"], {})[int(row["year"])] = row["op_100mil"] * 1e8  # 억원 -> 원
+    return m
+
+
+def apply_fnguide_correction(code, data, fnguide_map, current_use_year):
+    """엑셀에 없거나(구멍) 오래된 현재 회계연도(use_year) 구간 값을 FnGuide 컨센서스로 덮어쓴다.
+    과거 구간(이미 지나간 회계연도)은 FnGuide로 되돌릴 수 없으니 건드리지 않고, 지금 활성
+    회계연도에 해당하는 날짜들(시계열 맨 끝의 연속 구간)만 보정한다."""
+    op_by_year = fnguide_map.get(code)
+    if not op_by_year or current_use_year not in op_by_year:
+        return data
+
+    new_op_won = op_by_year[current_use_year]
+    if new_op_won == 0:
+        return data
+
+    dates = data["dates"]
+    mktcap = data["mktcap"]
+    op = data["op"][:]
+    mult = data["mult"][:]
+
+    for i in range(len(dates) - 1, -1, -1):
+        d = datetime.strptime(dates[i], "%Y-%m-%d")
+        use_year = d.year if d.month <= 6 else d.year + 1
+        if use_year != current_use_year:
+            break
+        op[i] = round(new_op_won, 0)
+        if mktcap[i] is not None:
+            mult[i] = round(mktcap[i] / new_op_won, 4)
+
+    data["op"] = op
+    data["mult"] = mult
+    return data
+
+
 def main():
     wb_path = find_workbook()
     if not wb_path:
@@ -232,6 +275,16 @@ def main():
         print(f"  {len(results)}개 종목 처리")
 
     print(f"\n총 {len(all_results)}개 종목")
+
+    fnguide_map = load_fnguide_map()
+    today = datetime.today()
+    current_use_year = today.year if today.month <= 6 else today.year + 1
+    if fnguide_map:
+        print(f"FnGuide 보정 적용 중(현재 회계연도 FY{current_use_year}, {len(fnguide_map)}종목 커버)...")
+        for code in all_results:
+            all_results[code] = apply_fnguide_correction(code, all_results[code], fnguide_map, current_use_year)
+    else:
+        print("FnGuide 데이터 없음(fetch_op_band_consensus.py 미실행) - 엑셀 원본만 사용")
 
     os.makedirs(DETAIL_OUT_DIR, exist_ok=True)
     os.makedirs(SCREEN_DIR, exist_ok=True)
