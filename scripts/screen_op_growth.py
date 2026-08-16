@@ -8,16 +8,32 @@ data/manual/*데이터 모음*.xlsm (에프앤가이드류 컨센서스 워크�
 시가총액만 있으면 포함시킨다(이름 기준 아우터조인).
 
 주의: 이 워크북엔 매출액 컨센서스가 없어 영업이익만으로 스크리닝한다(사용자 확인 완료).
+
+'시가총액' 시트 자체가 데이터터미널에서 필터링된 상태로 내보내져서 삼성전자를 포함한
+800여개 종목이 통째로 빠져있는 경우가 있었다(2026-08-16, 사용자가 "삼성전자가 없어졌다"고
+알려줘서 발견 - 예전에 수동으로 "이전 스냅샷 값 보완" 패치를 한 적 있는데 스크립트 자체엔
+반영이 안 돼서 매일 재실행될 때마다 다시 빠지는 문제가 있었음). 이번엔 코드 자체에
+KRX 공식 Open API(fetch_adr.py와 동일 소스)로 전종목 시가총액을 받아와서, 워크북에
+없는 종목만 이걸로 보완하도록 고쳤다 - 워크북 상태와 무관하게 매일 자동으로 채워진다.
 """
 import glob
 import os
 import re
+import time
 import warnings
+from datetime import datetime, timedelta
 
 import openpyxl
 import pandas as pd
+import requests
+from dotenv import load_dotenv
 
 warnings.filterwarnings("ignore")
+
+load_dotenv()
+KRX_OPEN_API_KEY = os.environ.get("KRX_OPEN_API_KEY")
+KRX_STK_URL = "https://data-dbg.krx.co.kr/svc/apis/sto/stk_bydd_trd"
+KRX_KSQ_URL = "https://data-dbg.krx.co.kr/svc/apis/sto/ksq_bydd_trd"
 
 EXCLUDE_NAME_RE = re.compile(r"스팩|기업인수목적|ETF|ETN$")
 
@@ -53,6 +69,40 @@ def read_market_cap(wb):
     return {names[i]: latest[i] for i in range(1, len(names)) if names[i] and latest[i] is not None}
 
 
+def fetch_krx_market_cap():
+    """KRX 공식 Open API(fetch_adr.py와 동일 소스)로 코스피+코스닥 전종목 시가총액을 받아온다.
+    최근 영업일부터 거꾸로 최대 10일 재시도(휴장일 등으로 데이터 없는 날 건너뛰기)."""
+    if not KRX_OPEN_API_KEY:
+        print("  경고: KRX_OPEN_API_KEY가 없어 시가총액 보완을 건너뜁니다.")
+        return {}
+
+    headers = {"AUTH_KEY": KRX_OPEN_API_KEY}
+    d = datetime.today()
+    result = {}
+    for _ in range(10):
+        bas_dd = d.strftime("%Y%m%d")
+        got_any = False
+        for url in (KRX_STK_URL, KRX_KSQ_URL):
+            try:
+                r = requests.get(url, params={"basDd": bas_dd}, headers=headers, timeout=20)
+                data = r.json().get("OutBlock_1", []) if r.status_code == 200 else []
+            except requests.RequestException:
+                data = []
+            if data:
+                got_any = True
+            for item in data:
+                name = item.get("ISU_NM")
+                mktcap = pd.to_numeric(item.get("MKTCAP"), errors="coerce")
+                if name and pd.notna(mktcap):
+                    result[name] = float(mktcap)  # numpy.int64는 isinstance(v, (int,float))를 안 통과해서 순수 float로
+            time.sleep(0.1)
+        if got_any:
+            print(f"  KRX API 기준일: {bas_dd} ({len(result)}종목)")
+            break
+        d -= timedelta(days=1)
+    return result
+
+
 def read_op_estimate(wb, sheet_name):
     ws = wb[sheet_name]
     rows = list(ws.iter_rows(values_only=True))
@@ -74,6 +124,15 @@ def main():
     print("시가총액 읽는 중...")
     market_cap = read_market_cap(wb)
     print(f"  {len(market_cap)}개 종목")
+
+    print("KRX 공식 API로 시가총액 보완 중(워크북에 누락된 종목만 채움)...")
+    krx_market_cap = fetch_krx_market_cap()
+    added = 0
+    for name, cap in krx_market_cap.items():
+        if name not in market_cap:
+            market_cap[name] = cap
+            added += 1
+    print(f"  {added}개 종목 보완됨 (워크북 {len(market_cap) - added}개 + KRX 보완 {added}개 = 총 {len(market_cap)}개)")
 
     print("2026 영업이익 추정치 읽는 중...")
     op_2026 = read_op_estimate(wb, "2026 영업이익 추정치")
