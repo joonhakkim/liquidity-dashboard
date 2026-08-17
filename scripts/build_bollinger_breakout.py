@@ -24,7 +24,7 @@ OUT_PATH = os.path.join(DOCS_DIR, "bollinger_breakout.html")
 
 BB_WINDOW = 20
 BB_STD_MULT = 2
-MA_WINDOW = 5
+MA_WINDOWS = [5, 10, 20]
 
 
 def fetch_index_history(symbol, count=10000):
@@ -47,7 +47,7 @@ def fetch_index_history(symbol, count=10000):
 
 
 def compute_breakout_series(df_market):
-    """df_market: index=date(str YYYYMMDD), columns=code, values=close. 반환: (dates, count, ma5)."""
+    """df_market: index=date(str YYYYMMDD), columns=code, values=close. 반환: (count, {window: ma_series})."""
     wide = df_market.sort_index()
     mean = wide.rolling(BB_WINDOW, min_periods=BB_WINDOW).mean()
     std = wide.rolling(BB_WINDOW, min_periods=BB_WINDOW).std()
@@ -56,14 +56,14 @@ def compute_breakout_series(df_market):
     count = breakout.sum(axis=1)
     # 계산 자체가 불가능한(전종목 데이터가 아직 20일이 안 찬) 초반 구간은 잘라낸다.
     count = count[mean.notna().any(axis=1)]
-    ma5 = count.rolling(MA_WINDOW, min_periods=1).mean()
-    return count, ma5
+    mas = {w: count.rolling(w, min_periods=1).mean() for w in MA_WINDOWS}
+    return count, mas
 
 
 def build_panel_data(long_df, market, index_symbol):
     sub = long_df[long_df["market"] == market]
     wide = sub.pivot_table(index="date", columns="code", values="close", aggfunc="last")
-    count, ma5 = compute_breakout_series(wide)
+    count, mas = compute_breakout_series(wide)
 
     index_hist = fetch_index_history(index_symbol)
 
@@ -71,16 +71,18 @@ def build_panel_data(long_df, market, index_symbol):
     formatted_dates = [f"{d[:4]}-{d[4:6]}-{d[6:]}" for d in dates]
     index_vals = [index_hist.get(d) for d in dates]
 
-    return {
+    result = {
         "dates": formatted_dates,
         "count": [int(v) for v in count.values],
-        "ma5": [round(float(v), 2) for v in ma5.values],
         "index": [round(v, 2) if v is not None else None for v in index_vals],
         "latest_date": formatted_dates[-1] if formatted_dates else None,
         "latest_count": int(count.iloc[-1]) if len(count) else None,
-        "latest_ma5": round(float(ma5.iloc[-1]), 1) if len(ma5) else None,
         "n_stocks": int(wide.shape[1]),
     }
+    for w, ma in mas.items():
+        result[f"ma{w}"] = [round(float(v), 2) for v in ma.values]
+        result[f"latest_ma{w}"] = round(float(ma.iloc[-1]), 1) if len(ma) else None
+    return result
 
 
 def main():
@@ -235,6 +237,8 @@ function buildChart(panel) {{
   const labels = d.dates.slice(startIdx, endIdx + 1);
   const count = d.count.slice(startIdx, endIdx + 1);
   const ma5 = d.ma5.slice(startIdx, endIdx + 1);
+  const ma10 = d.ma10.slice(startIdx, endIdx + 1);
+  const ma20 = d.ma20.slice(startIdx, endIdx + 1);
   const index = d.index.slice(startIdx, endIdx + 1);
 
   if (panel.chart) panel.chart.destroy();
@@ -242,8 +246,10 @@ function buildChart(panel) {{
     data: {{
       labels,
       datasets: [
-        {{ type: 'bar', label: '돌파종목수', data: count, backgroundColor: panel.barColor + '99', borderWidth: 0, yAxisID: 'yCount', order: 2 }},
+        {{ type: 'bar', label: '돌파종목수', data: count, backgroundColor: panel.barColor + '99', borderWidth: 0, yAxisID: 'yCount', order: 3 }},
         {{ type: 'line', label: '5일선', data: ma5, borderColor: '#ffd43b', backgroundColor: 'transparent', borderWidth: 2, pointRadius: 0, tension: 0.2, yAxisID: 'yCount', order: 1 }},
+        {{ type: 'line', label: '10일선', data: ma10, borderColor: '#ff922b', backgroundColor: 'transparent', borderWidth: 1.5, pointRadius: 0, tension: 0.2, yAxisID: 'yCount', order: 1 }},
+        {{ type: 'line', label: '20일선', data: ma20, borderColor: '#e599f7', backgroundColor: 'transparent', borderWidth: 1.5, pointRadius: 0, tension: 0.2, yAxisID: 'yCount', order: 1 }},
         {{ type: 'line', label: '지수(우축)', data: index, borderColor: '#63e6be', backgroundColor: 'transparent', borderWidth: 1.5, borderDash: [4,3], pointRadius: 0, tension: 0.1, yAxisID: 'yIndex', order: 0 }},
       ]
     }},
