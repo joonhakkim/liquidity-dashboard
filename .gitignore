@@ -9,3 +9,4 @@ data/manual/*.xlsx
 data/manual/*.xlsm
 data/manual/.processed.json
 data/screening/cache/
+data/bollinger_prices.csv
