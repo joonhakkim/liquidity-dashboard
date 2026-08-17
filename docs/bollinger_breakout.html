@@ -37,7 +37,7 @@
 <body>
   <a class="back" href="index.html">&larr; 홈</a>
   <h1>볼린저밴드 상단 돌파 종목수</h1>
-  <div class="updated">최종 갱신: 2026-08-17 18:53 &middot; 최신 기준일 2026-08-14 &middot; 20일 볼린저밴드(&plusmn;2표준편차) 기준</div>
+  <div class="updated">최종 갱신: 2026-08-17 18:59 &middot; 최신 기준일 2026-08-14 &middot; 20일 볼린저밴드(&plusmn;2표준편차) 기준</div>
 
   <div class="badges">
     <div class="badge kospi"><div class="label">코스피 돌파종목수(오늘)</div><div class="value">95</div></div>
@@ -57,6 +57,80 @@
 
   <h2>코스닥</h2>
   <div class="chart-wrap"><canvas id="kosdaqChart"></canvas></div>
+
+  
+  <h2>코스피 강세장/약세장 구간별 분포</h2>
+  <div class="note" style="margin-top:0;">
+    <table style="width:100%; max-width:600px; border-collapse:collapse; font-size:13px;">
+      <thead><tr>
+        <th style="text-align:left; padding:6px 10px; color:#9aa0a6; font-weight:normal;">구간</th>
+        <th style="text-align:right; padding:6px 10px; color:#9aa0a6; font-weight:normal;">20일선 중앙값</th>
+        <th style="text-align:right; padding:6px 10px; color:#9aa0a6; font-weight:normal;">25~75%구간</th>
+        <th style="text-align:right; padding:6px 10px; color:#9aa0a6; font-weight:normal;">표본일수</th>
+      </tr></thead>
+      <tbody>
+        <tr>
+          <td>약세장(1년 -15%↓)</td>
+          <td>28.1</td>
+          <td>18.1 ~ 51.9</td>
+          <td>313일</td>
+        </tr>
+        <tr>
+          <td>중립</td>
+          <td>47.2</td>
+          <td>34.9 ~ 60.9</td>
+          <td>1661일</td>
+        </tr>
+        <tr>
+          <td>강세장(1년 +15%↑)</td>
+          <td>54.6</td>
+          <td>35.5 ~ 78.2</td>
+          <td>774일</td>
+        </tr>
+      </tbody>
+    </table>
+    
+        <p style="margin:12px 0 4px 0;">최적 분리 임계값(20일선, Youden's J): <b>28.6</b>
+        — 이 이상일 때 강세장 적중률 89.5%, 약세장 오분류율 49.2%</p>
+        <p style="color:#9aa0a6; font-size:12px;">오분류율이 높아 단일 지표로 깔끔하게 갈리는 신호는
+        아닙니다 — 방향성 참고용(낮으면 약세 경향, 높으면 강세 경향)으로만 쓰세요.</p>
+  </div>
+  <h2>코스닥 강세장/약세장 구간별 분포</h2>
+  <div class="note" style="margin-top:0;">
+    <table style="width:100%; max-width:600px; border-collapse:collapse; font-size:13px;">
+      <thead><tr>
+        <th style="text-align:left; padding:6px 10px; color:#9aa0a6; font-weight:normal;">구간</th>
+        <th style="text-align:right; padding:6px 10px; color:#9aa0a6; font-weight:normal;">20일선 중앙값</th>
+        <th style="text-align:right; padding:6px 10px; color:#9aa0a6; font-weight:normal;">25~75%구간</th>
+        <th style="text-align:right; padding:6px 10px; color:#9aa0a6; font-weight:normal;">표본일수</th>
+      </tr></thead>
+      <tbody>
+        <tr>
+          <td>약세장(1년 -15%↓)</td>
+          <td>60.5</td>
+          <td>40.8 ~ 88.5</td>
+          <td>467일</td>
+        </tr>
+        <tr>
+          <td>중립</td>
+          <td>72.0</td>
+          <td>55.1 ~ 92.3</td>
+          <td>1320일</td>
+        </tr>
+        <tr>
+          <td>강세장(1년 +15%↑)</td>
+          <td>80.0</td>
+          <td>60.8 ~ 107.6</td>
+          <td>961일</td>
+        </tr>
+      </tbody>
+    </table>
+    
+        <p style="margin:12px 0 4px 0;">최적 분리 임계값(20일선, Youden's J): <b>60.8</b>
+        — 이 이상일 때 강세장 적중률 75.2%, 약세장 오분류율 49.7%</p>
+        <p style="color:#9aa0a6; font-size:12px;">오분류율이 높아 단일 지표로 깔끔하게 갈리는 신호는
+        아닙니다 — 방향성 참고용(낮으면 약세 경향, 높으면 강세 경향)으로만 쓰세요.</p>
+  </div>
 
   <div class="note">
     <b>정의</b> — 종목별로 20일 이동평균 &plusmn; 2표준편차로 볼린저밴드 상단을 계산하고,

@@ -85,6 +85,89 @@ def build_panel_data(long_df, market, index_symbol):
     return result
 
 
+def compute_regime_analysis(panel_data):
+    """돌파종목수(20일선)로 강세장(트레일링 1년 수익률 >=15%)/약세장(<=-15%) 구간을 분류하고,
+    구간별 분포 + 두 구간을 가장 잘 가르는 임계값(Youden's J)을 계산한다. 오분류율이 상당히
+    높게 나오는데, 그대로 정직하게 보여준다(단일 지표로 깔끔하게 갈리는 신호가 아님)."""
+    df = pd.DataFrame({"date": panel_data["dates"], "ma20": panel_data["ma20"], "index": panel_data["index"]})
+    df = df.dropna(subset=["index"]).reset_index(drop=True)
+    df["ret_1y"] = df["index"] / df["index"].shift(252) - 1
+    df["regime"] = "neutral"
+    df.loc[df["ret_1y"] >= 0.15, "regime"] = "bull"
+    df.loc[df["ret_1y"] <= -0.15, "regime"] = "bear"
+    df = df.dropna(subset=["ret_1y"])
+
+    stats = {}
+    for regime in ("bear", "neutral", "bull"):
+        vals = df.loc[df["regime"] == regime, "ma20"]
+        if vals.empty:
+            continue
+        stats[regime] = {
+            "n": int(len(vals)), "median": round(float(vals.median()), 1),
+            "q25": round(float(vals.quantile(0.25)), 1), "q75": round(float(vals.quantile(0.75)), 1),
+        }
+
+    bull_vals = df.loc[df["regime"] == "bull", "ma20"]
+    bear_vals = df.loc[df["regime"] == "bear", "ma20"]
+    threshold = None
+    if not bull_vals.empty and not bear_vals.empty:
+        candidates = sorted(set(bull_vals.tolist() + bear_vals.tolist()))
+        best_t, best_j = None, -1
+        for t in candidates:
+            j = (bull_vals >= t).mean() - (bear_vals >= t).mean()
+            if j > best_j:
+                best_j, best_t = j, t
+        threshold = {
+            "value": round(float(best_t), 1),
+            "bull_hit_rate": round(float((bull_vals >= best_t).mean()) * 100, 1),
+            "bear_misclass_rate": round(float((bear_vals >= best_t).mean()) * 100, 1),
+        }
+
+    return {"stats": stats, "threshold": threshold, "period_start": df["date"].iloc[0] if len(df) else None,
+            "period_end": df["date"].iloc[-1] if len(df) else None}
+
+
+def render_regime_table(regime, label):
+    row_labels = {"bear": "약세장(1년 -15%↓)", "neutral": "중립", "bull": "강세장(1년 +15%↑)"}
+    rows_html = ""
+    for key in ("bear", "neutral", "bull"):
+        s = regime["stats"].get(key)
+        if not s:
+            continue
+        rows_html += f"""
+        <tr>
+          <td>{row_labels[key]}</td>
+          <td>{s['median']}</td>
+          <td>{s['q25']} ~ {s['q75']}</td>
+          <td>{s['n']}일</td>
+        </tr>"""
+
+    threshold_html = ""
+    if regime["threshold"]:
+        t = regime["threshold"]
+        threshold_html = f"""
+        <p style="margin:12px 0 4px 0;">최적 분리 임계값(20일선, Youden's J): <b>{t['value']}</b>
+        — 이 이상일 때 강세장 적중률 {t['bull_hit_rate']}%, 약세장 오분류율 {t['bear_misclass_rate']}%</p>
+        <p style="color:#9aa0a6; font-size:12px;">오분류율이 높아 단일 지표로 깔끔하게 갈리는 신호는
+        아닙니다 — 방향성 참고용(낮으면 약세 경향, 높으면 강세 경향)으로만 쓰세요.</p>"""
+
+    return f"""
+  <h2>{label} 강세장/약세장 구간별 분포</h2>
+  <div class="note" style="margin-top:0;">
+    <table style="width:100%; max-width:600px; border-collapse:collapse; font-size:13px;">
+      <thead><tr>
+        <th style="text-align:left; padding:6px 10px; color:#9aa0a6; font-weight:normal;">구간</th>
+        <th style="text-align:right; padding:6px 10px; color:#9aa0a6; font-weight:normal;">20일선 중앙값</th>
+        <th style="text-align:right; padding:6px 10px; color:#9aa0a6; font-weight:normal;">25~75%구간</th>
+        <th style="text-align:right; padding:6px 10px; color:#9aa0a6; font-weight:normal;">표본일수</th>
+      </tr></thead>
+      <tbody>{rows_html}
+      </tbody>
+    </table>
+    {threshold_html}
+  </div>"""
+
+
 def main():
     if not os.path.exists(IN_PATH):
         print("bollinger_prices.csv가 없습니다. fetch_bollinger_prices.py를 먼저 실행하세요.")
@@ -99,6 +182,11 @@ def main():
     kosdaq = build_panel_data(long_df, "KOSDAQ", "KOSDAQ")
     print(f"  {kosdaq['n_stocks']}종목, 최신({kosdaq['latest_date']}) 돌파 {kosdaq['latest_count']}개")
 
+    print("강세장/약세장 구간 분석 중...")
+    kospi_regime = compute_regime_analysis(kospi)
+    kosdaq_regime = compute_regime_analysis(kosdaq)
+    regime_tables_html = render_regime_table(kospi_regime, "코스피") + render_regime_table(kosdaq_regime, "코스닥")
+
     html = TEMPLATE.format(
         kospi_json=json.dumps(kospi, ensure_ascii=False),
         kosdaq_json=json.dumps(kosdaq, ensure_ascii=False),
@@ -106,6 +194,7 @@ def main():
         kospi_latest_date=kospi["latest_date"] or "N/A",
         kospi_latest_count=kospi["latest_count"] if kospi["latest_count"] is not None else "N/A",
         kosdaq_latest_count=kosdaq["latest_count"] if kosdaq["latest_count"] is not None else "N/A",
+        regime_tables_html=regime_tables_html,
     )
     os.makedirs(DOCS_DIR, exist_ok=True)
     with open(OUT_PATH, "w", encoding="utf-8") as f:
@@ -172,6 +261,8 @@ TEMPLATE = """<!doctype html>
 
   <h2>코스닥</h2>
   <div class="chart-wrap"><canvas id="kosdaqChart"></canvas></div>
+
+  {regime_tables_html}
 
   <div class="note">
     <b>정의</b> — 종목별로 20일 이동평균 &plusmn; 2표준편차로 볼린저밴드 상단을 계산하고,
