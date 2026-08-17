@@ -81,6 +81,12 @@ TEMPLATE = """<!doctype html>
       <p>코스피·코스닥 전종목 20일 볼린저밴드 상단 돌파 종목수(막대) + 5일선, 지수와 비교.</p>
       <div class="arrow">바로가기 &rarr;</div>
     </a>
+    <a class="card" href="risk_signals.html">
+      <div class="icon">&#128680;</div>
+      <h2>조정 경고 신호</h2>
+      <p>유동성 지표 + 돌파종목수 조합 - 6개 지표 중 지금 몇 개가 발동 중인지 한눈에 확인.</p>
+      <div class="arrow">바로가기 &rarr;</div>
+    </a>
   </div>
 </body>
 </html>

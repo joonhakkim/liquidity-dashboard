@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>조정 경고 신호</title>
+<style>
+  body { font-family: -apple-system, "Malgun Gothic", sans-serif; background:#0f1115; color:#e6e6e6; margin:0; padding:24px; }
+  a.back { color:#4dabf7; font-size:13px; text-decoration:none; margin-right:12px; }
+  h1 { font-size:20px; margin:8px 0 4px 0; }
+  .updated { color:#9aa0a6; font-size:13px; margin-bottom:24px; }
+  .summary { font-size:15px; margin-bottom:20px; }
+  .summary b { font-size:22px; }
+  .cards { display:grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap:14px; max-width:1100px; }
+  .card { background:#1a1d24; border-radius:12px; padding:18px 20px; border:1px solid #23262e; }
+  .card.on { border-color:#ff6b6b; background:#241a1a; }
+  .card .top { display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; }
+  .card .name { font-size:15px; font-weight:bold; }
+  .badge { font-size:12px; padding:3px 10px; border-radius:999px; font-weight:bold; }
+  .badge.on { background:#ff6b6b; color:#0f1115; }
+  .badge.off { background:#2a2e37; color:#9aa0a6; }
+  .card .desc { color:#9aa0a6; font-size:12px; line-height:1.5; margin-bottom:10px; }
+  .card .meta { font-size:12px; color:#c7cbd1; display:flex; justify-content:space-between; }
+  .category-title { font-size:14px; color:#9aa0a6; margin:24px 0 10px 0; }
+  .category-title:first-of-type { margin-top:8px; }
+  .note { color:#9aa0a6; font-size:12px; line-height:1.7; max-width:900px; background:#1a1d24; border-radius:10px; padding:16px 18px; margin-top:24px; }
+  .note.warn { border:1px solid #ffa94d; }
+  .note b { color:#ffa94d; }
+</style>
+</head>
+<body>
+  <a class="back" href="index.html">&larr; 홈</a>
+  <h1>조정 경고 신호</h1>
+  <div class="updated">최종 갱신: 2026-08-17 19:50</div>
+  <div class="summary">현재 <b id="nFlagged">3</b> / 15개 지표 발동 중</div>
+
+  <div id="grouped"></div>
+
+  <div class="note warn">
+    <b>이 지표들이 못 잡는 것</b> — 여기 15개는 전부 "유동성/시장내부" 계열입니다(자금 흐름,
+    시장 참여폭, 심리·안전자산). 코로나(2020-01) 같은 <b>진짜 외부충격형 조정(팬데믹, 전쟁,
+    지정학 리스크 등)은 실제 백테스트에서 15개 중 단 하나도 사전 경고를 주지 못했습니다</b> -
+    이건 지표 설계의 결함이 아니라, 유동성 지표가 애초에 다루는 영역이 아니기 때문입니다.
+    이 페이지가 전부 정상이어도 외부충격형 조정은 언제든 올 수 있습니다.
+  </div>
+
+  <div class="note">
+    <b>발동 기준</b> — 최근 500거래일 기준 하위(또는 상위) 20% 백분위 진입. 지표마다 잡아내는
+    조정의 성격이 달라서(자금·유동성 지표 vs 시장폭 지표 vs 심리 지표) 여러 개를 합쳐 하나의
+    점수로 안 만들고, 각각 개별적으로 표시합니다 - 아무거나 하나라도 여러 날 지속되면 눈여겨볼
+    필요가 있습니다.
+  </div>
+
+<script>
+const ROWS = [{"label": "볼린저밴드 돌파종목수(20일선)", "desc": "코스피 전종목 중 20일 상단밴드를 돌파한 종목 수 - 시장 내부 폭", "category": "시장폭", "flagged": false, "consecutive_days": 0, "latest_value": 56.65, "latest_date": "2026-08-14", "percentile": 48.7}, {"label": "코스피 ADR", "desc": "최근 20거래일 상승/하락 종목수 비율 - 시장 폭", "category": "시장폭", "flagged": false, "consecutive_days": 0, "latest_value": 125.37, "latest_date": "2026-08-17", "percentile": 92.1}, {"label": "코스닥 ADR", "desc": "코스닥판 ADR - 중소형주 시장 폭", "category": "시장폭", "flagged": false, "consecutive_days": 0, "latest_value": 117.64, "latest_date": "2026-08-17", "percentile": 97.7}, {"label": "실탄합계(예탁금+CMA) QoQ", "desc": "투자자예탁금+CMA잔고 합계의 분기 증가율", "category": "자금·유동성", "flagged": true, "consecutive_days": 54, "latest_value": -12.23, "latest_date": "2026-08-17", "percentile": 5.2}, {"label": "CMA잔고 QoQ", "desc": "CMA(수시입출금형 단기자금) 잔고 분기 증가율", "category": "자금·유동성", "flagged": true, "consecutive_days": 60, "latest_value": -7.02, "latest_date": "2026-08-17", "percentile": 5.2}, {"label": "CMA잔고 5주선", "desc": "CMA잔고 원값의 5주(35일) 이동평균", "category": "자금·유동성", "flagged": false, "consecutive_days": 0, "latest_value": 105287130.23, "latest_date": "2026-08-17", "percentile": 68.0}, {"label": "대고객RP매도잔고 YoY", "desc": "증권사가 고객에게 판 RP 잔고 - 딜러 유동성 프록시", "category": "자금·유동성", "flagged": true, "consecutive_days": 1, "latest_value": 5.11, "latest_date": "2026-08-17", "percentile": 13.4}, {"label": "RP매각잔고 60주선", "desc": "RP매각잔고 원값의 60주(420일) 이동평균", "category": "자금·유동성", "flagged": false, "consecutive_days": 0, "latest_value": 1572.38, "latest_date": "2026-08-17", "percentile": 92.0}, {"label": "연준총자산 QoQ", "desc": "연준 대차대조표 축소(QT)=유동성 감소", "category": "자금·유동성", "flagged": false, "consecutive_days": 0, "latest_value": 0.51, "latest_date": "2026-08-17", "percentile": 72.9}, {"label": "ON RRP QoQ", "desc": "익일역레포 급증=자금이 시장 대신 연준에 묶임(유동성 이탈)", "category": "자금·유동성", "flagged": false, "consecutive_days": 0, "latest_value": -56.97, "latest_date": "2026-08-17", "percentile": 40.8}, {"label": "ON RRP YoY", "desc": "ON RRP QoQ와 같은 논리, 연율 기준", "category": "자금·유동성", "flagged": false, "consecutive_days": 0, "latest_value": -85.32, "latest_date": "2026-08-17", "percentile": 54.4}, {"label": "일본 미국채 보유액", "desc": "일본이 미국채를 팔면(보유액 감소) 글로벌 유동성 압박 신호로 흔히 해석", "category": "자금·유동성", "flagged": false, "consecutive_days": 0, "latest_value": 1143139.0, "latest_date": "2026-08-17", "percentile": 22.4}, {"label": "GDX(금광기업ETF)", "desc": "하락 시작 = 유동성 축소 신호로 검증됨(2008년 등)", "category": "심리·안전자산", "flagged": false, "consecutive_days": 0, "latest_value": 89.97, "latest_date": "2026-08-17", "percentile": 76.5}, {"label": "금가격", "desc": "GDX와 같은 논리 - 하락 시작이 위험 신호", "category": "심리·안전자산", "flagged": false, "consecutive_days": 0, "latest_value": 4437.3, "latest_date": "2026-08-17", "percentile": 68.3}, {"label": "뉴스심리지수 12주선", "desc": "한국은행 뉴스심리지수의 12주(84일) 이동평균", "category": "심리·안전자산", "flagged": false, "consecutive_days": 0, "latest_value": 108.71, "latest_date": "2026-08-17", "percentile": 59.0}];
+const CATEGORY_ORDER = ['자금·유동성', '시장폭', '심리·안전자산'];
+const grouped = document.getElementById('grouped');
+
+function cardHtml(r) {
+  return `
+  <div class="card ${r.flagged ? 'on' : ''}">
+    <div class="top">
+      <span class="name">${r.label}</span>
+      <span class="badge ${r.flagged ? 'on' : 'off'}">${r.flagged ? '발동중' : '정상'}</span>
+    </div>
+    <div class="desc">${r.desc}</div>
+    <div class="meta">
+      <span>최신값 ${r.latest_value ?? 'N/A'} (${r.latest_date ?? 'N/A'})</span>
+      <span>${r.flagged ? r.consecutive_days + '일째' : '백분위 ' + r.percentile + '%'}</span>
+    </div>
+  </div>`;
+}
+
+grouped.innerHTML = CATEGORY_ORDER.map(cat => {
+  const items = ROWS.filter(r => r.category === cat);
+  if (!items.length) return '';
+  const nOn = items.filter(r => r.flagged).length;
+  return `<div class="category-title">${cat} (${nOn}/${items.length} 발동)</div>
+  <div class="cards">${items.map(cardHtml).join('')}</div>`;
+}).join('');
+</script>
+</body>
+</html>
