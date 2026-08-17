@@ -75,6 +75,12 @@ TEMPLATE = """<!doctype html>
       <p>전종목 시가총액 대비 영업이익 추정치 배수 밴드 - 최신 배수/과거 대비 백분위로 저평가 종목 필터링.</p>
       <div class="arrow">바로가기 &rarr;</div>
     </a>
+    <a class="card" href="bollinger_breakout.html">
+      <div class="icon">&#128300;</div>
+      <h2>볼린저밴드 돌파 종목수</h2>
+      <p>코스피·코스닥 전종목 20일 볼린저밴드 상단 돌파 종목수(막대) + 5일선, 지수와 비교.</p>
+      <div class="arrow">바로가기 &rarr;</div>
+    </a>
   </div>
 </body>
 </html>

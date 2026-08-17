@@ -33,6 +33,8 @@ CORE_STEPS = [
     ("fetch_bitcoin.py", "CoinGecko(비트코인 시가총액) 수집"),
     ("fetch_markets.py", "네이버 금융(원/달러 환율, 금, 은, 엔/달러) 수집"),
     ("fetch_adr.py", "코스피/코스닥 등락비율(ADR) 계산용 상승/하락 종목수 수집(KRX Open API)"),
+    ("fetch_bollinger_prices.py", "볼린저밴드 돌파종목수용 전종목 종가 수집(KRX Open API, 최초 1회만 오래 걸림)"),
+    ("build_bollinger_breakout.py", "볼린저밴드 상단 돌파 종목수 트래커 페이지 빌드"),
     ("fetch_gdx.py", "금광기업 ETF(GDX) 수집(Yahoo Finance, 유동성 선행성 검증됨)"),
     ("fetch_crack_spread.py", "정유화학 정제마진(3:2:1 크랙 스프레드) 수집(EIA API)"),
     ("build_crack_spread_page.py", "정유화학 정제마진 트래커 페이지 + 엑셀 다운로드 빌드"),

@@ -1,34 +1,1988 @@
 {
- "알테오젠": [
+ "삼성전자": [
+  {
+   "date": "2026.08.17",
+   "title": "5일 연속 상승장에 '방향성 베팅' 늘어...눈치싸움 중 7천 돌파 관건",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0002818865&office_id=028&code=005930&page=1&sm=title_entity_id.basic",
+   "source": "한겨레"
+  },
+  {
+   "date": "2026.08.17",
+   "title": "\"한중일 반도체 전쟁...소재 키워 격차 벌려야\"",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0005721943&office_id=009&code=005930&page=1&sm=title_entity_id.basic",
+   "source": "매일경제"
+  },
+  {
+   "date": "2026.08.17",
+   "title": "\"하닉 280층, 주식창 열때마다 손 떨려\" 194만 유튜버도 물렸다 ...",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0003671009&office_id=081&code=005930&page=1&sm=title_entity_id.basic",
+   "source": "서울신문"
+  },
+  {
+   "date": "2026.08.17",
+   "title": "韓 1200조 데이터센터 투자 '시동'... AI인프라 국산화 새판 짠다",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0005721933&office_id=009&code=005930&page=1&sm=title_entity_id.basic",
+   "source": "매일경제"
+  },
+  {
+   "date": "2026.08.17",
+   "title": "삼성전자, 내년 '와이드 폴드' 하나 더 만든다...폴더블 5종 확대",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0003457927&office_id=030&code=005930&page=1&sm=title_entity_id.basic",
+   "source": "전자신문"
+  },
+  {
+   "date": "2026-08-14",
+   "title": "[기재정정]임원ㆍ주요주주특정증권등소유상황보고서",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003973",
+   "source": "DART"
+  },
+  {
+   "date": "2026-08-14",
+   "title": "[기재정정]임원ㆍ주요주주특정증권등소유상황보고서",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003950",
+   "source": "DART"
+  },
+  {
+   "date": "2026-08-14",
+   "title": "[기재정정]임원ㆍ주요주주특정증권등소유상황보고서",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003912",
+   "source": "DART"
+  }
+ ],
+ "SK하이닉스": [
+  {
+   "date": "2026.08.17",
+   "title": "5일 연속 상승장에 '방향성 베팅' 늘어...눈치싸움 중 7천 돌파 관건",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0002818865&office_id=028&code=000660&page=1&sm=title_entity_id.basic",
+   "source": "한겨레"
+  },
+  {
+   "date": "2026.08.17",
+   "title": "\"하닉 280층, 주식창 열때마다 손 떨려\" 194만 유튜버도 물렸다 ...",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0003671009&office_id=081&code=000660&page=1&sm=title_entity_id.basic",
+   "source": "서울신문"
+  },
+  {
+   "date": "2026.08.17",
+   "title": "딥시크, V4 프로 공개하며 API 요금 인상...캐시 가격 12배",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0004652353&office_id=011&code=000660&page=1&sm=title_entity_id.basic",
+   "source": "서울경제"
+  },
+  {
+   "date": "2026.08.17",
+   "title": "SK하이닉스, 美 메모리 전공정 공장 검토",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0004652352&office_id=011&code=000660&page=1&sm=title_entity_id.basic",
+   "source": "서울경제"
+  },
+  {
+   "date": "2026.08.17",
+   "title": "가격 12배 올린 딥시크...中 AI 수익 경쟁 본격화",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0004652350&office_id=011&code=000660&page=1&sm=title_entity_id.basic",
+   "source": "서울경제"
+  },
+  {
+   "date": "2026-08-14",
+   "title": "반기보고서 (2026.06)",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003509",
+   "source": "DART"
+  },
+  {
+   "date": "2026-08-14",
+   "title": "파생상품거래손실발생              ",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814802986",
+   "source": "DART"
+  },
+  {
+   "date": "2026-08-12",
+   "title": "지급수단별ㆍ지급기간별지급금액및분쟁조정기구에관한사항",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260812000344",
+   "source": "DART"
+  }
+ ],
+ "SK스퀘어": [
+  {
+   "date": "2026.08.17",
+   "title": "최태원 '9440억 현금' 지급에 재상고...재원 마련 방식 촉각",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0006352894&office_id=018&code=402340&page=1&sm=title_entity_id.basic",
+   "source": "이데일리"
+  },
+  {
+   "date": "2026.08.17",
+   "title": "'6.5조' 쓸어담은 외국인...이번 주 순매수 이어갈까",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0001262586&office_id=215&code=402340&page=1&sm=title_entity_id.basic",
+   "source": "한국경제TV"
+  },
+  {
+   "date": "2026.08.17",
+   "title": "코스피 7000선 눈앞...개인 7.4조 팔고 외국인 6.8조 샀다",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0000089136&office_id=293&code=402340&page=1&sm=title_entity_id.basic",
+   "source": "블로터"
+  },
+  {
+   "date": "2026.08.17",
+   "title": "SK하이닉스 솔리다임 IPO설 '모락모락'...주주에 득일까, 실일까",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0001262570&office_id=215&code=402340&page=1&sm=title_entity_id.basic",
+   "source": "한국경제TV"
+  },
+  {
+   "date": "2026.08.17",
+   "title": "하이닉스 '솔리다임' IPO설...증권가 &quot;지분희석&quot; vs &quot;실익있다&quot;",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0016254063&office_id=001&code=402340&page=1&sm=title_entity_id.basic",
+   "source": "연합뉴스"
+  },
+  {
+   "date": "2026-08-14",
+   "title": "파생상품거래손실발생(자회사의 주요경영사항)              ",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814802988",
+   "source": "DART"
+  },
+  {
+   "date": "2026-08-14",
+   "title": "[기재정정]반기보고서 (2026.06)",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003471",
+   "source": "DART"
+  },
+  {
+   "date": "2026-08-14",
+   "title": "[기재정정]반기보고서 (2026.06)",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814002738",
+   "source": "DART"
+  }
+ ],
+ "삼성전기": [
+  {
+   "date": "2026.08.17",
+   "title": "AI발 '칩 플레이션'에... 전자업계 원가 부담도 급증",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0000948450&office_id=469&code=009150&page=1&sm=title_entity_id.basic",
+   "source": "한국일보"
+  },
+  {
+   "date": "2026.08.17",
+   "title": "반도체&middot;부품값 오르자 전자업계 상반기 원가 부담 수조 원대&uarr;",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0001381160&office_id=055&code=009150&page=1&sm=title_entity_id.basic",
+   "source": "SBS"
+  },
+  {
+   "date": "2026.08.17",
+   "title": "삼성&middot;LG 원재료값 나란히 9%&uarr;...AI發 '칩플레이션'에 원가 부담",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0003042605&office_id=029&code=009150&page=1&sm=title_entity_id.basic",
+   "source": "디지털타임스"
+  },
+  {
+   "date": "2026.08.17",
+   "title": "반도체&middot;부품값 오르자 전자업계 상반기 원가 부담 수조원대&uarr;",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0016254071&office_id=001&code=009150&page=1&sm=title_entity_id.basic",
+   "source": "연합뉴스"
+  },
+  {
+   "date": "2026.08.17",
+   "title": "코인투자자 해외유출 가속...바이낸스 韓 투자자 15%&uarr;",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0004652304&office_id=011&code=009150&page=1&sm=title_entity_id.basic",
+   "source": "서울경제"
+  },
+  {
+   "date": "2026-08-14",
+   "title": "반기보고서 (2026.06)",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003805",
+   "source": "DART"
+  },
+  {
+   "date": "2026-08-14",
+   "title": "지급수단별ㆍ지급기간별지급금액및분쟁조정기구에관한사항",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814001629",
+   "source": "DART"
+  },
+  {
+   "date": "2026-08-12",
+   "title": "임원ㆍ주요주주특정증권등소유상황보고서",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260812000559",
+   "source": "DART"
+  }
+ ],
+ "LG에너지솔루션": [
+  {
+   "date": "2026.08.17",
+   "title": "AI 반도체 호황, SK하이닉스 급여로 증명...상반기 1억4400만 원",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0004652345&office_id=011&code=373220&page=1&sm=title_entity_id.basic",
+   "source": "서울경제"
+  },
+  {
+   "date": "2026.08.17",
+   "title": "첫발 뗀 배터리업계 숙원 '한국판 IRA'...후속 설계에 쏠린 눈",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0006352880&office_id=018&code=373220&page=1&sm=title_entity_id.basic",
+   "source": "이데일리"
+  },
+  {
+   "date": "2026.08.17",
+   "title": "LG, 냉각장치 넘어 AI팩토리 통째로 공급한다",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0003457905&office_id=030&code=373220&page=1&sm=title_entity_id.basic",
+   "source": "전자신문"
+  },
+  {
+   "date": "2026.08.17",
+   "title": "구광모-젠슨 황 'AI 동맹' 완성...LG, '피지컬 AI 앵커'로 도...",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0005400869&office_id=008&code=373220&page=1&sm=title_entity_id.basic",
+   "source": "머니투데이"
+  },
+  {
+   "date": "2026.08.17",
+   "title": "엔비디아가 '콕' 찝었다...LG에 '시선 집중'",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0000109725&office_id=050&code=373220&page=1&sm=title_entity_id.basic",
+   "source": "한경비즈니스"
+  },
+  {
+   "date": "2026-08-13",
+   "title": "지급수단별ㆍ지급기간별지급금액및분쟁조정기구에관한사항",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260813000316",
+   "source": "DART"
+  },
+  {
+   "date": "2026-08-13",
+   "title": "반기보고서 (2026.06)",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260813000255",
+   "source": "DART"
+  },
+  {
+   "date": "2026-08-12",
+   "title": "풍문또는보도에대한해명(미확정)              ",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260812800134",
+   "source": "DART"
+  }
+ ],
+ "삼성바이오로직스": [
+  {
+   "date": "2026.08.17",
+   "title": "딥시크, V4 프로 공개하며 API 요금 인상...캐시 가격 12배",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0004652353&office_id=011&code=207940&page=1&sm=title_entity_id.basic",
+   "source": "서울경제"
+  },
+  {
+   "date": "2026.08.17",
+   "title": "가격 12배 올린 딥시크...中 AI 수익 경쟁 본격화",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0004652350&office_id=011&code=207940&page=1&sm=title_entity_id.basic",
+   "source": "서울경제"
+  },
+  {
+   "date": "2026.08.17",
+   "title": "널뛰는 증시에 '분산 ETF' 뜬다...채권&middot;금&middot;배당으로 방어",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0004652351&office_id=011&code=207940&page=1&sm=title_entity_id.basic",
+   "source": "서울경제"
+  },
+  {
+   "date": "2026.08.17",
+   "title": "SK하이닉스, 美 메모리 전공정 공장 검토",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0004652352&office_id=011&code=207940&page=1&sm=title_entity_id.basic",
+   "source": "서울경제"
+  },
+  {
+   "date": "2026.08.17",
+   "title": "강남 그린벨트 푼다...수서차량기지 등 7만 가구 공급",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0004652349&office_id=011&code=207940&page=1&sm=title_entity_id.basic",
+   "source": "서울경제"
+  },
+  {
+   "date": "2026-08-14",
+   "title": "반기보고서 (2026.06)",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003375",
+   "source": "DART"
+  },
+  {
+   "date": "2026-08-14",
+   "title": "지급수단별ㆍ지급기간별지급금액및분쟁조정기구에관한사항",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814002752",
+   "source": "DART"
+  },
+  {
+   "date": "2026-08-06",
+   "title": "임원ㆍ주요주주특정증권등소유상황보고서",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260806000473",
+   "source": "DART"
+  }
+ ],
+ "삼성생명": [
+  {
+   "date": "2026.08.17",
+   "title": "빅3 생보사 상반기 실적 개선...왜 좋은가 했더니",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0006352822&office_id=018&code=032830&page=1&sm=title_entity_id.basic",
+   "source": "이데일리"
+  },
+  {
+   "date": "2026.08.17",
+   "title": "삼성생명, AI로 '예상 인수심사&middot;보험설계' 한번에...특허등록 완료",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0003457862&office_id=030&code=032830&page=1&sm=title_entity_id.basic",
+   "source": "전자신문"
+  },
+  {
+   "date": "2026.08.17",
+   "title": "이재용 0원&middot;신동빈 112억&middot;박정원 456억...재벌 총수 '연봉 계산법'...",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0000101771&office_id=243&code=032830&page=1&sm=title_entity_id.basic",
+   "source": "이코노미스트"
+  },
   {
    "date": "2026.08.16",
-   "title": "돈 냄새 맡았다...K바이오 사모으는 '글로벌 큰손'",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0005562107&office_id=014&code=196170&page=1&sm=title_entity_id.basic",
+   "title": "외국인의 '픽'으로 돌아온 S7...삼전닉스에 5.6조원 '뭉칫돈' [투....",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0002684577&office_id=016&code=032830&page=1&sm=title_entity_id.basic",
+   "source": "헤럴드경제"
+  },
+  {
+   "date": "2026.08.16",
+   "title": "2금융권 상반기 연봉킹은 정태영...현대카드&middot;커머셜서 32억 수령",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0014130024&office_id=003&code=032830&page=1&sm=title_entity_id.basic",
+   "source": "뉴시스"
+  },
+  {
+   "date": "2026-08-14",
+   "title": "반기보고서 (2026.06)",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003263",
+   "source": "DART"
+  },
+  {
+   "date": "2026-08-13",
+   "title": "연결재무제표기준영업(잠정)실적(공정공시)              ",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260813800256",
+   "source": "DART"
+  },
+  {
+   "date": "2026-07-27",
+   "title": "기업설명회(IR)개최(안내공시)              ",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260727800655",
+   "source": "DART"
+  }
+ ],
+ "삼성물산": [],
+ "한화에어로스페이스": [
+  {
+   "date": "2026.08.17",
+   "title": "주가 뛰자 김동관 RSU도 '껑충'...평가액 2700억원 육박",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0003122396&office_id=119&code=012450&page=1&sm=title_entity_id.basic",
+   "source": "데일리안"
+  },
+  {
+   "date": "2026.08.17",
+   "title": "한화 김동관, 주가 급등에 주식보상 가치 2700억원",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0003042689&office_id=029&code=012450&page=1&sm=title_entity_id.basic",
+   "source": "디지털타임스"
+  },
+  {
+   "date": "2026.08.17",
+   "title": "기업 반기보고서에 등장한 수백억 주식보상...'RSU'가 뭐길래",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0014131068&office_id=003&code=012450&page=1&sm=title_entity_id.basic",
+   "source": "뉴시스"
+  },
+  {
+   "date": "2026.08.17",
+   "title": "주가 급등에 불붙은 대기업 주식보상...한화 김동관 RSU 2700억원대",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0000109731&office_id=050&code=012450&page=1&sm=title_entity_id.basic",
+   "source": "한경비즈니스"
+  },
+  {
+   "date": "2026.08.17",
+   "title": "김동관 한화 수석부회장, 방산 호황에 RSU 가치 2700억원",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0003457860&office_id=030&code=012450&page=1&sm=title_entity_id.basic",
+   "source": "전자신문"
+  },
+  {
+   "date": "2026-08-14",
+   "title": "반기보고서 (2026.06)",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003198",
+   "source": "DART"
+  },
+  {
+   "date": "2026-08-14",
+   "title": "지급수단별ㆍ지급기간별지급금액및분쟁조정기구에관한사항",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814000760",
+   "source": "DART"
+  },
+  {
+   "date": "2026-08-11",
+   "title": "동일인등출자계열회사와의상품ㆍ용역거래변경",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260811000374",
+   "source": "DART"
+  }
+ ],
+ "KB금융": [
+  {
+   "date": "2026.08.17",
+   "title": "KB금융 &quot;자연 데이터 축적해 위험관리 체계 고도화&quot;",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0005562432&office_id=014&code=105560&page=1&sm=title_entity_id.basic",
+   "source": "파이낸셜뉴스"
+  },
+  {
+   "date": "2026.08.17",
+   "title": "&quot;숲 훼손하면 대출 조건 변경됩니다&quot;...금융권 새 잣대된 '자연자본'",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0006352864&office_id=018&code=105560&page=1&sm=title_entity_id.basic",
+   "source": "이데일리"
+  },
+  {
+   "date": "2026.08.17",
+   "title": "KB금융, 대출 과정에 자연자본 반영...포트폴리오 위험 관리 강화",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0006352828&office_id=018&code=105560&page=1&sm=title_entity_id.basic",
+   "source": "이데일리"
+  },
+  {
+   "date": "2026.08.17",
+   "title": "KB금융 \"지속가능성 자연 자본 상품&middot;투자&middot;대출액 20.8조\"",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0002818837&office_id=028&code=105560&page=1&sm=title_entity_id.basic",
+   "source": "한겨레"
+  },
+  {
+   "date": "2026.08.17",
+   "title": "KB금융 &quot;SK하이닉스 수처리시설 대출, 생물다양성 리스크 검토해야&quot;",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0005400846&office_id=008&code=105560&page=1&sm=title_entity_id.basic",
+   "source": "머니투데이"
+  },
+  {
+   "date": "2026-08-14",
+   "title": "반기보고서 (2026.06)",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814004200",
+   "source": "DART"
+  },
+  {
+   "date": "2026-07-30",
+   "title": "증권발행실적보고서",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260730000322",
+   "source": "DART"
+  },
+  {
+   "date": "2026-07-29",
+   "title": "투자설명서(일괄신고)",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260729000432",
+   "source": "DART"
+  }
+ ],
+ "기아": [
+  {
+   "date": "2026.08.17",
+   "title": "중고차 시세 내림세에도 '테슬라' 값 올라 [뉴시스Pic]",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0014131312&office_id=003&code=000270&page=1&sm=title_entity_id.basic",
+   "source": "뉴시스"
+  },
+  {
+   "date": "2026.08.17",
+   "title": "'없어서 못 산다'...중고차 시장서 입고 즉시 팔리는 '이 차'",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0000527774&office_id=374&code=000270&page=1&sm=title_entity_id.basic",
+   "source": "SBS Biz"
+  },
+  {
+   "date": "2026.08.17",
+   "title": "\"플라스틱으로 친환경 미래 그린다\"...모빌리티로 발 넓히는 SK케미...",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0003042686&office_id=029&code=000270&page=1&sm=title_entity_id.basic",
+   "source": "디지털타임스"
+  },
+  {
+   "date": "2026.08.17",
+   "title": "'중국차 공세' 속 현대차 파업 피해 1조 넘어...기아는 일단 '대화'",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0014131133&office_id=003&code=000270&page=1&sm=title_entity_id.basic",
+   "source": "뉴시스"
+  },
+  {
+   "date": "2026.08.17",
+   "title": "국토부 &quot;기아 빠져도 대형버스 공급 가능&quot;...내년 부족분 220대 추산",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0001023899&office_id=088&code=000270&page=1&sm=title_entity_id.basic",
+   "source": "매일신문"
+  },
+  {
+   "date": "2026-08-14",
+   "title": "반기보고서 (2026.06)",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003932",
+   "source": "DART"
+  },
+  {
+   "date": "2026-08-14",
+   "title": "지급수단별ㆍ지급기간별지급금액및분쟁조정기구에관한사항",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814000595",
+   "source": "DART"
+  },
+  {
+   "date": "2026-08-12",
+   "title": "특수관계인으로부터기타유가증권매수",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260812000610",
+   "source": "DART"
+  }
+ ],
+ "HD현대중공업": [
+  {
+   "date": "2026.08.17",
+   "title": "[단독]HD현대 '중대형 무인 함정' 내년 초 美서 시연",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0005562397&office_id=014&code=329180&page=1&sm=title_entity_id.basic",
+   "source": "파이낸셜뉴스"
+  },
+  {
+   "date": "2026.08.17",
+   "title": "조선소 떠난 도시의 반전 [리부팅 지방시대]",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0000896529&office_id=422&code=329180&page=1&sm=title_entity_id.basic",
+   "source": "연합뉴스TV"
+  },
+  {
+   "date": "2026.08.17",
+   "title": "경총 &quot;영업이익 성과 배분&middot;공장 신설, 단체교섭&middot;파업 대상 아냐&quot;",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0009116903&office_id=421&code=329180&page=1&sm=title_entity_id.basic",
+   "source": "뉴스1"
+  },
+  {
+   "date": "2026.08.17",
+   "title": "&quot;韓증시 못 믿어&quot;...지수 상승 전환에도 '공매도' 급증",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0014130813&office_id=003&code=329180&page=1&sm=title_entity_id.basic",
+   "source": "뉴시스"
+  },
+  {
+   "date": "2026.08.17",
+   "title": "'세계 최초' '세계 최대' 경쟁하는 한&middot;중... 고부가 선박 수주전...",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0001186588&office_id=366&code=329180&page=1&sm=title_entity_id.basic",
+   "source": "조선비즈"
+  },
+  {
+   "date": "2026-08-14",
+   "title": "반기보고서 (2026.06)",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814002879",
+   "source": "DART"
+  },
+  {
+   "date": "2026-08-10",
+   "title": "단일판매ㆍ공급계약체결              ",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260810800144",
+   "source": "DART"
+  },
+  {
+   "date": "2026-07-31",
+   "title": "동일인등출자계열회사와의상품ㆍ용역거래변경",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260731000393",
+   "source": "DART"
+  }
+ ],
+ "두산에너빌리티": [
+  {
+   "date": "2026.08.17",
+   "title": "정부 정책에 볕드는 SMR, 두산에너빌리티 존재감 커진다",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0001155542&office_id=417&code=034020&page=1&sm=title_entity_id.basic",
+   "source": "동행미디어 시대"
+  },
+  {
+   "date": "2026.08.17",
+   "title": "'차세대' 나트륨 SMR 협력 본격화...테라파워-SK이노, 합의서 체결",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0000152507&office_id=658&code=034020&page=1&sm=title_entity_id.basic",
+   "source": "국제신문"
+  },
+  {
+   "date": "2026.08.16",
+   "title": "\"'삼전닉스'는 알겠는데\" 국민연금이 싹쓸이한 '이 주식'...40&rarr;...",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0002684532&office_id=016&code=034020&page=1&sm=title_entity_id.basic",
+   "source": "헤럴드경제"
+  },
+  {
+   "date": "2026.08.16",
+   "title": "두산에너빌리티, 美 테라파워 차세대 SMR 핵심 기자재 수주",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0004151293&office_id=022&code=034020&page=1&sm=title_entity_id.basic",
+   "source": "세계일보"
+  },
+  {
+   "date": "2026.08.15",
+   "title": "두산에너빌, 美 테라파워 SMR 기자재 공급",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0012238540&office_id=056&code=034020&page=1&sm=title_entity_id.basic",
+   "source": "KBS"
+  },
+  {
+   "date": "2026-08-14",
+   "title": "반기보고서 (2026.06)",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003782",
+   "source": "DART"
+  },
+  {
+   "date": "2026-08-14",
+   "title": "지급수단별ㆍ지급기간별지급금액및분쟁조정기구에관한사항",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003180",
+   "source": "DART"
+  },
+  {
+   "date": "2026-08-07",
+   "title": "풍문또는보도에대한해명(미확정)              ",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260807800490",
+   "source": "DART"
+  }
+ ],
+ "신한지주": [
+  {
+   "date": "2026.08.17",
+   "title": "5일 연속 상승장에 '방향성 베팅' 늘어...눈치싸움 중 7천 돌파 관건",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0002818865&office_id=028&code=055550&page=1&sm=title_entity_id.basic",
+   "source": "한겨레"
+  },
+  {
+   "date": "2026.08.17",
+   "title": "&quot;확신의 매수 구간&quot;...비중확대 추천한 반도체 종목은",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0005400915&office_id=008&code=055550&page=1&sm=title_entity_id.basic",
+   "source": "머니투데이"
+  },
+  {
+   "date": "2026.08.17",
+   "title": "혼합형 주담대 금리 0.5%P 급등...갱신 차주 이자 부담 가중",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0004652346&office_id=011&code=055550&page=1&sm=title_entity_id.basic",
+   "source": "서울경제"
+  },
+  {
+   "date": "2026.08.17",
+   "title": "강남 그린벨트 푼다...수서차량기지 등 7만 가구 공급",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0004652349&office_id=011&code=055550&page=1&sm=title_entity_id.basic",
+   "source": "서울경제"
+  },
+  {
+   "date": "2026.08.17",
+   "title": "대출 조이자 가산금리 7년 만에 최고...차주 이자 부담만 커졌다",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0000948457&office_id=469&code=055550&page=1&sm=title_entity_id.basic",
+   "source": "한국일보"
+  },
+  {
+   "date": "2026-08-14",
+   "title": "[기재정정]일괄신고서",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003519",
+   "source": "DART"
+  },
+  {
+   "date": "2026-08-14",
+   "title": "반기보고서 (2026.06)",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003306",
+   "source": "DART"
+  },
+  {
+   "date": "2026-08-11",
+   "title": "주식등의대량보유상황보고서(약식)",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260811000674",
+   "source": "DART"
+  }
+ ],
+ "현대모비스": [
+  {
+   "date": "2026.08.16",
+   "title": "국내 핵심 성장산업 집중 투자.. 산업변화 수혜 받을 기업 발굴 [이런...",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0005562164&office_id=014&code=012330&page=1&sm=title_entity_id.basic",
    "source": "파이낸셜뉴스"
   },
   {
    "date": "2026.08.16",
-   "title": "삼전닉스서 빠진 돈 어디로?...활짝 웃은 '바이오&middot;뷰티'",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0000107582&office_id=024&code=196170&page=1&sm=title_entity_id.basic",
-   "source": "매경이코노미"
+   "title": "'천안 아이파크 시티' 1714가구 분양",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0005321342&office_id=015&code=012330&page=1&sm=title_entity_id.basic",
+   "source": "한국경제"
   },
   {
    "date": "2026.08.16",
-   "title": "\"삼전&middot;하닉서 빠진 돈 어디 갔나 봤더니\"...한달새 21% 뛴 '이곳'",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0005721544&office_id=009&code=196170&page=1&sm=title_entity_id.basic",
+   "title": "AI&middot;로봇&middot;우주로 바뀌는 영남...대기업 312조 투자 시동",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0003122197&office_id=119&code=012330&page=1&sm=title_entity_id.basic",
+   "source": "데일리안"
+  },
+  {
+   "date": "2026.08.15",
+   "title": "&quot;트럼프도 베팅했다&quot;...AI 다음은 '광물' 전쟁, 돈 몰리는 전략자산 ...",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0005562027&office_id=014&code=012330&page=1&sm=title_entity_id.basic",
+   "source": "파이낸셜뉴스"
+  },
+  {
+   "date": "2026.08.15",
+   "title": "현대차 투자공식 바뀌나...시총 13조 불린 '아틀라스'",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0005561993&office_id=014&code=012330&page=1&sm=title_entity_id.basic",
+   "source": "파이낸셜뉴스"
+  },
+  {
+   "date": "2026-08-14",
+   "title": "반기보고서 (2026.06)",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814004065",
+   "source": "DART"
+  },
+  {
+   "date": "2026-08-14",
+   "title": "지급수단별ㆍ지급기간별지급금액및분쟁조정기구에관한사항",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814000771",
+   "source": "DART"
+  },
+  {
+   "date": "2026-08-07",
+   "title": "기업설명회(IR)개최(안내공시)              ",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260807800638",
+   "source": "DART"
+  }
+ ],
+ "셀트리온": [
+  {
+   "date": "2026.08.17",
+   "title": "'6.5조' 쓸어담은 외국인...이번 주 순매수 이어갈까",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0001262586&office_id=215&code=068270&page=1&sm=title_entity_id.basic",
+   "source": "한국경제TV"
+  },
+  {
+   "date": "2026.08.17",
+   "title": "[주末머니]韓 바이오, 하반기 반전 노린다",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0005803672&office_id=277&code=068270&page=1&sm=title_entity_id.basic",
+   "source": "아시아경제"
+  },
+  {
+   "date": "2026.08.17",
+   "title": "(출금/17일자) 국산 키트루다 시밀러, '피하주사' 벽 만났다",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0003122274&office_id=119&code=068270&page=1&sm=title_entity_id.basic",
+   "source": "데일리안"
+  },
+  {
+   "date": "2026.08.16",
+   "title": "기술 수출 끌고 신약 밀었다...제약&middot;바이오업계 2분기 호실적",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0001394066&office_id=082&code=068270&page=1&sm=title_entity_id.basic",
+   "source": "부산일보"
+  },
+  {
+   "date": "2026.08.16",
+   "title": "외국인 귀환에 코스피 '활짝'...개미는 7조원 차익실현",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0001262541&office_id=215&code=068270&page=1&sm=title_entity_id.basic",
+   "source": "한국경제TV"
+  },
+  {
+   "date": "2026-08-14",
+   "title": "반기보고서 (2026.06)",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003751",
+   "source": "DART"
+  },
+  {
+   "date": "2026-08-14",
+   "title": "지급수단별ㆍ지급기간별지급금액및분쟁조정기구에관한사항",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814002259",
+   "source": "DART"
+  },
+  {
+   "date": "2026-08-03",
+   "title": "주식등의대량보유상황보고서(약식)",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260803000450",
+   "source": "DART"
+  }
+ ],
+ "SK": [],
+ "삼성SDI": [
+  {
+   "date": "2026.08.17",
+   "title": "'메이드 인 유럽' 강화하는 EU...K배터리, 공급망 재편 틈새 노린다",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0001867302&office_id=005&code=006400&page=1&sm=title_entity_id.basic",
+   "source": "국민일보"
+  },
+  {
+   "date": "2026.08.17",
+   "title": "반도체&middot;배터리&middot;조선 호조에...상장사 10곳 중 4곳 '깜짝 실적'",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0005321563&office_id=015&code=006400&page=1&sm=title_entity_id.basic",
+   "source": "한국경제"
+  },
+  {
+   "date": "2026.08.17",
+   "title": "첫발 뗀 배터리업계 숙원 '한국판 IRA'...후속 설계에 쏠린 눈",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0006352880&office_id=018&code=006400&page=1&sm=title_entity_id.basic",
+   "source": "이데일리"
+  },
+  {
+   "date": "2026.08.17",
+   "title": "ESS 뜨자...中 텃밭 LFP 양극재, 韓 소재사들이 노린다",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0006352881&office_id=018&code=006400&page=1&sm=title_entity_id.basic",
+   "source": "이데일리"
+  },
+  {
+   "date": "2026.08.17",
+   "title": "배터리주, 실적 부진 터널 지나나...EV서 ESS로 무게중심 이동 '새국...",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0006352812&office_id=018&code=006400&page=1&sm=title_entity_id.basic",
+   "source": "이데일리"
+  },
+  {
+   "date": "2026-08-14",
+   "title": "반기보고서 (2026.06)",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003578",
+   "source": "DART"
+  },
+  {
+   "date": "2026-08-14",
+   "title": "지급수단별ㆍ지급기간별지급금액및분쟁조정기구에관한사항",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814001113",
+   "source": "DART"
+  },
+  {
+   "date": "2026-08-11",
+   "title": "투자판단관련주요경영사항              ",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260811800246",
+   "source": "DART"
+  }
+ ],
+ "하나금융지주": [
+  {
+   "date": "2026.08.17",
+   "title": "&quot;확신의 매수 구간&quot;...비중확대 추천한 반도체 종목은",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0005400915&office_id=008&code=086790&page=1&sm=title_entity_id.basic",
+   "source": "머니투데이"
+  },
+  {
+   "date": "2026.08.17",
+   "title": "성장&middot;가치&middot;방어주 동시 담는 '바벨전략' 추천",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0005321557&office_id=015&code=086790&page=1&sm=title_entity_id.basic",
+   "source": "한국경제"
+  },
+  {
+   "date": "2026.08.17",
+   "title": "넷마블 '스톤에이지 키우기', 하나은행과 제휴 이벤트",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0004436579&office_id=076&code=086790&page=1&sm=title_entity_id.basic",
+   "source": "스포츠조선"
+  },
+  {
+   "date": "2026.08.17",
+   "title": "&quot;숲 훼손하면 대출 조건 변경됩니다&quot;...금융권 새 잣대된 '자연자본'",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0006352864&office_id=018&code=086790&page=1&sm=title_entity_id.basic",
+   "source": "이데일리"
+  },
+  {
+   "date": "2026.08.17",
+   "title": "JB 김기홍 29억-신한 진옥동 9억...금융지주 회장 보수 3배 차이, ...",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0005400900&office_id=008&code=086790&page=1&sm=title_entity_id.basic",
+   "source": "머니투데이"
+  },
+  {
+   "date": "2026-08-14",
+   "title": "[기재정정]사업보고서 (2025.12)",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814004019",
+   "source": "DART"
+  },
+  {
+   "date": "2026-08-14",
+   "title": "[기재정정]일괄신고서",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003925",
+   "source": "DART"
+  },
+  {
+   "date": "2026-08-14",
+   "title": "반기보고서 (2026.06)",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003800",
+   "source": "DART"
+  }
+ ],
+ "NAVER": [
+  {
+   "date": "2026.08.17",
+   "title": "韓 1200조 데이터센터 투자 '시동'... AI인프라 국산화 새판 짠다",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0005721933&office_id=009&code=035420&page=1&sm=title_entity_id.basic",
+   "source": "매일경제"
+  },
+  {
+   "date": "2026.08.17",
+   "title": "전해질&middot;셀 기술에 뭉칫돈...8월 둘째주 '에너지&middot;소재' 투자 몰렸다",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0005400914&office_id=008&code=035420&page=1&sm=title_entity_id.basic",
+   "source": "머니투데이"
+  },
+  {
+   "date": "2026.08.17",
+   "title": "&quot;확신의 매수 구간&quot;...비중확대 추천한 반도체 종목은",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0005400915&office_id=008&code=035420&page=1&sm=title_entity_id.basic",
+   "source": "머니투데이"
+  },
+  {
+   "date": "2026.08.17",
+   "title": "수소차부터 달 탐사선까지 ... 스타트업 '성장 사다리'",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0005721910&office_id=009&code=035420&page=1&sm=title_entity_id.basic",
+   "source": "매일경제"
+  },
+  {
+   "date": "2026.08.17",
+   "title": "르몽, 부산 국제시장과 맞손...AI로 상권 활성화",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0002434164&office_id=092&code=035420&page=1&sm=title_entity_id.basic",
+   "source": "지디넷코리아"
+  },
+  {
+   "date": "2026-08-14",
+   "title": "임원ㆍ주요주주특정증권등소유상황보고서",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814002859",
+   "source": "DART"
+  },
+  {
+   "date": "2026-08-14",
+   "title": "임원ㆍ주요주주특정증권등소유상황보고서",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814002654",
+   "source": "DART"
+  },
+  {
+   "date": "2026-08-14",
+   "title": "임원ㆍ주요주주특정증권등소유상황보고서",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814002598",
+   "source": "DART"
+  }
+ ],
+ "LG전자": [
+  {
+   "date": "2026.08.17",
+   "title": "韓 1200조 데이터센터 투자 '시동'... AI인프라 국산화 새판 짠다",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0005721933&office_id=009&code=066570&page=1&sm=title_entity_id.basic",
+   "source": "매일경제"
+  },
+  {
+   "date": "2026.08.17",
+   "title": "전해질&middot;셀 기술에 뭉칫돈...8월 둘째주 '에너지&middot;소재' 투자 몰렸다",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0005400914&office_id=008&code=066570&page=1&sm=title_entity_id.basic",
+   "source": "머니투데이"
+  },
+  {
+   "date": "2026.08.17",
+   "title": "AI 반도체 호황, SK하이닉스 급여로 증명...상반기 1억4400만 원",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0004652345&office_id=011&code=066570&page=1&sm=title_entity_id.basic",
+   "source": "서울경제"
+  },
+  {
+   "date": "2026.08.17",
+   "title": "젠슨 황 장녀, 내일 LG전자 로보틱스 거점 방문",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0000633933&office_id=448&code=066570&page=1&sm=title_entity_id.basic",
+   "source": "TV조선"
+  },
+  {
+   "date": "2026.08.17",
+   "title": "젠슨 황 장녀, 내일 LG전자 로보틱스 거점 방문",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0002394339&office_id=052&code=066570&page=1&sm=title_entity_id.basic",
+   "source": "YTN"
+  },
+  {
+   "date": "2026-08-14",
+   "title": "반기보고서 (2026.06)",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814001997",
+   "source": "DART"
+  },
+  {
+   "date": "2026-08-13",
+   "title": "지급수단별ㆍ지급기간별지급금액및분쟁조정기구에관한사항",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260813001051",
+   "source": "DART"
+  },
+  {
+   "date": "2026-08-06",
+   "title": "중대재해발생(종속회사의주요경영사항)              ",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260806800672",
+   "source": "DART"
+  }
+ ],
+ "한화오션": [
+  {
+   "date": "2026.08.17",
+   "title": "거제에 900㎜ 폭우, 한화오션&middot;삼성중공업 출근 제한",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0006352900&office_id=018&code=042660&page=1&sm=title_entity_id.basic",
+   "source": "이데일리"
+  },
+  {
+   "date": "2026.08.17",
+   "title": "[속보]거제 '극한호우'에 조선소도 타격...'출근 불가' 통보",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0000152541&office_id=658&code=042660&page=1&sm=title_entity_id.basic",
+   "source": "국제신문"
+  },
+  {
+   "date": "2026.08.17",
+   "title": "역대급 물폭탄에 거제 양대조선소(한화오션&middot;삼성重)도 '출근 제한'.....",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0002684697&office_id=016&code=042660&page=1&sm=title_entity_id.basic",
+   "source": "헤럴드경제"
+  },
+  {
+   "date": "2026.08.17",
+   "title": "거제 800㎜ 물폭탄에 한화오션&middot;삼성중공업 '출근 제한' 공지",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0005721845&office_id=009&code=042660&page=1&sm=title_entity_id.basic",
+   "source": "매일경제"
+  },
+  {
+   "date": "2026.08.17",
+   "title": "&quot;출근하지 말고 대기하라&quot;...800㎜ 물폭탄에 '긴급 공지'",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0001262579&office_id=215&code=042660&page=1&sm=title_entity_id.basic",
+   "source": "한국경제TV"
+  },
+  {
+   "date": "2026-08-14",
+   "title": "지급수단별ㆍ지급기간별지급금액및분쟁조정기구에관한사항",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814002686",
+   "source": "DART"
+  },
+  {
+   "date": "2026-08-12",
+   "title": "반기보고서 (2026.06)",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260812000829",
+   "source": "DART"
+  },
+  {
+   "date": "2026-08-07",
+   "title": "풍문또는보도에대한해명(미확정)              ",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260807800600",
+   "source": "DART"
+  }
+ ],
+ "HD현대일렉트릭": [
+  {
+   "date": "2026.08.17",
+   "title": "HD현대일렉트릭, 국내 최초로 420kV급 친환경 고압차단기 개발",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0001186662&office_id=366&code=267260&page=1&sm=title_entity_id.basic",
+   "source": "조선비즈"
+  },
+  {
+   "date": "2026.08.17",
+   "title": "HD현대일렉트릭, 유럽 맞춤형 '친환경 고압차단기' 독자 개발",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0004179355&office_id=079&code=267260&page=1&sm=title_entity_id.basic",
+   "source": "노컷뉴스"
+  },
+  {
+   "date": "2026.08.17",
+   "title": "HD현대일렉트릭, 국내 첫 420kV 친환경 고압차단기 개발...유럽 공...",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0002238028&office_id=138&code=267260&page=1&sm=title_entity_id.basic",
+   "source": "디지털데일리"
+  },
+  {
+   "date": "2026.08.17",
+   "title": "HD현대일렉트릭, 국내 최초 420kV 친황경 고압차단기 개발",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0006352842&office_id=018&code=267260&page=1&sm=title_entity_id.basic",
+   "source": "이데일리"
+  },
+  {
+   "date": "2026.08.17",
+   "title": "HD현대일렉트릭, 국내 첫 420kV 친환경 고압차단기 독자 개발",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0003741281&office_id=020&code=267260&page=1&sm=title_entity_id.basic",
+   "source": "동아일보"
+  },
+  {
+   "date": "2026-08-14",
+   "title": "반기보고서 (2026.06)",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003228",
+   "source": "DART"
+  },
+  {
+   "date": "2026-08-14",
+   "title": "동일인등출자계열회사와의상품ㆍ용역거래변경",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814002823",
+   "source": "DART"
+  },
+  {
+   "date": "2026-08-13",
+   "title": "지급수단별ㆍ지급기간별지급금액및분쟁조정기구에관한사항",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260813001389",
+   "source": "DART"
+  }
+ ],
+ "효성중공업": [
+  {
+   "date": "2026.08.14",
+   "title": "코스피, 7000선 돌파 후 6900선대...삼전&middot;하닉 상승세",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0006351862&office_id=018&code=298040&page=1&sm=title_entity_id.basic",
+   "source": "이데일리"
+  },
+  {
+   "date": "2026.08.10",
+   "title": "[서울데이터랩]개장 직후 인기 검색 종목 20選",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0003668885&office_id=081&code=298040&page=1&sm=title_entity_id.basic",
+   "source": "서울신문"
+  },
+  {
+   "date": "2026.08.10",
+   "title": "'삼전닉스' 오름세 코스피 6300선 회복...코스닥도 상승 전환[개장시황...",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0009105129&office_id=421&code=298040&page=1&sm=title_entity_id.basic",
+   "source": "뉴스1"
+  },
+  {
+   "date": "2026.08.06",
+   "title": "'삼전닉스' 급락에 코스피 4% 내려...'바이오' 업고 800스닥 회복[...",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0009101235&office_id=421&code=298040&page=1&sm=title_entity_id.basic",
+   "source": "뉴스1"
+  },
+  {
+   "date": "2026.08.05",
+   "title": "&quot;코스피 체질 좋아졌다&quot;...삼전닉스 시총 54&rarr;51% '비반도체' 약진",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0009099220&office_id=421&code=298040&page=1&sm=title_entity_id.basic",
+   "source": "뉴스1"
+  },
+  {
+   "date": "2026-08-13",
+   "title": "반기보고서 (2026.06)",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260813001554",
+   "source": "DART"
+  },
+  {
+   "date": "2026-08-13",
+   "title": "지급수단별ㆍ지급기간별지급금액및분쟁조정기구에관한사항",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260813001463",
+   "source": "DART"
+  },
+  {
+   "date": "2026-08-13",
+   "title": "동일인등출자계열회사와의상품ㆍ용역거래변경",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260813001449",
+   "source": "DART"
+  }
+ ],
+ "HD한국조선해양": [
+  {
+   "date": "2026.08.17",
+   "title": "'차세대' 나트륨 SMR 협력 본격화...테라파워-SK이노, 합의서 체결",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0000152507&office_id=658&code=009540&page=1&sm=title_entity_id.basic",
+   "source": "국제신문"
+  },
+  {
+   "date": "2026.08.17",
+   "title": "바다로 가는 데이터센터... 해수로 열 식히고 파도로 전력 생산",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0001867172&office_id=005&code=009540&page=1&sm=title_entity_id.basic",
+   "source": "국민일보"
+  },
+  {
+   "date": "2026.08.16",
+   "title": "\"전력&middot;부지&middot;냉각 한계 타개\"... AI 데이터센터, 바다로 간다",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0001867135&office_id=005&code=009540&page=1&sm=title_entity_id.basic",
+   "source": "국민일보"
+  },
+  {
+   "date": "2026.08.16",
+   "title": "&quot;쉴 시간 없다&quot; K-조선소 가동률 100%+&alpha;...설비 확충도 속도전",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0009116149&office_id=421&code=009540&page=1&sm=title_entity_id.basic",
+   "source": "뉴스1"
+  },
+  {
+   "date": "2026.08.15",
+   "title": "&quot;트럼프도 베팅했다&quot;...AI 다음은 '광물' 전쟁, 돈 몰리는 전략자산 ...",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0005562027&office_id=014&code=009540&page=1&sm=title_entity_id.basic",
+   "source": "파이낸셜뉴스"
+  },
+  {
+   "date": "2026-08-14",
+   "title": "반기보고서 (2026.06)",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814002569",
+   "source": "DART"
+  },
+  {
+   "date": "2026-08-13",
+   "title": "지급수단별ㆍ지급기간별지급금액및분쟁조정기구에관한사항",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260813001473",
+   "source": "DART"
+  },
+  {
+   "date": "2026-08-10",
+   "title": "단일판매ㆍ공급계약체결(자회사의 주요경영사항)              ",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260810800150",
+   "source": "DART"
+  }
+ ],
+ "POSCO홀딩스": [
+  {
+   "date": "2026.08.17",
+   "title": "노란봉투법 중노위 판단 못믿는다...기업들 잇따라 법정행",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0005400824&office_id=008&code=005490&page=1&sm=title_entity_id.basic",
+   "source": "머니투데이"
+  },
+  {
+   "date": "2026.08.17",
+   "title": "포스코인터, 독립운동사적지 안내판 설치 멕시코&middot;미국&middot;네덜란드 확...",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0005400812&office_id=008&code=005490&page=1&sm=title_entity_id.basic",
+   "source": "머니투데이"
+  },
+  {
+   "date": "2026.08.17",
+   "title": "포스코인터내셔널, 美 등 3개국도 독립운동사적지 안내판 설치",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0003670895&office_id=081&code=005490&page=1&sm=title_entity_id.basic",
+   "source": "서울신문"
+  },
+  {
+   "date": "2026.08.17",
+   "title": "포스코인터, 해외 독립운동 사적지 안내판 美&middot;멕시코 등 확대",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0001867193&office_id=005&code=005490&page=1&sm=title_entity_id.basic",
+   "source": "국민일보"
+  },
+  {
+   "date": "2026.08.17",
+   "title": "해외 독립운동 사적지 곳곳... 고해상도 컬러 강판 안내판",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0003741221&office_id=020&code=005490&page=1&sm=title_entity_id.basic",
+   "source": "동아일보"
+  },
+  {
+   "date": "2026-08-14",
+   "title": "반기보고서 (2026.06)",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814000957",
+   "source": "DART"
+  },
+  {
+   "date": "2026-08-07",
+   "title": "타법인주식및출자증권처분결정(자율공시)              ",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260807800867",
+   "source": "DART"
+  },
+  {
+   "date": "2026-08-07",
+   "title": "타법인주식및출자증권처분결정              ",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260807800838",
+   "source": "DART"
+  }
+ ],
+ "고려아연": [
+  {
+   "date": "2026.08.17",
+   "title": "외국인 4연속 순매수...코스피 7000선 재탈환",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0004652347&office_id=011&code=010130&page=1&sm=title_entity_id.basic",
+   "source": "서울경제"
+  },
+  {
+   "date": "2026.08.17",
+   "title": "'6.5조' 쓸어담은 외국인...이번 주 순매수 이어갈까",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0001262586&office_id=215&code=010130&page=1&sm=title_entity_id.basic",
+   "source": "한국경제TV"
+  },
+  {
+   "date": "2026.08.16",
+   "title": "외국인 귀환에 코스피 '활짝'...개미는 7조원 차익실현",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0001262541&office_id=215&code=010130&page=1&sm=title_entity_id.basic",
+   "source": "한국경제TV"
+  },
+  {
+   "date": "2026.08.16",
+   "title": "코스피, 지난주 5일 연속 상승...외국인 순매수로 지수 견인",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0016253716&office_id=001&code=010130&page=1&sm=title_entity_id.basic",
+   "source": "연합뉴스"
+  },
+  {
+   "date": "2026.08.16",
+   "title": "[마켓인사이트] 한주 내내 바닥다진 코스피, 상승흐름 이어가나",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0016253468&office_id=001&code=010130&page=1&sm=title_entity_id.basic",
+   "source": "연합뉴스"
+  },
+  {
+   "date": "2026-08-14",
+   "title": "반기보고서 (2026.06)",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003958",
+   "source": "DART"
+  },
+  {
+   "date": "2026-08-14",
+   "title": "[기재정정]소송등의제기ㆍ신청(경영권분쟁소송)              ",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814801871",
+   "source": "DART"
+  },
+  {
+   "date": "2026-08-14",
+   "title": "[기재정정]소송등의제기ㆍ신청(경영권분쟁소송)              ",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814800137",
+   "source": "DART"
+  }
+ ],
+ "우리금융지주": [],
+ "한미반도체": [
+  {
+   "date": "2026.08.17",
+   "title": "코인투자자 해외유출 가속...바이낸스 韓 투자자 15%&uarr;",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0004652304&office_id=011&code=042700&page=1&sm=title_entity_id.basic",
+   "source": "서울경제"
+  },
+  {
+   "date": "2026.08.17",
+   "title": "&quot;韓증시 못 믿어&quot;...지수 상승 전환에도 '공매도' 급증",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0014130813&office_id=003&code=042700&page=1&sm=title_entity_id.basic",
+   "source": "뉴시스"
+  },
+  {
+   "date": "2026.08.17",
+   "title": "삼전&middot;SK하닉 HBM4 증설에 후공정 수주 랠리...'검사장비&middot;TC본더' ...",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0009116625&office_id=421&code=042700&page=1&sm=title_entity_id.basic",
+   "source": "뉴스1"
+  },
+  {
+   "date": "2026.08.17",
+   "title": "[이코노 브리핑] 삼전 소액주주 797만... 전체인구 15.5% 외",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0004151390&office_id=022&code=042700&page=1&sm=title_entity_id.basic",
+   "source": "세계일보"
+  },
+  {
+   "date": "2026.08.17",
+   "title": "\"고위험&middot;고수익 단타는 이것\"...삼전 폭등 맞힌 男 '텐배거 종목'",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0003544775&office_id=025&code=042700&page=1&sm=title_entity_id.basic",
+   "source": "중앙일보"
+  },
+  {
+   "date": "2026-08-14",
+   "title": "반기보고서 (2026.06)",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003665",
+   "source": "DART"
+  },
+  {
+   "date": "2026-08-10",
+   "title": "기타경영사항(자율공시)              ",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260810800065",
+   "source": "DART"
+  },
+  {
+   "date": "2026-07-30",
+   "title": "임원ㆍ주요주주특정증권등소유상황보고서",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260730000042",
+   "source": "DART"
+  }
+ ],
+ "SK이노베이션": [
+  {
+   "date": "2026.08.17",
+   "title": "'한미 SMR 동맹' 최태원과 빌 게이츠...AI 시대 '믿을 파트너'",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0005400917&office_id=008&code=096770&page=1&sm=title_entity_id.basic",
+   "source": "머니투데이"
+  },
+  {
+   "date": "2026.08.17",
+   "title": "최태원&middot;빌 게이츠 'SMR 밀월'...AI 데이터센터 전력시장 정조준",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0001394183&office_id=082&code=096770&page=1&sm=title_entity_id.basic",
+   "source": "부산일보"
+  },
+  {
+   "date": "2026.08.17",
+   "title": "최태원&middot;빌 게이츠, SMR 동맹 강화...AI 전력 핵심 파트너",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0000527809&office_id=374&code=096770&page=1&sm=title_entity_id.basic",
+   "source": "SBS Biz"
+  },
+  {
+   "date": "2026.08.17",
+   "title": "최태원&middot;빌 게이츠 에너지 동맹...AI DC 등 미래 전력 시장 노리나",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0003464613&office_id=032&code=096770&page=1&sm=title_entity_id.basic",
+   "source": "경향신문"
+  },
+  {
+   "date": "2026.08.17",
+   "title": "최태원&middot;빌 게이츠, SMR 협력 확대...AI 전력 '맞손'",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0000896467&office_id=422&code=096770&page=1&sm=title_entity_id.basic",
+   "source": "연합뉴스TV"
+  },
+  {
+   "date": "2026-08-14",
+   "title": "동일인등출자계열회사와의상품ㆍ용역거래변경",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003011",
+   "source": "DART"
+  },
+  {
+   "date": "2026-08-14",
+   "title": "동일인등출자계열회사와의상품ㆍ용역거래변경",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814002775",
+   "source": "DART"
+  },
+  {
+   "date": "2026-08-14",
+   "title": "동일인등출자계열회사와의상품ㆍ용역거래변경",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814002708",
+   "source": "DART"
+  }
+ ],
+ "SK텔레콤": [
+  {
+   "date": "2026.08.17",
+   "title": "韓 1200조 데이터센터 투자 '시동'... AI인프라 국산화 새판 짠다",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0005721933&office_id=009&code=017670&page=1&sm=title_entity_id.basic",
+   "source": "매일경제"
+  },
+  {
+   "date": "2026.08.17",
+   "title": "'한미 SMR 동맹' 최태원과 빌 게이츠...AI 시대 '믿을 파트너'",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0005400917&office_id=008&code=017670&page=1&sm=title_entity_id.basic",
+   "source": "머니투데이"
+  },
+  {
+   "date": "2026.08.17",
+   "title": "'차세대' 나트륨 SMR 협력 본격화...테라파워-SK이노, 합의서 체결",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0000152507&office_id=658&code=017670&page=1&sm=title_entity_id.basic",
+   "source": "국제신문"
+  },
+  {
+   "date": "2026.08.17",
+   "title": "독파모 2차 평가'AA 1위' 모티프, 진입 유력 '실전 사용성' 변수",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0006352810&office_id=018&code=017670&page=1&sm=title_entity_id.basic",
+   "source": "이데일리"
+  },
+  {
+   "date": "2026.08.17",
+   "title": "'독파모' 4강 승부처는 '효율'...모델별 전략 뜯어보니",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0003457865&office_id=030&code=017670&page=1&sm=title_entity_id.basic",
+   "source": "전자신문"
+  },
+  {
+   "date": "2026-08-13",
+   "title": "반기보고서 (2026.06)",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260813001728",
+   "source": "DART"
+  },
+  {
+   "date": "2026-08-13",
+   "title": "지급수단별ㆍ지급기간별지급금액및분쟁조정기구에관한사항",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260813000153",
+   "source": "DART"
+  },
+  {
+   "date": "2026-08-07",
+   "title": "풍문또는보도에대한해명(미확정)              ",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260807800543",
+   "source": "DART"
+  }
+ ],
+ "미래에셋증권": [],
+ "두산": [
+  {
+   "date": "2026.08.17",
+   "title": "주가 뛰자 김동관 RSU도 '껑충'...평가액 2700억원 육박",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0003122396&office_id=119&code=000150&page=1&sm=title_entity_id.basic",
+   "source": "데일리안"
+  },
+  {
+   "date": "2026.08.17",
+   "title": "기업 반기보고서에 등장한 수백억 주식보상...'RSU'가 뭐길래",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0014131068&office_id=003&code=000150&page=1&sm=title_entity_id.basic",
+   "source": "뉴시스"
+  },
+  {
+   "date": "2026.08.17",
+   "title": "한화 김동관, 주가 급등에 주식 보상 가치 2,700억 원으로",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0001381161&office_id=055&code=000150&page=1&sm=title_entity_id.basic",
+   "source": "SBS"
+  },
+  {
+   "date": "2026.08.17",
+   "title": "한화 김동관, 주가 급등에 주식보상 가치 2천700억원으로(종합)",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0016254308&office_id=001&code=000150&page=1&sm=title_entity_id.basic",
+   "source": "연합뉴스"
+  },
+  {
+   "date": "2026.08.17",
+   "title": "2700억원 RSU 가치 변동성...한화 김동관, 주가 따라 재산 '톱니...",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0005562285&office_id=014&code=000150&page=1&sm=title_entity_id.basic",
+   "source": "파이낸셜뉴스"
+  },
+  {
+   "date": "2026-08-14",
+   "title": "반기보고서 (2026.06)",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814004047",
+   "source": "DART"
+  },
+  {
+   "date": "2026-08-14",
+   "title": "[기재정정]지급수단별ㆍ지급기간별지급금액및분쟁조정기구에관한사항",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814001723",
+   "source": "DART"
+  },
+  {
+   "date": "2026-08-14",
+   "title": "지급수단별ㆍ지급기간별지급금액및분쟁조정기구에관한사항",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814001555",
+   "source": "DART"
+  }
+ ],
+ "HMM": [
+  {
+   "date": "2026.08.17",
+   "title": "길어지는 현대LNG해운 매각... 안보심사에 이달 넘길 듯",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0001186586&office_id=366&code=011200&page=1&sm=title_entity_id.basic",
+   "source": "조선비즈"
+  },
+  {
+   "date": "2026.08.15",
+   "title": "글로벌 해운운임 3주 연속 상승...연중 최고치 기록",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0006352293&office_id=018&code=011200&page=1&sm=title_entity_id.basic",
+   "source": "이데일리"
+  },
+  {
+   "date": "2026.08.15",
+   "title": "[주간사모펀드] 롯데렌탈 새 주인 찾았다...美 사모펀드 TPG에 매각",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0000524804&office_id=629&code=011200&page=1&sm=title_entity_id.basic",
+   "source": "더팩트"
+  },
+  {
+   "date": "2026.08.14",
+   "title": "[투자노하우] 트럼프 러브콜에 힘받는 마스가...조선주 상승 탄력받나",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0000527608&office_id=374&code=011200&page=1&sm=title_entity_id.basic",
+   "source": "SBS Biz"
+  },
+  {
+   "date": "2026.08.14",
+   "title": "뱃길 막히자 해운사 실적 뛰었다...부담은 소비자에게 [마켓프리즘]",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0002388429&office_id=123&code=011200&page=1&sm=title_entity_id.basic",
+   "source": "조세일보"
+  },
+  {
+   "date": "2026-08-13",
+   "title": "반기보고서 (2026.06)",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260813001042",
+   "source": "DART"
+  },
+  {
+   "date": "2026-08-11",
+   "title": "지급수단별ㆍ지급기간별지급금액및분쟁조정기구에관한사항",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260811000586",
+   "source": "DART"
+  },
+  {
+   "date": "2026-08-07",
+   "title": "풍문또는보도에대한해명(미확정)              ",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260807800131",
+   "source": "DART"
+  }
+ ],
+ "LG화학": [
+  {
+   "date": "2026.08.17",
+   "title": "1.2조 적자였는데 8.8조 흑자찍은 정유4사...석화사는 \"팔수록 손해\"...",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0005721811&office_id=009&code=051910&page=1&sm=title_entity_id.basic",
+   "source": "매일경제"
+  },
+  {
+   "date": "2026.08.17",
+   "title": "통풍약 시장 판도 바뀌나...K바이오, 요산 생성 막는 원리서 '몸 밖 배...",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0001186592&office_id=366&code=051910&page=1&sm=title_entity_id.basic",
+   "source": "조선비즈"
+  },
+  {
+   "date": "2026.08.16",
+   "title": "인도, 中 저가 PVC 공세 제동... 韓 화학업계 반사이익",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0005562197&office_id=014&code=051910&page=1&sm=title_entity_id.basic",
+   "source": "파이낸셜뉴스"
+  },
+  {
+   "date": "2026.08.16",
+   "title": "中 저가 PVC 막아선 인도...韓 화학업계 '반사이익' 기대",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0005562126&office_id=014&code=051910&page=1&sm=title_entity_id.basic",
+   "source": "파이낸셜뉴스"
+  },
+  {
+   "date": "2026.08.16",
+   "title": "윤활기유, 국내 정유사 실적 이끈다",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0005721741&office_id=009&code=051910&page=1&sm=title_entity_id.basic",
+   "source": "매일경제"
+  },
+  {
+   "date": "2026-08-14",
+   "title": "반기보고서 (2026.06)",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814002655",
+   "source": "DART"
+  },
+  {
+   "date": "2026-08-14",
+   "title": "지급수단별ㆍ지급기간별지급금액및분쟁조정기구에관한사항",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814000208",
+   "source": "DART"
+  },
+  {
+   "date": "2026-08-14",
+   "title": "동일인등출자계열회사와의상품ㆍ용역거래변경",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814000158",
+   "source": "DART"
+  }
+ ],
+ "삼성중공업": [
+  {
+   "date": "2026.08.17",
+   "title": "거제에 900㎜ 폭우, 한화오션&middot;삼성중공업 출근 제한",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0006352900&office_id=018&code=010140&page=1&sm=title_entity_id.basic",
+   "source": "이데일리"
+  },
+  {
+   "date": "2026.08.17",
+   "title": "[속보]거제 '극한호우'에 조선소도 타격...'출근 불가' 통보",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0000152541&office_id=658&code=010140&page=1&sm=title_entity_id.basic",
+   "source": "국제신문"
+  },
+  {
+   "date": "2026.08.17",
+   "title": "역대급 물폭탄에 거제 양대조선소(한화오션&middot;삼성重)도 '출근 제한'.....",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0002684697&office_id=016&code=010140&page=1&sm=title_entity_id.basic",
+   "source": "헤럴드경제"
+  },
+  {
+   "date": "2026.08.17",
+   "title": "거제 800㎜ 물폭탄에 한화오션&middot;삼성중공업 '출근 제한' 공지",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0005721845&office_id=009&code=010140&page=1&sm=title_entity_id.basic",
+   "source": "매일경제"
+  },
+  {
+   "date": "2026.08.17",
+   "title": "&quot;출근하지 말고 대기하라&quot;...800㎜ 물폭탄에 '긴급 공지'",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0001262579&office_id=215&code=010140&page=1&sm=title_entity_id.basic",
+   "source": "한국경제TV"
+  },
+  {
+   "date": "2026-08-14",
+   "title": "반기보고서 (2026.06)",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003496",
+   "source": "DART"
+  },
+  {
+   "date": "2026-08-14",
+   "title": "지급수단별ㆍ지급기간별지급금액및분쟁조정기구에관한사항",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814002424",
+   "source": "DART"
+  },
+  {
+   "date": "2026-08-14",
+   "title": "임원ㆍ주요주주특정증권등소유상황보고서",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814002343",
+   "source": "DART"
+  }
+ ],
+ "메리츠금융지주": [
+  {
+   "date": "2026.08.16",
+   "title": "회장보다 연봉 높은 은행장...금융권 CEO '보수 역전'",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0005321376&office_id=015&code=138040&page=1&sm=title_entity_id.basic",
+   "source": "한국경제"
+  },
+  {
+   "date": "2026.08.16",
+   "title": "&quot;배당 말고 45조 자사주 사라&quot; 삼성전자에 '메리츠式 처방' 꺼낸 주...",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0005562119&office_id=014&code=138040&page=1&sm=title_entity_id.basic",
+   "source": "파이낸셜뉴스"
+  },
+  {
+   "date": "2026.08.14",
+   "title": "홈플러스에 실업급여 등 778억원 지원...소비자들 \"정든 곳, 영업 계속...",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0004151060&office_id=022&code=138040&page=1&sm=title_entity_id.basic",
+   "source": "세계일보"
+  },
+  {
+   "date": "2026.08.14",
+   "title": "정부, 홈플러스 근로자에 778억원 지원... 67개 점포 영업 재개",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0000139173&office_id=310&code=138040&page=1&sm=title_entity_id.basic",
+   "source": "여성신문"
+  },
+  {
+   "date": "2026.08.14",
+   "title": "홈플러스 근로자에 17개월간 실업급여&middot;융자 등 총 778억 지원",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0000152370&office_id=658&code=138040&page=1&sm=title_entity_id.basic",
+   "source": "국제신문"
+  },
+  {
+   "date": "2026-08-14",
+   "title": "반기보고서 (2026.06)",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814004036",
+   "source": "DART"
+  },
+  {
+   "date": "2026-08-12",
+   "title": "기업가치제고계획(자율공시)              (2026년 2분기 이행현황)",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260812800545",
+   "source": "DART"
+  },
+  {
+   "date": "2026-08-12",
+   "title": "연결재무제표기준영업(잠정)실적(공정공시)              ",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260812800531",
+   "source": "DART"
+  }
+ ],
+ "삼성에스디에스": [
+  {
+   "date": "2026.08.17",
+   "title": "[주간 클라우드 동향/8월②] AI 클라우드 투자 수요 입증, 관건은 ...",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0002237999&office_id=138&code=018260&page=1&sm=title_entity_id.basic",
+   "source": "디지털데일리"
+  },
+  {
+   "date": "2026.08.17",
+   "title": "회사채 조달 비용 오르자...기업들, 메자닌으로 눈 돌리나",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0016254088&office_id=001&code=018260&page=1&sm=title_entity_id.basic",
+   "source": "연합뉴스"
+  },
+  {
+   "date": "2026.08.17",
+   "title": "임원도 기술 테스트, 인사평가 3할이 AI... 외국어보다 AI 능력 ...",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0000948378&office_id=469&code=018260&page=1&sm=title_entity_id.basic",
+   "source": "한국일보"
+  },
+  {
+   "date": "2026.08.16",
+   "title": "공무원 협업툴이 AI사업 교두보...네이버&middot;삼성SDS, 온AI 선점전",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0002237969&office_id=138&code=018260&page=1&sm=title_entity_id.basic",
+   "source": "디지털데일리"
+  },
+  {
+   "date": "2026.08.16",
+   "title": "AI&middot;로봇&middot;우주로 바뀌는 영남...대기업 312조 투자 시동",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0003122197&office_id=119&code=018260&page=1&sm=title_entity_id.basic",
+   "source": "데일리안"
+  },
+  {
+   "date": "2026-08-14",
+   "title": "반기보고서 (2026.06)",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003604",
+   "source": "DART"
+  },
+  {
+   "date": "2026-08-14",
+   "title": "지급수단별ㆍ지급기간별지급금액및분쟁조정기구에관한사항",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814000715",
+   "source": "DART"
+  },
+  {
+   "date": "2026-08-14",
+   "title": "동일인등출자계열회사와의상품ㆍ용역거래변경",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814000704",
+   "source": "DART"
+  }
+ ],
+ "HD현대": [
+  {
+   "date": "2026.08.17",
+   "title": "[단독]HD현대 '중대형 무인 함정' 내년 초 美서 시연",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0005562397&office_id=014&code=267250&page=1&sm=title_entity_id.basic",
+   "source": "파이낸셜뉴스"
+  },
+  {
+   "date": "2026.08.17",
+   "title": "HD현대일렉, 국내 첫 420kV 친환경 고압차단기 개발",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0004652276&office_id=011&code=267250&page=1&sm=title_entity_id.basic",
+   "source": "서울경제"
+  },
+  {
+   "date": "2026.08.17",
+   "title": "韓에 'SMR 러브콜' 보낸 빌 게이츠...테라파워 vs K-SMR 경쟁력...",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0009116638&office_id=421&code=267250&page=1&sm=title_entity_id.basic",
+   "source": "뉴스1"
+  },
+  {
+   "date": "2026.08.17",
+   "title": "'차세대' 나트륨 SMR 협력 본격화...테라파워-SK이노, 합의서 체결",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0000152507&office_id=658&code=267250&page=1&sm=title_entity_id.basic",
+   "source": "국제신문"
+  },
+  {
+   "date": "2026.08.17",
+   "title": "'세계 최초' '세계 최대' 경쟁하는 한&middot;중... 고부가 선박 수주전...",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0001186588&office_id=366&code=267250&page=1&sm=title_entity_id.basic",
+   "source": "조선비즈"
+  },
+  {
+   "date": "2026-08-14",
+   "title": "반기보고서 (2026.06)",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003420",
+   "source": "DART"
+  },
+  {
+   "date": "2026-08-13",
+   "title": "지급수단별ㆍ지급기간별지급금액및분쟁조정기구에관한사항",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260813001529",
+   "source": "DART"
+  },
+  {
+   "date": "2026-08-07",
+   "title": "주식등의대량보유상황보고서(일반)",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260807000502",
+   "source": "DART"
+  }
+ ],
+ "LG": [
+  {
+   "date": "2026.08.17",
+   "title": "LG유플러스, 페이스페이 등 생활밀착형 요금제로 2030 공략",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0005803763&office_id=277&code=003550&page=1&sm=title_entity_id.basic",
+   "source": "아시아경제"
+  },
+  {
+   "date": "2026.08.17",
+   "title": "LG유플러스&middot;토스모바일, '페이스페이' 알뜰 요금제 5종 출시",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0005400903&office_id=008&code=003550&page=1&sm=title_entity_id.basic",
+   "source": "머니투데이"
+  },
+  {
+   "date": "2026.08.17",
+   "title": "LG유플러스-토스모바일, 페이스페이 결합 알뜰폰 요금제 프로모션 확....",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0003042638&office_id=029&code=003550&page=1&sm=title_entity_id.basic",
+   "source": "디지털타임스"
+  },
+  {
+   "date": "2026.08.17",
+   "title": "LG유플러스, 토스모바일과 '페이스페이' 알뜰폰 요금제 출시",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0003122301&office_id=119&code=003550&page=1&sm=title_entity_id.basic",
+   "source": "데일리안"
+  },
+  {
+   "date": "2026.08.17",
+   "title": "LGU+, 토스모바일과 생활 밀착형 제휴 요금제 프로모션 확대",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0009116743&office_id=421&code=003550&page=1&sm=title_entity_id.basic",
+   "source": "뉴스1"
+  },
+  {
+   "date": "2026-08-14",
+   "title": "반기보고서 (2026.06)",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814002972",
+   "source": "DART"
+  },
+  {
+   "date": "2026-08-13",
+   "title": "지속가능경영보고서등관련사항(자율공시)              ",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260813801235",
+   "source": "DART"
+  },
+  {
+   "date": "2026-08-13",
+   "title": "연결재무제표기준영업(잠정)실적(공정공시)              ",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260813800552",
+   "source": "DART"
+  }
+ ],
+ "LIG디펜스앤에어로스페이스": [
+  {
+   "date": "2026.08.17",
+   "title": "8월 '삼전닉스' 쏠림 완화...2차전지&middot;코스닥 ETF 40%대 '질주'",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0009116611&office_id=421&code=079550&page=1&sm=title_entity_id.basic",
+   "source": "뉴스1"
+  },
+  {
+   "date": "2026.08.16",
+   "title": "외국인, 코스피 80조 팔았는데...지분율 늘어난 '마법' [B급기자의 B...",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0001262512&office_id=215&code=079550&page=1&sm=title_entity_id.basic",
+   "source": "한국경제TV"
+  },
+  {
+   "date": "2026.08.14",
+   "title": "실종 아동 찾던 AI...국방 로봇서 빛 보다 [AI 딥다이브]",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0000107560&office_id=024&code=079550&page=1&sm=title_entity_id.basic",
+   "source": "매경이코노미"
+  },
+  {
+   "date": "2026.08.14",
+   "title": "케이피항공산업, 스팩 합병비용에 상반기 순손실...\"본업은 흑자 유지...",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0006352071&office_id=018&code=079550&page=1&sm=title_entity_id.basic",
+   "source": "이데일리"
+  },
+  {
+   "date": "2026.08.13",
+   "title": "코스피에 푹 빠진 세계 최대 국부펀드...'이 업종'선 과감하게 발 뺐.....",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0005720911&office_id=009&code=079550&page=1&sm=title_entity_id.basic",
+   "source": "매일경제"
+  },
+  {
+   "date": "2026-08-14",
+   "title": "지급수단별ㆍ지급기간별지급금액및분쟁조정기구에관한사항",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814001365",
+   "source": "DART"
+  },
+  {
+   "date": "2026-08-14",
+   "title": "반기보고서 (2026.06)",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814001318",
+   "source": "DART"
+  },
+  {
+   "date": "2026-08-06",
+   "title": "연결재무제표기준영업(잠정)실적(공정공시)              ",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260806800228",
+   "source": "DART"
+  }
+ ],
+ "카카오": [
+  {
+   "date": "2026.08.17",
+   "title": "AI 전략 엇갈린 네이버와 카카오...AI DC \"돈 된다 vs 안 된...",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0003993369&office_id=023&code=035720&page=1&sm=title_entity_id.basic",
+   "source": "조선일보"
+  },
+  {
+   "date": "2026.08.17",
+   "title": "&quot;검색창이 사라진다&quot;... 네이버&middot;카카오, '에이전틱 커머스' 대전[쇼핑....",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0014130883&office_id=003&code=035720&page=1&sm=title_entity_id.basic",
+   "source": "뉴시스"
+  },
+  {
+   "date": "2026.08.17",
+   "title": "영업익 연동 성과급 요구 번지는 산업계...경총 &quot;파업 정당성 인정 어.....",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0003122340&office_id=119&code=035720&page=1&sm=title_entity_id.basic",
+   "source": "데일리안"
+  },
+  {
+   "date": "2026.08.17",
+   "title": "이용자는 확보했지만, 매출은 아직...업스테이지 '다음' 시험대",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0000101758&office_id=243&code=035720&page=1&sm=title_entity_id.basic",
+   "source": "이코노미스트"
+  },
+  {
+   "date": "2026.08.17",
+   "title": "허채원 숨랩스 공동창업자 &quot;AI 영상 분야서 글로벌 기업과 경쟁할 것....",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0005803665&office_id=277&code=035720&page=1&sm=title_entity_id.basic",
+   "source": "아시아경제"
+  },
+  {
+   "date": "2026-08-14",
+   "title": "반기보고서 (2026.06)",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003797",
+   "source": "DART"
+  },
+  {
+   "date": "2026-08-13",
+   "title": "지급수단별ㆍ지급기간별지급금액및분쟁조정기구에관한사항",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260813001333",
+   "source": "DART"
+  },
+  {
+   "date": "2026-08-13",
+   "title": "[기재정정]주식매수선택권부여에관한신고",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260813000659",
+   "source": "DART"
+  }
+ ],
+ "S-Oil": [
+  {
+   "date": "2026.08.17",
+   "title": "상반기 14조원 벌어들인 K-정유, 반사이익 아직 끝나지 않았다 [비즈...",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0002684590&office_id=016&code=010950&page=1&sm=title_entity_id.basic",
+   "source": "헤럴드경제"
+  },
+  {
+   "date": "2026.08.17",
+   "title": "&quot;전쟁보다 긴 호황&quot;...높은 정제마진에 정유사 실적성장 전망",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0016254102&office_id=001&code=010950&page=1&sm=title_entity_id.basic",
+   "source": "연합뉴스"
+  },
+  {
+   "date": "2026.08.17",
+   "title": "1.2조 적자였는데 8.8조 흑자찍은 정유4사...석화사는 \"팔수록 손해\"...",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0005721811&office_id=009&code=010950&page=1&sm=title_entity_id.basic",
    "source": "매일경제"
   },
   {
    "date": "2026.08.16",
-   "title": "코스닥 이제 끝?... 증권가 \"코스닥 비중 축소하고 반도체&middot;대형주 사.....",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0004151242&office_id=022&code=196170&page=1&sm=title_entity_id.basic",
-   "source": "세계일보"
+   "title": "윤활기유, 국내 정유사 실적 이끈다",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0005721741&office_id=009&code=010950&page=1&sm=title_entity_id.basic",
+   "source": "매일경제"
   },
   {
-   "date": "2026.08.16",
-   "title": "빨라진 '순환매 시계'...바이오&middot;뷰티 거쳐 실적주로[패닉 딛고 돌아온.....",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0014129955&office_id=003&code=196170&page=1&sm=title_entity_id.basic",
+   "date": "2026.08.14",
+   "title": "코스피, 7000선 돌파 후 6900선대...삼전&middot;하닉 상승세",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0006351862&office_id=018&code=010950&page=1&sm=title_entity_id.basic",
+   "source": "이데일리"
+  },
+  {
+   "date": "2026-08-14",
+   "title": "반기보고서 (2026.06)",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814000827",
+   "source": "DART"
+  },
+  {
+   "date": "2026-08-13",
+   "title": "지급수단별ㆍ지급기간별지급금액및분쟁조정기구에관한사항",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260813000927",
+   "source": "DART"
+  },
+  {
+   "date": "2026-08-11",
+   "title": "[기재정정]현금ㆍ현물배당결정              ",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260811800009",
+   "source": "DART"
+  }
+ ],
+ "알테오젠": [
+  {
+   "date": "2026.08.17",
+   "title": "'이번엔 진짜?' 개미들 들썩...8000억 '뭉칫돈' 몰린 곳이",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0005321558&office_id=015&code=196170&page=1&sm=title_entity_id.basic",
+   "source": "한국경제"
+  },
+  {
+   "date": "2026.08.17",
+   "title": "코스닥 액티브 ETF도 반도체가 수익률 주도",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0005321556&office_id=015&code=196170&page=1&sm=title_entity_id.basic",
+   "source": "한국경제"
+  },
+  {
+   "date": "2026.08.17",
+   "title": "&quot;韓증시 못 믿어&quot;...지수 상승 전환에도 '공매도' 급증",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0014130813&office_id=003&code=196170&page=1&sm=title_entity_id.basic",
    "source": "뉴시스"
+  },
+  {
+   "date": "2026.08.17",
+   "title": "[주末머니]韓 바이오, 하반기 반전 노린다",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0005803672&office_id=277&code=196170&page=1&sm=title_entity_id.basic",
+   "source": "아시아경제"
+  },
+  {
+   "date": "2026.08.17",
+   "title": "제약&middot;바이오기업 2분기 영업익 40% 증가",
+   "url": "https://finance.naver.com/item/news_read.naver?article_id=0005321461&office_id=015&code=196170&page=1&sm=title_entity_id.basic",
+   "source": "한국경제"
   },
   {
    "date": "2026-08-14",
@@ -46,2438 +2000,6 @@
    "date": "2026-08-13",
    "title": "임원ㆍ주요주주특정증권등소유상황보고서",
    "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260813001753",
-   "source": "DART"
-  }
- ],
- "에코프로": [
-  {
-   "date": "2026.08.16",
-   "title": "\"올라도 못 믿겠다\"...코스피 반등에도 주식 팔아치우는 개미들",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0003993228&office_id=023&code=086520&page=1&sm=title_entity_id.basic",
-   "source": "조선일보"
-  },
-  {
-   "date": "2026.08.16",
-   "title": "공매도 잔고 늘었다...상승장에도 '하락 베팅'",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0000527746&office_id=374&code=086520&page=1&sm=title_entity_id.basic",
-   "source": "SBS Biz"
-  },
-  {
-   "date": "2026.08.16",
-   "title": "상승장에도 '하락 베팅' 증가...공매도 잔고 늘어난 종목보니",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0001262525&office_id=215&code=086520&page=1&sm=title_entity_id.basic",
-   "source": "한국경제TV"
-  },
-  {
-   "date": "2026.08.16",
-   "title": "\"아무래도 아직은 좀 불안하죠\"...이달 상승장에도 개미는 '하락 베.....",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0005721550&office_id=009&code=086520&page=1&sm=title_entity_id.basic",
-   "source": "매일경제"
-  },
-  {
-   "date": "2026.08.16",
-   "title": "주가 오르자 경계감도 고조...공매도 잔고 다시 반등",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0001867038&office_id=005&code=086520&page=1&sm=title_entity_id.basic",
-   "source": "국민일보"
-  },
-  {
-   "date": "2026-08-14",
-   "title": "반기보고서 (2026.06)",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814002690",
-   "source": "DART"
-  },
-  {
-   "date": "2026-08-13",
-   "title": "지급수단별ㆍ지급기간별지급금액및분쟁조정기구에관한사항",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260813000696",
-   "source": "DART"
-  },
-  {
-   "date": "2026-08-13",
-   "title": "주식등의대량보유상황보고서(일반)",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260813000460",
-   "source": "DART"
-  }
- ],
- "에코프로비엠": [
-  {
-   "date": "2026.08.14",
-   "title": "外人 3조 쓸어담자...코스피 5거래일 연속 상승 마감 [마켓시그널]",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0004651876&office_id=011&code=247540&page=1&sm=title_entity_id.basic",
-   "source": "서울경제"
-  },
-  {
-   "date": "2026.08.14",
-   "title": "코스피 7000선 코앞 마감...외국인 3조 순매수 [시황]",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0003121952&office_id=119&code=247540&page=1&sm=title_entity_id.basic",
-   "source": "데일리안"
-  },
-  {
-   "date": "2026.08.14",
-   "title": "코스피, 5거래일 연속 상승 이어가...삼전닉스 '또 강세'",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0002388444&office_id=123&code=247540&page=1&sm=title_entity_id.basic",
-   "source": "조세일보"
-  },
-  {
-   "date": "2026.08.14",
-   "title": "'인플레 공포' 걷히자 상승 탄력...코스피, 7000선 목전서 마감",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0014128605&office_id=003&code=247540&page=1&sm=title_entity_id.basic",
-   "source": "뉴시스"
-  },
-  {
-   "date": "2026.08.14",
-   "title": "코스피 2.4%&uarr;, 7천피 턱밑까지...이번주 내내 올랐다(종합)",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0016252377&office_id=001&code=247540&page=1&sm=title_entity_id.basic",
-   "source": "연합뉴스"
-  },
-  {
-   "date": "2026-08-14",
-   "title": "기업설명회(IR)개최              ",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814902052",
-   "source": "DART"
-  },
-  {
-   "date": "2026-08-14",
-   "title": "기업설명회(IR)개최              ",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814902027",
-   "source": "DART"
-  },
-  {
-   "date": "2026-08-14",
-   "title": "반기보고서 (2026.06)",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814002535",
-   "source": "DART"
-  }
- ],
- "레인보우로보틱스": [
-  {
-   "date": "2026.08.14",
-   "title": "'삼성 효과' 본격화하나...레인보우, 2분기 매출 98%&uarr;",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0006352097&office_id=018&code=277810&page=1&sm=title_entity_id.basic",
-   "source": "이데일리"
-  },
-  {
-   "date": "2026.08.14",
-   "title": "外人 3조 쓸어담자...코스피 5거래일 연속 상승 마감 [마켓시그널]",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0004651876&office_id=011&code=277810&page=1&sm=title_entity_id.basic",
-   "source": "서울경제"
-  },
-  {
-   "date": "2026.08.14",
-   "title": "코스피 7000선 코앞 마감...외국인 3조 순매수 [시황]",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0003121952&office_id=119&code=277810&page=1&sm=title_entity_id.basic",
-   "source": "데일리안"
-  },
-  {
-   "date": "2026.08.14",
-   "title": "코스피, 5거래일 연속 상승 이어가...삼전닉스 '또 강세'",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0002388444&office_id=123&code=277810&page=1&sm=title_entity_id.basic",
-   "source": "조세일보"
-  },
-  {
-   "date": "2026.08.14",
-   "title": "'인플레 공포' 걷히자 상승 탄력...코스피, 7000선 목전서 마감",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0014128605&office_id=003&code=277810&page=1&sm=title_entity_id.basic",
-   "source": "뉴시스"
-  },
-  {
-   "date": "2026-08-14",
-   "title": "반기보고서 (2026.06)",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814002901",
-   "source": "DART"
-  },
-  {
-   "date": "2026-07-13",
-   "title": "[기재정정]신규시설투자등              ",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260713900609",
-   "source": "DART"
-  },
-  {
-   "date": "2026-07-03",
-   "title": "독립이사의선임ㆍ해임또는중도퇴임에관한신고",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260703000331",
-   "source": "DART"
-  }
- ],
- "주성엔지니어링": [
-  {
-   "date": "2026.08.16",
-   "title": "[사이드B] '반도체과' 만든 지 4년도 안돼...산업부 '반도체국' 키운...",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0001050083&office_id=031&code=036930&page=1&sm=title_entity_id.basic",
-   "source": "아이뉴스24"
-  },
-  {
-   "date": "2026.08.14",
-   "title": "外人 3조 쓸어담자...코스피 5거래일 연속 상승 마감 [마켓시그널]",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0004651876&office_id=011&code=036930&page=1&sm=title_entity_id.basic",
-   "source": "서울경제"
-  },
-  {
-   "date": "2026.08.14",
-   "title": "코스피 7000선 코앞 마감...외국인 3조 순매수 [시황]",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0003121952&office_id=119&code=036930&page=1&sm=title_entity_id.basic",
-   "source": "데일리안"
-  },
-  {
-   "date": "2026.08.14",
-   "title": "코스피, 5거래일 연속 상승 이어가...삼전닉스 '또 강세'",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0002388444&office_id=123&code=036930&page=1&sm=title_entity_id.basic",
-   "source": "조세일보"
-  },
-  {
-   "date": "2026.08.14",
-   "title": "'인플레 공포' 걷히자 상승 탄력...코스피, 7000선 목전서 마감",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0014128605&office_id=003&code=036930&page=1&sm=title_entity_id.basic",
-   "source": "뉴시스"
-  },
-  {
-   "date": "2026-08-14",
-   "title": "반기보고서 (2026.06)",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814002613",
-   "source": "DART"
-  },
-  {
-   "date": "2026-08-03",
-   "title": "주식등의대량보유상황보고서(약식)",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260803000357",
-   "source": "DART"
-  },
-  {
-   "date": "2026-07-29",
-   "title": "연결재무제표기준영업(잠정)실적(공정공시)              ",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260729900867",
-   "source": "DART"
-  }
- ],
- "리노공업": [
-  {
-   "date": "2026.08.14",
-   "title": "전면 파업 23일째 리노공업 노조, 단식 농성 시작",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0001393975&office_id=082&code=058470&page=1&sm=title_entity_id.basic",
-   "source": "부산일보"
-  },
-  {
-   "date": "2026.08.14",
-   "title": "전면 파업 리노공업 노조, 삭발&middot;단식 농성...노사갈등 고조",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0016251689&office_id=001&code=058470&page=1&sm=title_entity_id.basic",
-   "source": "연합뉴스"
-  },
-  {
-   "date": "2026.08.14",
-   "title": "코스피 2.4%&uarr;, 7천피 턱밑까지...이번주 내내 올랐다(종합)",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0016252377&office_id=001&code=058470&page=1&sm=title_entity_id.basic",
-   "source": "연합뉴스"
-  },
-  {
-   "date": "2026.08.14",
-   "title": "코스피 7000선 코앞 마감...외국인 3조 순매수 [시황]",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0003121952&office_id=119&code=058470&page=1&sm=title_entity_id.basic",
-   "source": "데일리안"
-  },
-  {
-   "date": "2026.08.14",
-   "title": "외인 3조 싹쓸이에 간만에 7000피 터치...美 금리 가늠자에 눈 쏠린다",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0005400354&office_id=008&code=058470&page=1&sm=title_entity_id.basic",
-   "source": "머니투데이"
-  },
-  {
-   "date": "2026-08-14",
-   "title": "반기보고서 (2026.06)",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814000445",
-   "source": "DART"
-  },
-  {
-   "date": "2026-08-03",
-   "title": "주식등의대량보유상황보고서(약식)",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260803000359",
-   "source": "DART"
-  },
-  {
-   "date": "2026-07-29",
-   "title": "주식등의대량보유상황보고서(약식)",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260729000050",
-   "source": "DART"
-  }
- ],
- "HLB": [
-  {
-   "date": "2026.08.14",
-   "title": "HLB 2분기 영업손실 225억...매출 280억, 78% 증가",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0000524777&office_id=629&code=028300&page=1&sm=title_entity_id.basic",
-   "source": "더팩트"
-  },
-  {
-   "date": "2026.08.14",
-   "title": "HLB 또 전환사채&middot;&middot;&middot;주주가치 희석 우려&middot;재무 악화",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0000524737&office_id=629&code=028300&page=1&sm=title_entity_id.basic",
-   "source": "더팩트"
-  },
-  {
-   "date": "2026.08.14",
-   "title": "MSCI 8월 정기 리뷰 실시... 글로벌 큰손이 새로 담은 종목은?",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0005400382&office_id=008&code=028300&page=1&sm=title_entity_id.basic",
-   "source": "머니투데이"
-  },
-  {
-   "date": "2026.08.14",
-   "title": "코스피&middot;코스닥 주간 '동반 상승'...외인 3조 폭풍 매수에 장중 '칠천피...",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0009114907&office_id=421&code=028300&page=1&sm=title_entity_id.basic",
-   "source": "뉴스1"
-  },
-  {
-   "date": "2026.08.14",
-   "title": "삼성전자 약보합 전환, 코스피 6800선 후퇴...코스닥 하락세로[장중시....",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0009114059&office_id=421&code=028300&page=1&sm=title_entity_id.basic",
-   "source": "뉴스1"
-  },
-  {
-   "date": "2026-08-14",
-   "title": "파생상품거래손실발생              ",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814902346",
-   "source": "DART"
-  },
-  {
-   "date": "2026-08-14",
-   "title": "반기보고서 (2026.06)",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814002713",
-   "source": "DART"
-  },
-  {
-   "date": "2026-08-05",
-   "title": "주요사항보고서(전환사채권발행결정)",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260805000480",
-   "source": "DART"
-  }
- ],
- "에이비엘바이오": [
-  {
-   "date": "2026.08.14",
-   "title": "코스피 7000선 코앞 마감...외국인 3조 순매수 [시황]",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0003121952&office_id=119&code=298380&page=1&sm=title_entity_id.basic",
-   "source": "데일리안"
-  },
-  {
-   "date": "2026.08.14",
-   "title": "외인 3조 싹쓸이에 간만에 7000피 터치...美 금리 가늠자에 눈 쏠린다",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0005400354&office_id=008&code=298380&page=1&sm=title_entity_id.basic",
-   "source": "머니투데이"
-  },
-  {
-   "date": "2026.08.14",
-   "title": "\"외국인 3조원 넘게 사들였다\"...코스피 장중 7000 돌파, 6977 ...",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0002237881&office_id=138&code=298380&page=1&sm=title_entity_id.basic",
-   "source": "디지털데일리"
-  },
-  {
-   "date": "2026.08.14",
-   "title": "코스피&middot;코스닥 주간 '동반 상승'...외인 3조 폭풍 매수에 장중 '칠천피...",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0009114907&office_id=421&code=298380&page=1&sm=title_entity_id.basic",
-   "source": "뉴스1"
-  },
-  {
-   "date": "2026.08.14",
-   "title": "코스피, 2% 상승 마감?'7000선' 고지 눈앞",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0001049906&office_id=031&code=298380&page=1&sm=title_entity_id.basic",
-   "source": "아이뉴스24"
-  },
-  {
-   "date": "2026-08-11",
-   "title": "반기보고서 (2026.06)",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260811000637",
-   "source": "DART"
-  },
-  {
-   "date": "2026-08-04",
-   "title": "주식등의대량보유상황보고서(일반)",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260804000533",
-   "source": "DART"
-  },
-  {
-   "date": "2026-07-28",
-   "title": "[기재정정]투자판단관련주요경영사항(임상시험계획변경승인)              (이중항체 면역항암제 ABL503의 제1상 임상시험계획 (IND) 변경승인)",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260728900375",
-   "source": "DART"
-  }
- ],
- "원익IPS": [
-  {
-   "date": "2026.08.16",
-   "title": "[사이드B] '반도체과' 만든 지 4년도 안돼...산업부 '반도체국' 키운...",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0001050083&office_id=031&code=240810&page=1&sm=title_entity_id.basic",
-   "source": "아이뉴스24"
-  },
-  {
-   "date": "2026.08.14",
-   "title": "코스피, 5거래일 연속 상승 이어가...삼전닉스 '또 강세'",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0002388444&office_id=123&code=240810&page=1&sm=title_entity_id.basic",
-   "source": "조세일보"
-  },
-  {
-   "date": "2026.08.14",
-   "title": "'인플레 공포' 걷히자 상승 탄력...코스피, 7000선 목전서 마감",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0014128605&office_id=003&code=240810&page=1&sm=title_entity_id.basic",
-   "source": "뉴시스"
-  },
-  {
-   "date": "2026.08.14",
-   "title": "코스피 2.4%&uarr;, 7천피 턱밑까지...이번주 내내 올랐다(종합)",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0016252377&office_id=001&code=240810&page=1&sm=title_entity_id.basic",
-   "source": "연합뉴스"
-  },
-  {
-   "date": "2026.08.14",
-   "title": "코스피 7000선 코앞 마감...외국인 3조 순매수 [시황]",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0003121952&office_id=119&code=240810&page=1&sm=title_entity_id.basic",
-   "source": "데일리안"
-  },
-  {
-   "date": "2026-08-14",
-   "title": "반기보고서 (2026.06)",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814001845",
-   "source": "DART"
-  },
-  {
-   "date": "2026-08-14",
-   "title": "지급수단별ㆍ지급기간별지급금액및분쟁조정기구에관한사항",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814000189",
-   "source": "DART"
-  },
-  {
-   "date": "2026-08-06",
-   "title": "연결재무제표기준영업(잠정)실적(공정공시)              ",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260806900323",
-   "source": "DART"
-  }
- ],
- "펩트론": [
-  {
-   "date": "2026.08.14",
-   "title": "코스피, 6900 후반대 마감...외국인 4거래일 연속 순매수",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0005803345&office_id=277&code=087010&page=1&sm=title_entity_id.basic",
-   "source": "아시아경제"
-  },
-  {
-   "date": "2026.08.14",
-   "title": "15거래일 만에 돌아온 '7000피'...외국인 매수세 뒷받침",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0005803146&office_id=277&code=087010&page=1&sm=title_entity_id.basic",
-   "source": "아시아경제"
-  },
-  {
-   "date": "2026.08.13",
-   "title": "반도체 랠리 지속...코스피 3.56% 올라 6800선 마감",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0005802844&office_id=277&code=087010&page=1&sm=title_entity_id.basic",
-   "source": "아시아경제"
-  },
-  {
-   "date": "2026.08.13",
-   "title": "반도체發 훈풍&middot;순환매 지속...코스피&middot;코스닥 나흘 연속 상승",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0004178538&office_id=079&code=087010&page=1&sm=title_entity_id.basic",
-   "source": "노컷뉴스"
-  },
-  {
-   "date": "2026.08.13",
-   "title": "코스피, 반도체 질주에 3%대 강세 마감...6800선 회복",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0014126425&office_id=003&code=087010&page=1&sm=title_entity_id.basic",
-   "source": "뉴시스"
-  },
-  {
-   "date": "2026-08-14",
-   "title": "반기보고서 (2026.06)",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814002979",
-   "source": "DART"
-  },
-  {
-   "date": "2026-07-14",
-   "title": "주식등의대량보유상황보고서(일반)",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260714000014",
-   "source": "DART"
-  },
-  {
-   "date": "2026-07-14",
-   "title": "임원ㆍ주요주주특정증권등소유상황보고서",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260714000012",
-   "source": "DART"
-  }
- ],
- "리가켐바이오": [
-  {
-   "date": "2026.08.16",
-   "title": "빨라진 '순환매 시계'...바이오&middot;뷰티 거쳐 실적주로[패닉 딛고 돌아온.....",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0014129955&office_id=003&code=141080&page=1&sm=title_entity_id.basic",
-   "source": "뉴시스"
-  },
-  {
-   "date": "2026.08.14",
-   "title": "매출의 3.5배 R&D 투입한 리가켐...상반기 영업손실 1186억",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0004651950&office_id=011&code=141080&page=1&sm=title_entity_id.basic",
-   "source": "서울경제"
-  },
-  {
-   "date": "2026.08.14",
-   "title": "리가켐바이오, '기술수출' 없는 2분기 영업손실 커져",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0003122029&office_id=119&code=141080&page=1&sm=title_entity_id.basic",
-   "source": "데일리안"
-  },
-  {
-   "date": "2026.08.14",
-   "title": "인제니아, 기업가치 상장 후 더 커진다... 기술수출 등 3대 호재 뒷받침",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0006351563&office_id=018&code=141080&page=1&sm=title_entity_id.basic",
-   "source": "이데일리"
-  },
-  {
-   "date": "2026.08.13",
-   "title": "반도체 랠리 지속...코스피 3.56% 올라 6800선 마감",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0005802844&office_id=277&code=141080&page=1&sm=title_entity_id.basic",
-   "source": "아시아경제"
-  },
-  {
-   "date": "2026-08-14",
-   "title": "반기보고서 (2026.06)",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003700",
-   "source": "DART"
-  },
-  {
-   "date": "2026-08-14",
-   "title": "지급수단별ㆍ지급기간별지급금액및분쟁조정기구에관한사항",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814002081",
-   "source": "DART"
-  },
-  {
-   "date": "2026-08-07",
-   "title": "투자판단관련주요경영사항              (LNCB74(B7H4-ADC) 단독 개발 및 기술이전 권리 확보)",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260807900139",
-   "source": "DART"
-  }
- ],
- "심텍": [
-  {
-   "date": "2026.08.14",
-   "title": "美 반도체주 훈풍, 상위 1%에도 불었다...삼전닉스 순매수 1&middot;2위 [주...",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0004651794&office_id=011&code=222800&page=1&sm=title_entity_id.basic",
-   "source": "서울경제"
-  },
-  {
-   "date": "2026.08.14",
-   "title": "&quot;심텍, 소캠 고객사 엔비디아 넘어 다른 업체 확대될 가능성&quot;-NH",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0005320812&office_id=015&code=222800&page=1&sm=title_entity_id.basic",
-   "source": "한국경제"
-  },
-  {
-   "date": "2026.08.14",
-   "title": "심텍, 소캠 타고 수익성 개선 가속...목표가&uarr;NH",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0006351509&office_id=018&code=222800&page=1&sm=title_entity_id.basic",
-   "source": "이데일리"
-  },
-  {
-   "date": "2026.08.13",
-   "title": "열흘 만에 33% 급등... '천스닥' 기대감 다시 불붙는 코스닥",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0000038666&office_id=037&code=222800&page=1&sm=title_entity_id.basic",
-   "source": "주간동아"
-  },
-  {
-   "date": "2026.08.12",
-   "title": "결국 잘 버는 기업이 답...'깜짝 실적' 종목, 평균 23% 뛰어",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0000107495&office_id=024&code=222800&page=1&sm=title_entity_id.basic",
-   "source": "매경이코노미"
-  },
-  {
-   "date": "2026-08-13",
-   "title": "반기보고서 (2026.06)",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260813001430",
-   "source": "DART"
-  },
-  {
-   "date": "2026-08-11",
-   "title": "전환청구권행사              ",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260811900654",
-   "source": "DART"
-  },
-  {
-   "date": "2026-08-05",
-   "title": "기업설명회(IR)개최              ",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260805900548",
-   "source": "DART"
-  }
- ],
- "이오테크닉스": [
-  {
-   "date": "2026.08.14",
-   "title": "코스피 2.4%&uarr;, 7천피 턱밑까지...이번주 내내 올랐다(종합)",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0016252377&office_id=001&code=039030&page=1&sm=title_entity_id.basic",
-   "source": "연합뉴스"
-  },
-  {
-   "date": "2026.08.14",
-   "title": "코스피 7000선 코앞 마감...외국인 3조 순매수 [시황]",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0003121952&office_id=119&code=039030&page=1&sm=title_entity_id.basic",
-   "source": "데일리안"
-  },
-  {
-   "date": "2026.08.14",
-   "title": "외인 3조 싹쓸이에 간만에 7000피 터치...美 금리 가늠자에 눈 쏠린다",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0005400354&office_id=008&code=039030&page=1&sm=title_entity_id.basic",
-   "source": "머니투데이"
-  },
-  {
-   "date": "2026.08.14",
-   "title": "이번주 내내 오른 코스피, '7천피' 탈환 눈앞",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0004178953&office_id=079&code=039030&page=1&sm=title_entity_id.basic",
-   "source": "노컷뉴스"
-  },
-  {
-   "date": "2026.08.14",
-   "title": "코스피&middot;코스닥 주간 '동반 상승'...외인 3조 폭풍 매수에 장중 '칠천피...",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0009114907&office_id=421&code=039030&page=1&sm=title_entity_id.basic",
-   "source": "뉴스1"
-  },
-  {
-   "date": "2026-08-14",
-   "title": "반기보고서 (2026.06)",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814001118",
-   "source": "DART"
-  },
-  {
-   "date": "2026-08-03",
-   "title": "주식등의대량보유상황보고서(약식)",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260803000358",
-   "source": "DART"
-  },
-  {
-   "date": "2026-07-06",
-   "title": "주식등의대량보유상황보고서(약식)",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260706000295",
-   "source": "DART"
-  }
- ],
- "파마리서치": [
-  {
-   "date": "2026.08.16",
-   "title": "삼전닉스서 빠진 돈 어디로?...활짝 웃은 '바이오&middot;뷰티'",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0000107582&office_id=024&code=214450&page=1&sm=title_entity_id.basic",
-   "source": "매경이코노미"
-  },
-  {
-   "date": "2026.08.16",
-   "title": "\"삼전&middot;하닉서 빠진 돈 어디 갔나 봤더니\"...한달새 21% 뛴 '이곳'",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0005721544&office_id=009&code=214450&page=1&sm=title_entity_id.basic",
-   "source": "매일경제"
-  },
-  {
-   "date": "2026.08.16",
-   "title": "[Why] K미용 인기에 짝퉁까지...中 왕서방에 칼 빼든 제약사",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0001186544&office_id=366&code=214450&page=1&sm=title_entity_id.basic",
-   "source": "조선비즈"
-  },
-  {
-   "date": "2026.08.15",
-   "title": "사람 피부 스킨부스터 시장 커진다...관련 기업 실적 '껑충'",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0000049864&office_id=648&code=214450&page=1&sm=title_entity_id.basic",
-   "source": "비즈워치"
-  },
-  {
-   "date": "2026.08.14",
-   "title": "코스피, 6900 후반대 마감...외국인 4거래일 연속 순매수",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0005803345&office_id=277&code=214450&page=1&sm=title_entity_id.basic",
-   "source": "아시아경제"
-  },
-  {
-   "date": "2026-08-14",
-   "title": "반기보고서 (2026.06)",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814002997",
-   "source": "DART"
-  },
-  {
-   "date": "2026-08-07",
-   "title": "연결재무제표기준영업(잠정)실적(공정공시)              ",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260807900190",
-   "source": "DART"
-  },
-  {
-   "date": "2026-08-06",
-   "title": "기업설명회(IR)개최              ",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260806900128",
-   "source": "DART"
-  }
- ],
- "삼천당제약": [
-  {
-   "date": "2026.08.16",
-   "title": "빨라진 '순환매 시계'...바이오&middot;뷰티 거쳐 실적주로[패닉 딛고 돌아온.....",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0014129955&office_id=003&code=000250&page=1&sm=title_entity_id.basic",
-   "source": "뉴시스"
-  },
-  {
-   "date": "2026.08.14",
-   "title": "15거래일 만에 돌아온 '7000피'...외국인 매수세 뒷받침",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0005803146&office_id=277&code=000250&page=1&sm=title_entity_id.basic",
-   "source": "아시아경제"
-  },
-  {
-   "date": "2026.08.13",
-   "title": "반도체發 훈풍&middot;순환매 지속...코스피&middot;코스닥 나흘 연속 상승",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0004178538&office_id=079&code=000250&page=1&sm=title_entity_id.basic",
-   "source": "노컷뉴스"
-  },
-  {
-   "date": "2026.08.12",
-   "title": "다시 힘받은 반도체...코스피 3.68%&uarr;, 사흘연속 상승(종합)",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0016247842&office_id=001&code=000250&page=1&sm=title_entity_id.basic",
-   "source": "연합뉴스"
-  },
-  {
-   "date": "2026.08.12",
-   "title": "반도체가 끌고 외인이 밀었다?코스피 3% 상승 마감",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0001049197&office_id=031&code=000250&page=1&sm=title_entity_id.basic",
-   "source": "아이뉴스24"
-  },
-  {
-   "date": "2026-08-14",
-   "title": "주식등의대량보유상황보고서(일반)",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003962",
-   "source": "DART"
-  },
-  {
-   "date": "2026-08-14",
-   "title": "반기보고서 (2026.06)",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003598",
-   "source": "DART"
-  },
-  {
-   "date": "2026-08-05",
-   "title": "[기재정정]투자판단관련주요경영사항(임상시험계획승인신청등결정)              (제1형 당뇨병 환자를 대상으로 정상혈당 클램프 조건 및 식이 섭취 후, 경구용 인슐린 SCD0503과 피하 투여 인슐린 간의 상대적 생체이용률, 상대적 생물학적 효력 및 음식 영향 평가를 위한 임상시험)",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260805900726",
-   "source": "DART"
-  }
- ],
- "케어젠": [
-  {
-   "date": "2026.08.13",
-   "title": "반도체 랠리 지속...코스피 3.56% 올라 6800선 마감",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0005802844&office_id=277&code=214370&page=1&sm=title_entity_id.basic",
-   "source": "아시아경제"
-  },
-  {
-   "date": "2026.08.12",
-   "title": "코스피, 장 중 매수 사이드카 발동...삼전닉스 7%대&uarr;",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0005802134&office_id=277&code=214370&page=1&sm=title_entity_id.basic",
-   "source": "아시아경제"
-  },
-  {
-   "date": "2026.08.11",
-   "title": "코스피 6300선 회복...반도체株 살아났다",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0001048850&office_id=031&code=214370&page=1&sm=title_entity_id.basic",
-   "source": "아이뉴스24"
-  },
-  {
-   "date": "2026.08.11",
-   "title": "케어젠 &quot;기후변화 대응 항노화 펩타이드 특허 등록&quot;",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0014120492&office_id=003&code=214370&page=1&sm=title_entity_id.basic",
-   "source": "뉴시스"
-  },
-  {
-   "date": "2026.08.11",
-   "title": "코스피 1%&darr;&middot;코스닥 1%&uarr;...장 초반 엇갈린 흐름",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0001048678&office_id=031&code=214370&page=1&sm=title_entity_id.basic",
-   "source": "아이뉴스24"
-  },
-  {
-   "date": "2026-08-14",
-   "title": "반기보고서 (2026.06)",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814002810",
-   "source": "DART"
-  },
-  {
-   "date": "2026-07-31",
-   "title": "임원ㆍ주요주주특정증권등소유상황보고서",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260731000356",
-   "source": "DART"
-  },
-  {
-   "date": "2026-07-29",
-   "title": "주식등의대량보유상황보고서(일반)",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260729000261",
-   "source": "DART"
-  }
- ],
- "피에스케이": [
-  {
-   "date": "2026.08.07",
-   "title": "[서울데이터랩]코스닥 시총 상위주 약세 우세...HLB&middot;심텍만 상승",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0003668519&office_id=081&code=319660&page=1&sm=title_entity_id.basic",
-   "source": "서울신문"
-  },
-  {
-   "date": "2026.08.05",
-   "title": "[서울데이터랩]코스닥 시총 상위주 강세 우위...이오테크닉스 6%대 상승....",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0003667788&office_id=081&code=319660&page=1&sm=title_entity_id.basic",
-   "source": "서울신문"
-  },
-  {
-   "date": "2026.08.04",
-   "title": "[서울데이터랩]코스닥 시총 상위주 강세...바이오&middot;2차전지 동반 상승",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0003667405&office_id=081&code=319660&page=1&sm=title_entity_id.basic",
-   "source": "서울신문"
-  },
-  {
-   "date": "2026.08.03",
-   "title": "삼전닉스 '역사적 반등' 다음날 7% 하락...코스피 6300선 아래로[개...",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0009093290&office_id=421&code=319660&page=1&sm=title_entity_id.basic",
-   "source": "뉴스1"
-  },
-  {
-   "date": "2026.07.31",
-   "title": "'불기둥' 쏜 코스피, 17% 급등...역대 최대 상승률",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0006341242&office_id=018&code=319660&page=1&sm=title_entity_id.basic",
-   "source": "이데일리"
-  },
-  {
-   "date": "2026-08-14",
-   "title": "반기보고서 (2026.06)",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814000731",
-   "source": "DART"
-  },
-  {
-   "date": "2026-07-20",
-   "title": "주식등의대량보유상황보고서(약식)",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260720000222",
-   "source": "DART"
-  },
-  {
-   "date": "2026-07-08",
-   "title": "주식등의대량보유상황보고서(약식)",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260708000389",
-   "source": "DART"
-  }
- ],
- "휴젤": [
-  {
-   "date": "2026.08.16",
-   "title": "미용에서 치료까지...글로벌 영토 확장 'K-톡신'",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0004179178&office_id=079&code=145020&page=1&sm=title_entity_id.basic",
-   "source": "노컷뉴스"
-  },
-  {
-   "date": "2026.08.14",
-   "title": "춘천 휴젤&middot;강릉 파마리서치 코스닥 '1부리그' 후보군 부상",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0000195256&office_id=654&code=145020&page=1&sm=title_entity_id.basic",
-   "source": "강원도민일보"
-  },
-  {
-   "date": "2026.08.13",
-   "title": "[속보]코스피, 삼전&middot;하닉 반도체 랠리에 6800선 회복...4%대&uarr;",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0006351218&office_id=018&code=145020&page=1&sm=title_entity_id.basic",
-   "source": "이데일리"
-  },
-  {
-   "date": "2026.08.12",
-   "title": "수출로 날아오른 K메디컬 에스테틱...'1000억 실적' 잇따라",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0003456824&office_id=030&code=145020&page=1&sm=title_entity_id.basic",
-   "source": "전자신문"
-  },
-  {
-   "date": "2026.08.11",
-   "title": "뜨거워진 코스닥...K뷰티 목표가 '쑥'",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0005719653&office_id=009&code=145020&page=1&sm=title_entity_id.basic",
-   "source": "매일경제"
-  },
-  {
-   "date": "2026-08-14",
-   "title": "반기보고서 (2026.06)",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814001402",
-   "source": "DART"
-  },
-  {
-   "date": "2026-08-14",
-   "title": "지급수단별ㆍ지급기간별지급금액및분쟁조정기구에관한사항",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814001077",
-   "source": "DART"
-  },
-  {
-   "date": "2026-08-07",
-   "title": "임원ㆍ주요주주특정증권등소유상황보고서",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260807000554",
-   "source": "DART"
-  }
- ],
- "로보티즈": [
-  {
-   "date": "2026.08.16",
-   "title": "빨라진 '순환매 시계'...바이오&middot;뷰티 거쳐 실적주로[패닉 딛고 돌아온.....",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0014129955&office_id=003&code=108490&page=1&sm=title_entity_id.basic",
-   "source": "뉴시스"
-  },
-  {
-   "date": "2026.08.14",
-   "title": "'휴머노이드 붐' 올라탄 로보티즈, 2분기 영업익 723%&uarr;",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0006352139&office_id=018&code=108490&page=1&sm=title_entity_id.basic",
-   "source": "이데일리"
-  },
-  {
-   "date": "2026.08.14",
-   "title": "로보티즈, 中 안방서 휴머노이드 공개...최신 액추에이터 판매 시동",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0002433994&office_id=092&code=108490&page=1&sm=title_entity_id.basic",
-   "source": "지디넷코리아"
-  },
-  {
-   "date": "2026.08.14",
-   "title": "코스피, 6900 후반대 마감...외국인 4거래일 연속 순매수",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0005803345&office_id=277&code=108490&page=1&sm=title_entity_id.basic",
-   "source": "아시아경제"
-  },
-  {
-   "date": "2026.08.14",
-   "title": "이번주 내내 오른 코스피, '칠천피' 근접 마감...코스닥도 상승",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0005320989&office_id=015&code=108490&page=1&sm=title_entity_id.basic",
-   "source": "한국경제"
-  },
-  {
-   "date": "2026-08-14",
-   "title": "반기보고서 (2026.06)",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003380",
-   "source": "DART"
-  },
-  {
-   "date": "2026-08-10",
-   "title": "임원ㆍ주요주주특정증권등소유상황보고서",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260810000614",
-   "source": "DART"
-  },
-  {
-   "date": "2026-08-06",
-   "title": "임원ㆍ주요주주특정증권등거래계획보고서",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260806000454",
-   "source": "DART"
-  }
- ],
- "클래시스": [
-  {
-   "date": "2026.08.14",
-   "title": "클래시스, 볼뉴머 '더 레드 에디션 600' 첫 공개...프리미엄 시술 경...",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0003457530&office_id=030&code=214150&page=1&sm=title_entity_id.basic",
-   "source": "전자신문"
-  },
-  {
-   "date": "2026.08.14",
-   "title": "클래시스, 볼뉴머 '더 레드 에디션 600' 공개",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0003464257&office_id=032&code=214150&page=1&sm=title_entity_id.basic",
-   "source": "경향신문"
-  },
-  {
-   "date": "2026.08.14",
-   "title": "클래시스, 볼뉴머 솔루션 확대...'더 레드 에디션 600' 공개",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0000948022&office_id=469&code=214150&page=1&sm=title_entity_id.basic",
-   "source": "한국일보"
-  },
-  {
-   "date": "2026.08.14",
-   "title": "클래시스, 볼뉴머 신규 솔루션 '더 레드 에디션 600' 선봬",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0005803189&office_id=277&code=214150&page=1&sm=title_entity_id.basic",
-   "source": "아시아경제"
-  },
-  {
-   "date": "2026.08.14",
-   "title": "클래시스, '더 레드 에디션 600' 공개...볼뉴머 프리미엄 솔루션 확...",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0005320886&office_id=015&code=214150&page=1&sm=title_entity_id.basic",
-   "source": "한국경제"
-  },
-  {
-   "date": "2026-08-14",
-   "title": "반기보고서 (2026.06)",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814004072",
-   "source": "DART"
-  },
-  {
-   "date": "2026-08-14",
-   "title": "기업설명회(IR)개최              ",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814902552",
-   "source": "DART"
-  },
-  {
-   "date": "2026-08-12",
-   "title": "불성실공시법인미지정              (공시불이행)",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260812900805",
-   "source": "DART"
-  }
- ],
- "파두": [
-  {
-   "date": "2026.08.12",
-   "title": "파두, 396억 규모 기업용 SSD 컨트롤러 공급계약",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0002682971&office_id=016&code=440110&page=1&sm=title_entity_id.basic",
-   "source": "헤럴드경제"
-  },
-  {
-   "date": "2026.08.10",
-   "title": "파두, 신입&middot;경력 두 자릿수 채용...시스템반도체 인재 선점",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0002681807&office_id=016&code=440110&page=1&sm=title_entity_id.basic",
-   "source": "헤럴드경제"
-  },
-  {
-   "date": "2026.08.10",
-   "title": "파두, '주니어 탤런트' 채용...AI 데이터센터 반도체 인재 확보",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0003120208&office_id=119&code=440110&page=1&sm=title_entity_id.basic",
-   "source": "데일리안"
-  },
-  {
-   "date": "2026.08.10",
-   "title": "파두, 시스템 반도체 분야 두 자릿수 채용",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0002433469&office_id=092&code=440110&page=1&sm=title_entity_id.basic",
-   "source": "지디넷코리아"
-  },
-  {
-   "date": "2026.08.10",
-   "title": "파두, 주니어 탤런트 채용 실시...두 자릿수 규모",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0002237167&office_id=138&code=440110&page=1&sm=title_entity_id.basic",
-   "source": "디지털데일리"
-  },
-  {
-   "date": "2026-08-14",
-   "title": "기업설명회(IR)개최              ",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814900196",
-   "source": "DART"
-  },
-  {
-   "date": "2026-08-14",
-   "title": "기업설명회(IR)개최              ",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814900193",
-   "source": "DART"
-  },
-  {
-   "date": "2026-08-13",
-   "title": "반기보고서 (2026.06)",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260813001260",
-   "source": "DART"
-  }
- ],
- "HPSP": [
-  {
-   "date": "2026.08.13",
-   "title": "코스피 3.56% 급등, 6,800선 회복...나흘 연속 상승",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0001380431&office_id=055&code=403870&page=1&sm=title_entity_id.basic",
-   "source": "SBS"
-  },
-  {
-   "date": "2026.08.13",
-   "title": "코스피 3.56% 급등, 6,800선 회복...4거래일 연속 상승",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0001211251&office_id=087&code=403870&page=1&sm=title_entity_id.basic",
-   "source": "강원일보"
-  },
-  {
-   "date": "2026.08.10",
-   "title": "리노공업&middot;휴젤...코스닥 '1부리그' 후보 올랐다",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0005319258&office_id=015&code=403870&page=1&sm=title_entity_id.basic",
-   "source": "한국경제"
-  },
-  {
-   "date": "2026.07.27",
-   "title": "[서울데이터랩]코스닥 시총 상위주 장중 강세...펩트론 13%대 급등, 알...",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0003664938&office_id=081&code=403870&page=1&sm=title_entity_id.basic",
-   "source": "서울신문"
-  },
-  {
-   "date": "2026.07.21",
-   "title": "[서울데이터랩]코스닥 시총 상위주 혼조세...로봇&middot;반도체 강세, 바이...",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0003662971&office_id=081&code=403870&page=1&sm=title_entity_id.basic",
-   "source": "서울신문"
-  },
-  {
-   "date": "2026-08-14",
-   "title": "반기보고서 (2026.06)",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814004015",
-   "source": "DART"
-  },
-  {
-   "date": "2026-08-07",
-   "title": "주요사항보고서(자기주식처분결정)",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260807000741",
-   "source": "DART"
-  },
-  {
-   "date": "2026-08-07",
-   "title": "[기재정정]주식매수선택권부여에관한신고",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260807000688",
-   "source": "DART"
-  }
- ],
- "ISC": [
-  {
-   "date": "2026.08.12",
-   "title": "LG디스플레이, 연세대 디스플레이융합공학과 입시 설명회 개최...인재...",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0005801976&office_id=277&code=095340&page=1&sm=title_entity_id.basic",
-   "source": "아시아경제"
-  },
-  {
-   "date": "2026.08.11",
-   "title": "승강제 올라타는 코스닥... 시총보다 실적이 대장주 가른다",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0005560141&office_id=014&code=095340&page=1&sm=title_entity_id.basic",
-   "source": "파이낸셜뉴스"
-  },
-  {
-   "date": "2026.08.11",
-   "title": "'시총 시대' 저문다...코스닥 대표주 기준 바뀐다",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0005560064&office_id=014&code=095340&page=1&sm=title_entity_id.basic",
-   "source": "파이낸셜뉴스"
-  },
-  {
-   "date": "2026.08.11",
-   "title": "반도체주 주도권 소부장으로...예스티 15%&middot;주성ENG 14%&uarr; [칩칩폭폭...",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0002388171&office_id=123&code=095340&page=1&sm=title_entity_id.basic",
-   "source": "조세일보"
-  },
-  {
-   "date": "2026.08.05",
-   "title": "&quot;10조원 시공물량 탄다&quot; GS건설, 데이터센터&middot;원전 겹모멘텀...카카오....",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0005557483&office_id=014&code=095340&page=1&sm=title_entity_id.basic",
-   "source": "파이낸셜뉴스"
-  },
-  {
-   "date": "2026-08-14",
-   "title": "지급수단별ㆍ지급기간별지급금액및분쟁조정기구에관한사항",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814000128",
-   "source": "DART"
-  },
-  {
-   "date": "2026-08-14",
-   "title": "반기보고서 (2026.06)",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814000114",
-   "source": "DART"
-  },
-  {
-   "date": "2026-08-03",
-   "title": "주식등의대량보유상황보고서(약식)",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260803000370",
-   "source": "DART"
-  }
- ],
- "보로노이": [
-  {
-   "date": "2026.08.13",
-   "title": "'반도체 랠리' 코스피 4%&uarr; 질주...코스닥 850선 혼조",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0001049355&office_id=031&code=310210&page=1&sm=title_entity_id.basic",
-   "source": "아이뉴스24"
-  },
-  {
-   "date": "2026.08.11",
-   "title": "코스피 6300선 회복...반도체株 살아났다",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0001048850&office_id=031&code=310210&page=1&sm=title_entity_id.basic",
-   "source": "아이뉴스24"
-  },
-  {
-   "date": "2026.08.11",
-   "title": "코스피 1%&darr;&middot;코스닥 1%&uarr;...장 초반 엇갈린 흐름",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0001048678&office_id=031&code=310210&page=1&sm=title_entity_id.basic",
-   "source": "아이뉴스24"
-  },
-  {
-   "date": "2026.08.10",
-   "title": "[투자전략 따라잡기] 가치투자자들에게 매력적인 시장 &quot;장기투자, 내년....",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0000526556&office_id=374&code=310210&page=1&sm=title_entity_id.basic",
-   "source": "SBS Biz"
-  },
-  {
-   "date": "2026.08.10",
-   "title": "코스닥 6% 급등에 매수 사이드카 발동...850선 눈앞",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0006348664&office_id=018&code=310210&page=1&sm=title_entity_id.basic",
-   "source": "이데일리"
-  },
-  {
-   "date": "2026-08-14",
-   "title": "반기보고서 (2026.06)",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814004145",
-   "source": "DART"
-  },
-  {
-   "date": "2026-08-07",
-   "title": "[기재정정]투자판단관련주요경영사항(임상시험계획변경승인신청)              (VRN110755의 제 1/2상 임상시험)",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260807900344",
-   "source": "DART"
-  },
-  {
-   "date": "2026-07-31",
-   "title": "[기재정정]투자판단관련주요경영사항(임상시험계획변경승인)              (VRN110755의 제 1/2상 임상시험)",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260731900608",
-   "source": "DART"
-  }
- ],
- "디앤디파마텍": [
-  {
-   "date": "2026.08.13",
-   "title": "디앤디파마텍, MASH 전주기 치료 해법 들고 'K바이오딜 서밋 202...",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0006350897&office_id=018&code=347850&page=1&sm=title_entity_id.basic",
-   "source": "이데일리"
-  },
-  {
-   "date": "2026.08.13",
-   "title": "\"치매 증상 전에 찾아낸다\"...혈액검사&middot;신약 등장에 알츠하이머 치...",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0001185903&office_id=366&code=347850&page=1&sm=title_entity_id.basic",
-   "source": "조선비즈"
-  },
-  {
-   "date": "2026.08.12",
-   "title": "[알림] K바이오, 글로벌 도약 해법...'K바이오 딜 써밋 2026'...",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0006350243&office_id=018&code=347850&page=1&sm=title_entity_id.basic",
-   "source": "이데일리"
-  },
-  {
-   "date": "2026.08.12",
-   "title": "[월간 ETF] UNICORN K바이오액티브, 7월 최하위서 V자 회복",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0000088925&office_id=293&code=347850&page=1&sm=title_entity_id.basic",
-   "source": "블로터"
-  },
-  {
-   "date": "2026.08.11",
-   "title": "[투자전략 따라잡기] 삼성전자 무조건 반등할 것? &quot;저평가된 실적 반....",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0000526816&office_id=374&code=347850&page=1&sm=title_entity_id.basic",
-   "source": "SBS Biz"
-  },
-  {
-   "date": "2026-08-14",
-   "title": "반기보고서 (2026.06)",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814002436",
-   "source": "DART"
-  },
-  {
-   "date": "2026-07-14",
-   "title": "[기재정정]단일판매ㆍ공급계약체결              ",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260714900144",
-   "source": "DART"
-  },
-  {
-   "date": "2026-06-22",
-   "title": "전환청구권행사              (제1회차)",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260622900667",
-   "source": "DART"
-  }
- ],
- "제주반도체": [
-  {
-   "date": "2026.08.15",
-   "title": "5일 내내 오른 증시...외인&middot;기관은 '삼전닉스', 승부는 장바구니에서.....",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0005561978&office_id=014&code=080220&page=1&sm=title_entity_id.basic",
-   "source": "파이낸셜뉴스"
-  },
-  {
-   "date": "2026.08.14",
-   "title": "美 반도체주 훈풍, 상위 1%에도 불었다...삼전닉스 순매수 1&middot;2위 [주...",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0004651794&office_id=011&code=080220&page=1&sm=title_entity_id.basic",
-   "source": "서울경제"
-  },
-  {
-   "date": "2026.08.14",
-   "title": "에이팩트, 2분기 흑자 전환...소캠2 턴키 공정 수혜",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0000089066&office_id=293&code=080220&page=1&sm=title_entity_id.basic",
-   "source": "블로터"
-  },
-  {
-   "date": "2026.08.14",
-   "title": "에이팩트, 2분기 영업이익 11억...전년比 18.8%&uarr;",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0014127178&office_id=003&code=080220&page=1&sm=title_entity_id.basic",
-   "source": "뉴시스"
-  },
-  {
-   "date": "2026.08.14",
-   "title": "&quot;삼전닉스 못지않아&quot; 메모리 호황 덕본 제주반도체",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0005561505&office_id=014&code=080220&page=1&sm=title_entity_id.basic",
-   "source": "파이낸셜뉴스"
-  },
-  {
-   "date": "2026-08-13",
-   "title": "반기보고서 (2026.06)",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260813001713",
-   "source": "DART"
-  },
-  {
-   "date": "2026-07-30",
-   "title": "임시주주총회결과              ",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260730900529",
-   "source": "DART"
-  },
-  {
-   "date": "2026-07-07",
-   "title": "[기재정정]의결권대리행사권유참고서류",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260707000399",
-   "source": "DART"
-  }
- ],
- "현대무벡스": [
-  {
-   "date": "2026.08.14",
-   "title": "이번주 내내 오른 코스피, '칠천피' 근접 마감...코스닥도 상승",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0005320989&office_id=015&code=319400&page=1&sm=title_entity_id.basic",
-   "source": "한국경제"
-  },
-  {
-   "date": "2026.08.14",
-   "title": "\"외국인이 돌아왔다?\"...코스피, 기다리던 7000선 터치",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0000109654&office_id=050&code=319400&page=1&sm=title_entity_id.basic",
-   "source": "한경비즈니스"
-  },
-  {
-   "date": "2026.08.14",
-   "title": "코스피 1%대&uarr;, 상승률 다소 둔화...코스닥은 하락전환",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0016251592&office_id=001&code=319400&page=1&sm=title_entity_id.basic",
-   "source": "연합뉴스"
-  },
-  {
-   "date": "2026.08.14",
-   "title": "[이 시각 시황] 피지컬 AI&middot;로봇주 강세...LG-엔비디아 협력 기대",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0000527464&office_id=374&code=319400&page=1&sm=title_entity_id.basic",
-   "source": "SBS Biz"
-  },
-  {
-   "date": "2026.08.10",
-   "title": "레버리지 막으니 코스닥이 살아났다",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0004650304&office_id=011&code=319400&page=1&sm=title_entity_id.basic",
-   "source": "서울경제"
-  },
-  {
-   "date": "2026-08-14",
-   "title": "반기보고서 (2026.06)",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003499",
-   "source": "DART"
-  },
-  {
-   "date": "2026-08-06",
-   "title": "주요사항보고서(자기주식처분결정)",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260806000400",
-   "source": "DART"
-  },
-  {
-   "date": "2026-07-24",
-   "title": "임원ㆍ주요주주특정증권등거래계획철회보고서",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260724000607",
-   "source": "DART"
-  }
- ],
- "실리콘투": [
-  {
-   "date": "2026.08.14",
-   "title": "[특징주] 실리콘투, 증권가 목표가 줄상향 속 5% 상승 마감(종합)",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0016252222&office_id=001&code=257720&page=1&sm=title_entity_id.basic",
-   "source": "연합뉴스"
-  },
-  {
-   "date": "2026.08.14",
-   "title": "[특징주] 실리콘투, 증권가 목표가 줄상향 속 7%대 상승",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0016251382&office_id=001&code=257720&page=1&sm=title_entity_id.basic",
-   "source": "연합뉴스"
-  },
-  {
-   "date": "2026.08.14",
-   "title": "실리콘투 '모이다', 파리 샹젤리제 입성...K뷰티 영토 넓힌다",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0005400250&office_id=008&code=257720&page=1&sm=title_entity_id.basic",
-   "source": "머니투데이"
-  },
-  {
-   "date": "2026.08.14",
-   "title": "실리콘투 2분기 호실적에 주가도 '방긋'...장중 7% 이상 상승 [코주부...",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0004651743&office_id=011&code=257720&page=1&sm=title_entity_id.basic",
-   "source": "서울경제"
-  },
-  {
-   "date": "2026.08.14",
-   "title": "&quot;미국 돌아오고 유럽 더 좋아진다&quot; 실리콘투 목표가&uarr;-NH證",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0005561536&office_id=014&code=257720&page=1&sm=title_entity_id.basic",
-   "source": "파이낸셜뉴스"
-  },
-  {
-   "date": "2026-08-14",
-   "title": "반기보고서 (2026.06)",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003895",
-   "source": "DART"
-  },
-  {
-   "date": "2026-08-14",
-   "title": "기업설명회(IR)개최              ",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814901365",
-   "source": "DART"
-  },
-  {
-   "date": "2026-08-12",
-   "title": "연결재무제표기준영업(잠정)실적(공정공시)              ",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260812900140",
-   "source": "DART"
-  }
- ],
- "올릭스": [
-  {
-   "date": "2026.08.15",
-   "title": "[임상 업데이트] JW중외제약, 통풍치료제 3상서 유효성 입증",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0006352348&office_id=018&code=226950&page=1&sm=title_entity_id.basic",
-   "source": "이데일리"
-  },
-  {
-   "date": "2026.08.14",
-   "title": "3상 성공에 16% 뛴 JW중외제약...'호재' 올릭스는 11% 급락 ...",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0006351538&office_id=018&code=226950&page=1&sm=title_entity_id.basic",
-   "source": "이데일리"
-  },
-  {
-   "date": "2026.08.12",
-   "title": "올릭스, 전임상서 표적 유전자 억제...뇌질환 신약 개발 가능성 확인",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0004651034&office_id=011&code=226950&page=1&sm=title_entity_id.basic",
-   "source": "서울경제"
-  },
-  {
-   "date": "2026.08.12",
-   "title": "올릭스 &quot;피하주사로 '뇌 표적 유전자 억제' 확인&quot;",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0014122248&office_id=003&code=226950&page=1&sm=title_entity_id.basic",
-   "source": "뉴시스"
-  },
-  {
-   "date": "2026.08.12",
-   "title": "올릭스, 2세대 RNA 플랫폼 동물실험서 효과 확인...&quot;신약 경쟁력 강...",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0005398851&office_id=008&code=226950&page=1&sm=title_entity_id.basic",
-   "source": "머니투데이"
-  },
-  {
-   "date": "2026-08-14",
-   "title": "반기보고서 (2026.06)",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814002988",
-   "source": "DART"
-  },
-  {
-   "date": "2026-08-12",
-   "title": "[기재정정]주식매수선택권부여에관한신고",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260812000690",
-   "source": "DART"
-  },
-  {
-   "date": "2026-08-12",
-   "title": "[기재정정]주식매수선택권부여에관한신고",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260812000688",
-   "source": "DART"
-  }
- ],
- "유진테크": [
-  {
-   "date": "2026.08.10",
-   "title": "리노공업&middot;휴젤...코스닥 '1부리그' 후보 올랐다",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0005319258&office_id=015&code=084370&page=1&sm=title_entity_id.basic",
-   "source": "한국경제"
-  },
-  {
-   "date": "2026.08.03",
-   "title": "'주식부자'에 안 빠졌던 이름들, 어디 갔어?...국내 부자 순위 급변.....",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0002678953&office_id=016&code=084370&page=1&sm=title_entity_id.basic",
-   "source": "헤럴드경제"
-  },
-  {
-   "date": "2026.08.03",
-   "title": "AI 랠리가 개인 주식부호 순위 바꿨다",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0002678676&office_id=016&code=084370&page=1&sm=title_entity_id.basic",
-   "source": "헤럴드경제"
-  },
-  {
-   "date": "2026.07.27",
-   "title": "국산 장비사 수주잔고 폭발... 삼성&sdot;SK '용인 속도전'이 당긴 호황기",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0002235586&office_id=138&code=084370&page=1&sm=title_entity_id.basic",
-   "source": "디지털데일리"
-  },
-  {
-   "date": "2026.07.27",
-   "title": "[투자전략 따라잡기] 9500억 달러 AI 협력 삼전닉스 다시 달리나?",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0000523903&office_id=374&code=084370&page=1&sm=title_entity_id.basic",
-   "source": "SBS Biz"
-  },
-  {
-   "date": "2026-08-14",
-   "title": "반기보고서 (2026.06)",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003622",
-   "source": "DART"
-  },
-  {
-   "date": "2026-08-07",
-   "title": "임원ㆍ주요주주특정증권등소유상황보고서",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260807000738",
-   "source": "DART"
-  },
-  {
-   "date": "2026-08-07",
-   "title": "임원ㆍ주요주주특정증권등소유상황보고서",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260807000732",
-   "source": "DART"
-  }
- ],
- "테스": [
-  {
-   "date": "2026.08.14",
-   "title": "&quot;테스, 수준 잔고 주목...목표가 23만 유지&quot;- SK",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0006351519&office_id=018&code=095610&page=1&sm=title_entity_id.basic",
-   "source": "이데일리"
-  },
-  {
-   "date": "2026.08.13",
-   "title": "반도체 장비에서 우주로... 코스닥 라이징 스타의 세대교체",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0003992762&office_id=023&code=095610&page=1&sm=title_entity_id.basic",
-   "source": "조선일보"
-  },
-  {
-   "date": "2026.08.13",
-   "title": "美반도체 약세속, 삼전닉스 강세... K증시 동반상승",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0005399305&office_id=008&code=095610&page=1&sm=title_entity_id.basic",
-   "source": "머니투데이"
-  },
-  {
-   "date": "2026.08.11",
-   "title": "승강제 올라타는 코스닥... 시총보다 실적이 대장주 가른다",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0005560141&office_id=014&code=095610&page=1&sm=title_entity_id.basic",
-   "source": "파이낸셜뉴스"
-  },
-  {
-   "date": "2026.08.11",
-   "title": "'시총 시대' 저문다...코스닥 대표주 기준 바뀐다",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0005560064&office_id=014&code=095610&page=1&sm=title_entity_id.basic",
-   "source": "파이낸셜뉴스"
-  },
-  {
-   "date": "2026-08-14",
-   "title": "기업설명회(IR)개최              ",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814901389",
-   "source": "DART"
-  },
-  {
-   "date": "2026-08-13",
-   "title": "반기보고서 (2026.06)",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260813000486",
-   "source": "DART"
-  },
-  {
-   "date": "2026-07-21",
-   "title": "주식등의대량보유상황보고서(약식)",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260721000955",
-   "source": "DART"
-  }
- ],
- "솔브레인": [
-  {
-   "date": "2026.08.11",
-   "title": "\"유리기판, 가야할 길... 韓반도체 '3D 신소재'로 체질 바꿔야\"",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0001866085&office_id=005&code=357780&page=1&sm=title_entity_id.basic",
-   "source": "국민일보"
-  },
-  {
-   "date": "2026.08.10",
-   "title": "리노공업&middot;휴젤...코스닥 '1부리그' 후보 올랐다",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0005319258&office_id=015&code=357780&page=1&sm=title_entity_id.basic",
-   "source": "한국경제"
-  },
-  {
-   "date": "2026.08.10",
-   "title": "\"유리기판, 벽 높지만 반드시 가야할 길\"... 솔브레인 박영수 대표의.....",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0001865998&office_id=005&code=357780&page=1&sm=title_entity_id.basic",
-   "source": "국민일보"
-  },
-  {
-   "date": "2026.08.05",
-   "title": "삼성, D램 왕좌 탈환...SK하이닉스 제치고 점유율 1위",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0004648722&office_id=011&code=357780&page=1&sm=title_entity_id.basic",
-   "source": "서울경제"
-  },
-  {
-   "date": "2026.08.05",
-   "title": "빅테크 AI 투자 1260조 돌파...MS 웃고 구글&middot;메타 흔들",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0004648720&office_id=011&code=357780&page=1&sm=title_entity_id.basic",
-   "source": "서울경제"
-  },
-  {
-   "date": "2026-08-14",
-   "title": "반기보고서 (2026.06)",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003813",
-   "source": "DART"
-  },
-  {
-   "date": "2026-08-10",
-   "title": "주식등의대량보유상황보고서(일반)",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260810000631",
-   "source": "DART"
-  },
-  {
-   "date": "2026-07-31",
-   "title": "주요사항보고서(자기주식취득신탁계약체결결정)",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260731000491",
-   "source": "DART"
-  }
- ],
- "티에스이": [
-  {
-   "date": "2026.08.12",
-   "title": "에스티팜&middot;티에스이&middot;샘씨엔에스 등 18개사 '코스닥 라이징스타' 선정",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0009110878&office_id=421&code=131290&page=1&sm=title_entity_id.basic",
-   "source": "뉴스1"
-  },
-  {
-   "date": "2026.08.12",
-   "title": "거래소, '코스닥 라이징스타' 18개사 선정...티에스이&middot;원텍 등 8곳 ...",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0006350490&office_id=018&code=131290&page=1&sm=title_entity_id.basic",
-   "source": "이데일리"
-  },
-  {
-   "date": "2026.07.31",
-   "title": "반도체 역사적 반등...SK하이닉스 상한가&middot;삼성전자 27%&uarr;[핫종목](종합...",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0009090868&office_id=421&code=131290&page=1&sm=title_entity_id.basic",
-   "source": "뉴스1"
-  },
-  {
-   "date": "2026.07.31",
-   "title": "하루 만에 1000P 오르며 상승률 역대 최고치 찍은 코스피",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0005797416&office_id=277&code=131290&page=1&sm=title_entity_id.basic",
-   "source": "아시아경제"
-  },
-  {
-   "date": "2026.07.31",
-   "title": "&quot;AI 돈 번다&quot; 코스피 6300 'V자 반등'...삼전 20% 넘겨 '사...",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0009090276&office_id=421&code=131290&page=1&sm=title_entity_id.basic",
-   "source": "뉴스1"
-  },
-  {
-   "date": "2026-08-14",
-   "title": "반기보고서 (2026.06)",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814002616",
-   "source": "DART"
-  },
-  {
-   "date": "2026-07-22",
-   "title": "증권발행결과(자율공시)              ",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260722900291",
-   "source": "DART"
-  },
-  {
-   "date": "2026-07-10",
-   "title": "주요사항보고서(전환사채권발행결정)",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260710000416",
-   "source": "DART"
-  }
- ],
- "에스피지": [
-  {
-   "date": "2026.08.14",
-   "title": "코스피 1%대&uarr;, 상승률 다소 둔화...코스닥은 하락전환",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0016251592&office_id=001&code=058610&page=1&sm=title_entity_id.basic",
-   "source": "연합뉴스"
-  },
-  {
-   "date": "2026.08.14",
-   "title": "[단독] 현대차 '로봇 공급망' 재구축...1차 협력사와 혁신안 모색",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0005320787&office_id=015&code=058610&page=1&sm=title_entity_id.basic",
-   "source": "한국경제"
-  },
-  {
-   "date": "2026.08.13",
-   "title": "[단독]&quot;로봇 투자비중 같이 늘리자&quot;...현대차, 협력사와 생태계 만든다",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0005320577&office_id=015&code=058610&page=1&sm=title_entity_id.basic",
-   "source": "한국경제"
-  },
-  {
-   "date": "2026.08.12",
-   "title": "에스피지, 2분기 영업익 40억...전년비 2% &uarr;",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0002682714&office_id=016&code=058610&page=1&sm=title_entity_id.basic",
-   "source": "헤럴드경제"
-  },
-  {
-   "date": "2026.08.12",
-   "title": "에스피지 2분기 영업이익 40억원...작년 동기 대비 2%&uarr;",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0016246295&office_id=001&code=058610&page=1&sm=title_entity_id.basic",
-   "source": "연합뉴스"
-  },
-  {
-   "date": "2026-08-14",
-   "title": "반기보고서 (2026.06)",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814002388",
-   "source": "DART"
-  },
-  {
-   "date": "2026-08-12",
-   "title": "연결재무제표기준영업(잠정)실적(공정공시)              ",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260812900128",
-   "source": "DART"
-  },
-  {
-   "date": "2026-07-06",
-   "title": "기업설명회(IR)개최              ",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260706900211",
-   "source": "DART"
-  }
- ],
- "펄어비스": [
-  {
-   "date": "2026.08.15",
-   "title": "펄어비스, 9년째 K-인디 글로벌 진출 지원... BIC서 'BIGEM...",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0003457683&office_id=030&code=263750&page=1&sm=title_entity_id.basic",
-   "source": "전자신문"
-  },
-  {
-   "date": "2026.08.15",
-   "title": "BIC 2026, 글로벌 마케팅 지원 사업 '빅잼' 5기 12개작 선...",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0002434077&office_id=092&code=263750&page=1&sm=title_entity_id.basic",
-   "source": "지디넷코리아"
-  },
-  {
-   "date": "2026.08.14",
-   "title": "\"하이닉스 욕할 게 아니다\" \"역대 최악 기업\" '석 달' 만에 '.....",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0002684247&office_id=016&code=263750&page=1&sm=title_entity_id.basic",
-   "source": "헤럴드경제"
-  },
-  {
-   "date": "2026.08.14",
-   "title": "카카오 떠난 홍은택 32억, 네이버 최수연 26억...IT업계 상반기 연봉...",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0003544507&office_id=025&code=263750&page=1&sm=title_entity_id.basic",
-   "source": "중앙일보"
-  },
-  {
-   "date": "2026.08.14",
-   "title": "게임업계 상반기 보수 1위는 장태석 크래프톤 총괄...39.2억원",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0003122035&office_id=119&code=263750&page=1&sm=title_entity_id.basic",
-   "source": "데일리안"
-  },
-  {
-   "date": "2026-08-14",
-   "title": "반기보고서 (2026.06)",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003642",
-   "source": "DART"
-  },
-  {
-   "date": "2026-08-11",
-   "title": "연결재무제표기준영업실적등에대한전망(공정공시)              ",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260811900977",
-   "source": "DART"
-  },
-  {
-   "date": "2026-08-11",
-   "title": "연결재무제표기준영업(잠정)실적(공정공시)              ",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260811900974",
-   "source": "DART"
-  }
- ],
- "서진시스템": [
-  {
-   "date": "2026.08.13",
-   "title": "이차전지, 북미 ESS 수요 예상보다 빠르다...내후년이 더 기대",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0006350713&office_id=018&code=178320&page=1&sm=title_entity_id.basic",
-   "source": "이데일리"
-  },
-  {
-   "date": "2026.08.05",
-   "title": "\"美 ESS 시장 잡아라\"...K배터리 소부장 잇단 현지화",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0004648918&office_id=011&code=178320&page=1&sm=title_entity_id.basic",
-   "source": "서울경제"
-  },
-  {
-   "date": "2026.08.05",
-   "title": "영구채 발행 고전하던 서진시스템, 최대주주 자금 수혈에 규모 축소 .....",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0001184341&office_id=366&code=178320&page=1&sm=title_entity_id.basic",
-   "source": "조선비즈"
-  },
-  {
-   "date": "2026.08.04",
-   "title": "기관 끌자 볕드는 코스닥...역대 첫 3연속 매수 사이드카",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0004648493&office_id=011&code=178320&page=1&sm=title_entity_id.basic",
-   "source": "서울경제"
-  },
-  {
-   "date": "2026.08.04",
-   "title": "거래소, 내달 14일 주식선물 18종목&middot;주식옵션 2종목 추가상장",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0005317185&office_id=015&code=178320&page=1&sm=title_entity_id.basic",
-   "source": "한국경제"
-  },
-  {
-   "date": "2026-08-14",
-   "title": "반기보고서 (2026.06)",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814004243",
-   "source": "DART"
-  },
-  {
-   "date": "2026-08-13",
-   "title": "[기재정정]타인에대한채무보증결정              ",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260813900010",
-   "source": "DART"
-  },
-  {
-   "date": "2026-08-12",
-   "title": "[기재정정]타인에대한채무보증결정              ",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260812901133",
-   "source": "DART"
-  }
- ],
- "에스티팜": [
-  {
-   "date": "2026.08.16",
-   "title": "AI가 환자 암 분석해 백신 설계...'개인맞춤형 암백신' 어디까지 왔.....",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0003741123&office_id=020&code=237690&page=1&sm=title_entity_id.basic",
-   "source": "동아일보"
-  },
-  {
-   "date": "2026.08.15",
-   "title": "\"코스닥 다음 주자는 여기\"...한국거래소가 뽑은 '라이징스타' 18...",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0005721481&office_id=009&code=237690&page=1&sm=title_entity_id.basic",
-   "source": "매일경제"
-  },
-  {
-   "date": "2026.08.14",
-   "title": "원텍&middot;큐리오시스 등 '코스닥 라이징스타' 8곳 새로 뽑혀",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0003992909&office_id=023&code=237690&page=1&sm=title_entity_id.basic",
-   "source": "조선일보"
-  },
-  {
-   "date": "2026.08.13",
-   "title": "반도체 장비에서 우주로... 코스닥 라이징 스타의 세대교체",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0003992762&office_id=023&code=237690&page=1&sm=title_entity_id.basic",
-   "source": "조선일보"
-  },
-  {
-   "date": "2026.08.12",
-   "title": "한국거래소, 2026 코스닥 라이징스타 18곳 선정",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0005399266&office_id=008&code=237690&page=1&sm=title_entity_id.basic",
-   "source": "머니투데이"
-  },
-  {
-   "date": "2026-08-14",
-   "title": "반기보고서 (2026.06)",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003399",
-   "source": "DART"
-  },
-  {
-   "date": "2026-08-11",
-   "title": "전환사채(해외전환사채포함)발행후만기전사채취득              ",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260811900409",
-   "source": "DART"
-  },
-  {
-   "date": "2026-07-31",
-   "title": "임원ㆍ주요주주특정증권등소유상황보고서",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260731000677",
-   "source": "DART"
-  }
- ],
- "피에스케이홀딩스": [
-  {
-   "date": "2026.08.12",
-   "title": "미래에셋, 'TIGER 코스닥액티브 ETF' 8월 수익률 23.6%",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0000101547&office_id=243&code=031980&page=1&sm=title_entity_id.basic",
-   "source": "이코노미스트"
-  },
-  {
-   "date": "2026.08.12",
-   "title": "'TIGER 코스닥액티브' ETF, 8월 수익률 동종 '1위'",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0005802018&office_id=277&code=031980&page=1&sm=title_entity_id.basic",
-   "source": "아시아경제"
-  },
-  {
-   "date": "2026.08.12",
-   "title": "미래에셋 TIGER 코스닥액티브 ETF, 8월 수익률 23.6% '1...",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0006350098&office_id=018&code=031980&page=1&sm=title_entity_id.basic",
-   "source": "이데일리"
-  },
-  {
-   "date": "2026.08.11",
-   "title": "반도체주 주도권 소부장으로...예스티 15%&middot;주성ENG 14%&uarr; [칩칩폭폭...",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0002388171&office_id=123&code=031980&page=1&sm=title_entity_id.basic",
-   "source": "조세일보"
-  },
-  {
-   "date": "2026.08.10",
-   "title": "삼성&middot;SK는 1%도 못 올랐는데...장비주는 10%대 급등 [칩칩폭폭]",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0002388090&office_id=123&code=031980&page=1&sm=title_entity_id.basic",
-   "source": "조세일보"
-  },
-  {
-   "date": "2026-08-14",
-   "title": "반기보고서 (2026.06)",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814000743",
-   "source": "DART"
-  }
- ],
- "고영": [
-  {
-   "date": "2026.08.12",
-   "title": "20년 새 제조사 4분의 1 토막...유럽 PCB 재건에 한국 장비 뜬...",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0002237496&office_id=138&code=098460&page=1&sm=title_entity_id.basic",
-   "source": "디지털데일리"
-  },
-  {
-   "date": "2026.08.10",
-   "title": "소부장 끌고, 바이오 밀고...다시 '천스닥' 궤도 오를까",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0005319263&office_id=015&code=098460&page=1&sm=title_entity_id.basic",
-   "source": "한국경제"
-  },
-  {
-   "date": "2026.08.06",
-   "title": "고영, AIDC&middot;반도체 수요 대응 위해 294억 시설투자",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0006346288&office_id=018&code=098460&page=1&sm=title_entity_id.basic",
-   "source": "이데일리"
-  },
-  {
-   "date": "2026.08.06",
-   "title": "고영테크놀러지, 여주 생산센터 증설... AIDC&middot;첨단 반도체 수요 대응",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0003455029&office_id=030&code=098460&page=1&sm=title_entity_id.basic",
-   "source": "전자신문"
-  },
-  {
-   "date": "2026.08.06",
-   "title": "고영, AI 서버 검사장비 수요에 생산능력 확대... 여주 공장 증설",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0001184772&office_id=366&code=098460&page=1&sm=title_entity_id.basic",
-   "source": "조선비즈"
-  },
-  {
-   "date": "2026-08-14",
-   "title": "반기보고서 (2026.06)",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003639",
-   "source": "DART"
-  },
-  {
-   "date": "2026-08-14",
-   "title": "주식등의대량보유상황보고서(약식)",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814000802",
-   "source": "DART"
-  },
-  {
-   "date": "2026-08-06",
-   "title": "신규시설투자등(자율공시)              ",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260806900463",
-   "source": "DART"
-  }
- ],
- "동진쎄미켐": [
-  {
-   "date": "2026.08.13",
-   "title": "코스피에 푹 빠진 세계 최대 국부펀드...'이 업종'선 과감하게 발 뺐.....",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0005720911&office_id=009&code=005290&page=1&sm=title_entity_id.basic",
-   "source": "매일경제"
-  },
-  {
-   "date": "2026.08.06",
-   "title": "동진쎄미켐, 2분기 영업익 593억...전년비 38.9% &uarr;",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0002680460&office_id=016&code=005290&page=1&sm=title_entity_id.basic",
-   "source": "헤럴드경제"
-  },
-  {
-   "date": "2026.08.06",
-   "title": "동진쎄미켐 2분기 영업이익 593억원...작년 동기 대비 38.9%&uarr;",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0016237264&office_id=001&code=005290&page=1&sm=title_entity_id.basic",
-   "source": "연합뉴스"
-  },
-  {
-   "date": "2026.08.06",
-   "title": "&quot;시총이 커서 사고, 더 커져서 또 샀다&quot;...돈이 돈을 부른 '코스닥 블...",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0005557873&office_id=014&code=005290&page=1&sm=title_entity_id.basic",
-   "source": "파이낸셜뉴스"
-  },
-  {
-   "date": "2026.08.05",
-   "title": "삼성, D램 왕좌 탈환...SK하이닉스 제치고 점유율 1위",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0004648722&office_id=011&code=005290&page=1&sm=title_entity_id.basic",
-   "source": "서울경제"
-  },
-  {
-   "date": "2026-08-14",
-   "title": "반기보고서 (2026.06)",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814002890",
-   "source": "DART"
-  },
-  {
-   "date": "2026-08-06",
-   "title": "연결재무제표기준영업(잠정)실적(공정공시)              ",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260806900173",
-   "source": "DART"
-  },
-  {
-   "date": "2026-07-31",
-   "title": "주요사항보고서(자기주식취득신탁계약체결결정)",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260731000235",
-   "source": "DART"
-  }
- ],
- "하나마이크론": [
-  {
-   "date": "2026.08.11",
-   "title": "[Why&Next]SK하닉 충칭 팹 매각설 속내는...구형칩 줄이고 '고부...",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0005801476&office_id=277&code=067310&page=1&sm=title_entity_id.basic",
-   "source": "아시아경제"
-  },
-  {
-   "date": "2026.08.10",
-   "title": "하나마이크론株 EB, IMM크레딧이 인수",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0005319170&office_id=015&code=067310&page=1&sm=title_entity_id.basic",
-   "source": "한국경제"
-  },
-  {
-   "date": "2026.08.06",
-   "title": "&quot;시총이 커서 사고, 더 커져서 또 샀다&quot;...돈이 돈을 부른 '코스닥 블...",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0005557873&office_id=014&code=067310&page=1&sm=title_entity_id.basic",
-   "source": "파이낸셜뉴스"
-  },
-  {
-   "date": "2026.08.05",
-   "title": "[메자닌 투자파일] 하나머티리얼즈, 이자부담 줄이는 자회사 지분 활.....",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0000088655&office_id=293&code=067310&page=1&sm=title_entity_id.basic",
-   "source": "블로터"
-  },
-  {
-   "date": "2026.08.04",
-   "title": "IMM크레딧, 하나마이크론 EB 1000억 인수",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0005716678&office_id=009&code=067310&page=1&sm=title_entity_id.basic",
-   "source": "매일경제"
-  },
-  {
-   "date": "2026-08-14",
-   "title": "반기보고서 (2026.06)",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003753",
-   "source": "DART"
-  },
-  {
-   "date": "2026-08-05",
-   "title": "주식등의대량보유상황보고서(일반)",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260805000491",
-   "source": "DART"
-  },
-  {
-   "date": "2026-08-05",
-   "title": "교환사채권발행결정(종속회사의주요경영사항)              (제2회차)",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260805900689",
-   "source": "DART"
-  }
- ],
- "셀트리온제약": [
-  {
-   "date": "2026.08.05",
-   "title": "셀트리온제약, 2분기 영업익 '분기 최대'...전년比 24%&uarr;",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0002387898&office_id=123&code=068760&page=1&sm=title_entity_id.basic",
-   "source": "조세일보"
-  },
-  {
-   "date": "2026.08.04",
-   "title": "셀트리온제약, 2분기 영업이익 193억원 '역대 최대'",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0001261142&office_id=215&code=068760&page=1&sm=title_entity_id.basic",
-   "source": "한국경제TV"
-  },
-  {
-   "date": "2026.08.04",
-   "title": "셀트리온제약, 2분기 영업익 193억...전년비 24%&uarr;",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0014108204&office_id=003&code=068760&page=1&sm=title_entity_id.basic",
-   "source": "뉴시스"
-  },
-  {
-   "date": "2026.08.04",
-   "title": "셀트리온제약, 2분기 영업이익 193억원...역대 최대 실적",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0000103325&office_id=296&code=068760&page=1&sm=title_entity_id.basic",
-   "source": "코메디닷컴"
-  },
-  {
-   "date": "2026.08.04",
-   "title": "셀트리온제약, 2Q 영업익 193억원...전년比 24%&uarr; '역대 최대'",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0005395561&office_id=008&code=068760&page=1&sm=title_entity_id.basic",
-   "source": "머니투데이"
-  },
-  {
-   "date": "2026-08-14",
-   "title": "반기보고서 (2026.06)",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003577",
-   "source": "DART"
-  },
-  {
-   "date": "2026-08-14",
-   "title": "지급수단별ㆍ지급기간별지급금액및분쟁조정기구에관한사항",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814002417",
-   "source": "DART"
-  },
-  {
-   "date": "2026-08-04",
-   "title": "영업(잠정)실적(공정공시)              ",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260804900438",
-   "source": "DART"
-  }
- ],
- "우리기술": [
-  {
-   "date": "2026.08.10",
-   "title": "우리기술, 한수원과 원전 공급자 재고관리 협약 체결",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0006348696&office_id=018&code=032820&page=1&sm=title_entity_id.basic",
-   "source": "이데일리"
-  },
-  {
-   "date": "2026.08.10",
-   "title": "우리기술, 한수원과 원전 공급자 재고관리 협약",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0014117321&office_id=003&code=032820&page=1&sm=title_entity_id.basic",
-   "source": "뉴시스"
-  },
-  {
-   "date": "2026.08.06",
-   "title": "[메자닌 투자파일] 우리기술, 원전 수주 본격화에 400억 장전",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0000088718&office_id=293&code=032820&page=1&sm=title_entity_id.basic",
-   "source": "블로터"
-  },
-  {
-   "date": "2026.08.06",
-   "title": "우리기술, 400억 투자 유치...원전&middot;SMR&middot;해상풍력 사업 확대",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0006345565&office_id=018&code=032820&page=1&sm=title_entity_id.basic",
-   "source": "이데일리"
-  },
-  {
-   "date": "2026.08.06",
-   "title": "우리기술, 400억 규모 CB 발행 결정...원전&middot;해상풍력 사업 가속화",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0014111199&office_id=003&code=032820&page=1&sm=title_entity_id.basic",
-   "source": "뉴시스"
-  },
-  {
-   "date": "2026-08-14",
-   "title": "반기보고서 (2026.06)",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003825",
-   "source": "DART"
-  },
-  {
-   "date": "2026-08-13",
-   "title": "증권발행결과(자율공시)              ",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260813901181",
-   "source": "DART"
-  },
-  {
-   "date": "2026-08-11",
-   "title": "주식등의대량보유상황보고서(약식)",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260811000433",
-   "source": "DART"
-  }
- ],
- "티씨케이": [
-  {
-   "date": "2026.07.13",
-   "title": "삼전닉스 GO or STOP...하반기 증시 핵심 포인트 5 [스페셜리포트...",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0000106847&office_id=024&code=064760&page=1&sm=title_entity_id.basic",
-   "source": "매경이코노미"
-  },
-  {
-   "date": "2026.07.13",
-   "title": "\"코스피 진바닥 통과\"...\"AI&middot;반도체 주도주 다시 담을 때\"",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0006328770&office_id=018&code=064760&page=1&sm=title_entity_id.basic",
-   "source": "이데일리"
-  },
-  {
-   "date": "2026.07.07",
-   "title": "AI가 부른 '약속된 호황'...반도체 소부장도 슈퍼사이클 탄다",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0006324230&office_id=018&code=064760&page=1&sm=title_entity_id.basic",
-   "source": "이데일리"
-  },
-  {
-   "date": "2026.06.08",
-   "title": "밸류업 공시 기업 731개사로 확대... 시총 비중 83% 차지",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0005532115&office_id=014&code=064760&page=1&sm=title_entity_id.basic",
-   "source": "파이낸셜뉴스"
-  },
-  {
-   "date": "2026.06.08",
-   "title": "밸류업 공시 기업 731곳 육박...전체 시총 비중 83% 달해",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0005531975&office_id=014&code=064760&page=1&sm=title_entity_id.basic",
-   "source": "파이낸셜뉴스"
-  },
-  {
-   "date": "2026-08-14",
-   "title": "반기보고서 (2026.06)",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814001689",
-   "source": "DART"
-  },
-  {
-   "date": "2026-08-07",
-   "title": "영업(잠정)실적(공정공시)              ",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260807900311",
-   "source": "DART"
-  },
-  {
-   "date": "2026-06-26",
-   "title": "[기재정정]신규시설투자등(자율공시)              ",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260626900949",
-   "source": "DART"
-  }
- ],
- "대한광통신": [
-  {
-   "date": "2026.08.13",
-   "title": "GPU 수만개 쌓아도 소용없다?...\"AI 시대 '광통신'이 새로운 승부처...",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0002683271&office_id=016&code=010170&page=1&sm=title_entity_id.basic",
-   "source": "헤럴드경제"
-  },
-  {
-   "date": "2026.08.13",
-   "title": "&quot;AI 시대 다음 병목은 '연결'...광통신이 승부처&quot;",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0005802488&office_id=277&code=010170&page=1&sm=title_entity_id.basic",
-   "source": "아시아경제"
-  },
-  {
-   "date": "2026.08.13",
-   "title": "삼일PwC &quot;AI 시대, 다음 병목은 '연결'...광통신이 승부처&quot;",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0002388317&office_id=123&code=010170&page=1&sm=title_entity_id.basic",
-   "source": "조세일보"
-  },
-  {
-   "date": "2026.08.12",
-   "title": "[서울데이터랩]마감 직후 인기 검색 종목 20選",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0003669809&office_id=081&code=010170&page=1&sm=title_entity_id.basic",
-   "source": "서울신문"
-  },
-  {
-   "date": "2026.08.11",
-   "title": "[서울데이터랩]마감 직후 인기 검색 종목 20選",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0003669438&office_id=081&code=010170&page=1&sm=title_entity_id.basic",
-   "source": "서울신문"
-  },
-  {
-   "date": "2026-08-14",
-   "title": "반기보고서 (2026.06)",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814002121",
-   "source": "DART"
-  },
-  {
-   "date": "2026-07-14",
-   "title": "임원ㆍ주요주주특정증권등소유상황보고서",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260714000465",
-   "source": "DART"
-  },
-  {
-   "date": "2026-07-14",
-   "title": "주식등의대량보유상황보고서(일반)",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260714000456",
-   "source": "DART"
-  }
- ],
- "파크시스템스": [
-  {
-   "date": "2026.08.11",
-   "title": "흩어진 AI 실험실 '표준화'...산학연 뭉친다",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0004650760&office_id=011&code=140860&page=1&sm=title_entity_id.basic",
-   "source": "서울경제"
-  },
-  {
-   "date": "2026.08.11",
-   "title": "로봇이 24시간 실험해 'AI용 데이터' 찍어낸다...자율실험실 산학...",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0005719607&office_id=009&code=140860&page=1&sm=title_entity_id.basic",
-   "source": "매일경제"
-  },
-  {
-   "date": "2026.08.11",
-   "title": "24시간 '풀가동' 국내 첫 자율실험실 생태계 구축한다",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0005398503&office_id=008&code=140860&page=1&sm=title_entity_id.basic",
-   "source": "머니투데이"
-  },
-  {
-   "date": "2026.08.11",
-   "title": "국내 첫 자율실험실 구축 협의체 출범...삼성&middot;SK하이닉스 참여(종합)",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0016245154&office_id=001&code=140860&page=1&sm=title_entity_id.basic",
-   "source": "연합뉴스"
-  },
-  {
-   "date": "2026.08.11",
-   "title": "&quot;AI&middot;로봇으로 24시간 운영&quot;... 자율실험실 생태계 본격 조성",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0003041785&office_id=029&code=140860&page=1&sm=title_entity_id.basic",
-   "source": "디지털타임스"
-  },
-  {
-   "date": "2026-08-14",
-   "title": "반기보고서 (2026.06)",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814004158",
-   "source": "DART"
-  },
-  {
-   "date": "2026-08-07",
-   "title": "주식등의대량보유상황보고서(약식)",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260807000113",
-   "source": "DART"
-  }
- ],
- "에스엠": [
-  {
-   "date": "2026.08.16",
-   "title": "&quot;자료내다 무산될 판&quot;... 공정위 늦장 심사에 표류하는 M&A",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0005321325&office_id=015&code=041510&page=1&sm=title_entity_id.basic",
-   "source": "한국경제"
-  },
-  {
-   "date": "2026.08.16",
-   "title": "&quot;美 잘파세대, '물건' 안 산다...'경험 소비'가 K컬처 키웠다&quot;",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0006352505&office_id=018&code=041510&page=1&sm=title_entity_id.basic",
-   "source": "이데일리"
-  },
-  {
-   "date": "2026.08.14",
-   "title": "SAMG엔터, 상반기 매출 751억 '사상 최대'...해외 매출 62% 급...",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0005803392&office_id=277&code=041510&page=1&sm=title_entity_id.basic",
-   "source": "아시아경제"
-  },
-  {
-   "date": "2026.08.14",
-   "title": "SAMG엔터, 상반기 연결 매출 751억...전년 대비 5%&uarr;",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0006352065&office_id=018&code=041510&page=1&sm=title_entity_id.basic",
-   "source": "이데일리"
-  },
-  {
-   "date": "2026.08.14",
-   "title": "카카오엔터, 뮤직 부문 사업 성장세...IP 수익 다각화 노린다",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0005561819&office_id=014&code=041510&page=1&sm=title_entity_id.basic",
-   "source": "파이낸셜뉴스"
-  },
-  {
-   "date": "2026-08-14",
-   "title": "반기보고서 (2026.06)",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814002930",
-   "source": "DART"
-  },
-  {
-   "date": "2026-08-13",
-   "title": "지급수단별ㆍ지급기간별지급금액및분쟁조정기구에관한사항",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260813001426",
-   "source": "DART"
-  },
-  {
-   "date": "2026-08-05",
-   "title": "연결재무제표기준영업(잠정)실적(공정공시)              ",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260805900312",
-   "source": "DART"
-  }
- ],
- "엘앤씨바이오": [
-  {
-   "date": "2026.08.15",
-   "title": "\"코스닥 다음 주자는 여기\"...한국거래소가 뽑은 '라이징스타' 18...",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0005721481&office_id=009&code=290650&page=1&sm=title_entity_id.basic",
-   "source": "매일경제"
-  },
-  {
-   "date": "2026.08.15",
-   "title": "사람 피부 스킨부스터 시장 커진다...관련 기업 실적 '껑충'",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0000049864&office_id=648&code=290650&page=1&sm=title_entity_id.basic",
-   "source": "비즈워치"
-  },
-  {
-   "date": "2026.08.14",
-   "title": "휴메딕스, 2분기 매출 504억&middot;영업이익 117억원...분기 최대",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0001186408&office_id=366&code=290650&page=1&sm=title_entity_id.basic",
-   "source": "조선비즈"
-  },
-  {
-   "date": "2026.08.13",
-   "title": "엘앤씨바이오 '리투오', 미용 넘어 치료&middot;재건 분야로 적용 확대",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0005561040&office_id=014&code=290650&page=1&sm=title_entity_id.basic",
-   "source": "파이낸셜뉴스"
-  },
-  {
-   "date": "2026.08.12",
-   "title": "한국거래소, 2026 코스닥 라이징스타 18곳 선정",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0005399266&office_id=008&code=290650&page=1&sm=title_entity_id.basic",
-   "source": "머니투데이"
-  },
-  {
-   "date": "2026-08-14",
-   "title": "반기보고서 (2026.06)",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814004115",
-   "source": "DART"
-  },
-  {
-   "date": "2026-08-12",
-   "title": "임원ㆍ주요주주특정증권등소유상황보고서",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260812000650",
-   "source": "DART"
-  },
-  {
-   "date": "2026-08-11",
-   "title": "임원ㆍ주요주주특정증권등거래계획보고서",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260811000669",
-   "source": "DART"
-  }
- ],
- "메지온": [
-  {
-   "date": "2026.08.08",
-   "title": "메지온 유데나필, ADPKD 낭종&middot;신장기능 동시 개선...\"한&middot;미 임상 2...",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0006347487&office_id=018&code=140410&page=1&sm=title_entity_id.basic",
-   "source": "이데일리"
-  },
-  {
-   "date": "2026.08.05",
-   "title": "바이오주 한파에 경영진들 자사주 매입...실적이 근본 과제",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0000522048&office_id=629&code=140410&page=1&sm=title_entity_id.basic",
-   "source": "더팩트"
-  },
-  {
-   "date": "2026.08.05",
-   "title": "악재에 흔들린 바이오...CEO 주식 매입이 살리나",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0004648632&office_id=011&code=140410&page=1&sm=title_entity_id.basic",
-   "source": "서울경제"
-  },
-  {
-   "date": "2026.08.04",
-   "title": "'미적지근' 코스피와 정반대...'불기둥' 코스닥, 사상 첫 3거래일...",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0002679458&office_id=016&code=140410&page=1&sm=title_entity_id.basic",
-   "source": "헤럴드경제"
-  },
-  {
-   "date": "2026.08.04",
-   "title": "코스피, 1.6% 반등 6,300대 마감...코스닥 5.9% 급등(종합)",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0016233430&office_id=001&code=140410&page=1&sm=title_entity_id.basic",
-   "source": "연합뉴스"
-  },
-  {
-   "date": "2026-08-14",
-   "title": "반기보고서 (2026.06)",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003105",
-   "source": "DART"
-  },
-  {
-   "date": "2026-08-06",
-   "title": "임원ㆍ주요주주특정증권등소유상황보고서",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260806000165",
-   "source": "DART"
-  },
-  {
-   "date": "2026-08-06",
-   "title": "임원ㆍ주요주주특정증권등소유상황보고서",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260806000154",
-   "source": "DART"
-  }
- ],
- "JYP Ent.": [
-  {
-   "date": "2026.08.15",
-   "title": "박진영은 \"무조건 산다\" 했는데...트와이스&middot;스키즈 변수에 JYP 목표.....",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0004652091&office_id=011&code=035900&page=1&sm=title_entity_id.basic",
-   "source": "서울경제"
-  },
-  {
-   "date": "2026.08.15",
-   "title": "5일 내내 오른 증시...외인&middot;기관은 '삼전닉스', 승부는 장바구니에서.....",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0005561978&office_id=014&code=035900&page=1&sm=title_entity_id.basic",
-   "source": "파이낸셜뉴스"
-  },
-  {
-   "date": "2026.08.14",
-   "title": "\"지금이 타이밍\"이라던 JYP, 하루 만에 11% 급락...트와이스&middot;스트레...",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0002684238&office_id=016&code=035900&page=1&sm=title_entity_id.basic",
-   "source": "헤럴드경제"
-  },
-  {
-   "date": "2026.08.14",
-   "title": "&quot;11% 폭락&quot;...14만원&rarr;4만원 '무조건 산다'던 박진영 회사, ...",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0005561514&office_id=014&code=035900&page=1&sm=title_entity_id.basic",
-   "source": "파이낸셜뉴스"
-  },
-  {
-   "date": "2026.08.14",
-   "title": "증시 반등장에도 힘 못쓰는 K콘텐츠...엔터株 투심 '냉랭'",
-   "url": "https://finance.naver.com/item/news_read.naver?article_id=0001023597&office_id=088&code=035900&page=1&sm=title_entity_id.basic",
-   "source": "매일신문"
-  },
-  {
-   "date": "2026-08-14",
-   "title": "반기보고서 (2026.06)",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003204",
-   "source": "DART"
-  },
-  {
-   "date": "2026-08-12",
-   "title": "연결재무제표기준영업(잠정)실적(공정공시)              ",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260812900607",
-   "source": "DART"
-  },
-  {
-   "date": "2026-08-05",
-   "title": "기업설명회(IR)개최              ",
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260805900577",
    "source": "DART"
   }
  ]
