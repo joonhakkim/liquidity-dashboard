@@ -24,7 +24,7 @@ OUT_PATH = os.path.join(DOCS_DIR, "bollinger_breakout.html")
 
 BB_WINDOW = 20
 BB_STD_MULT = 2
-MA_WINDOWS = [5, 10, 20]
+MA_WINDOWS = [5, 10, 20, 60]  # 60일=12주(거래일 기준, 이 시계열엔 거래일만 있어서 5일=1주)
 
 
 def fetch_index_history(symbol, count=10000):
@@ -330,6 +330,7 @@ function buildChart(panel) {{
   const ma5 = d.ma5.slice(startIdx, endIdx + 1);
   const ma10 = d.ma10.slice(startIdx, endIdx + 1);
   const ma20 = d.ma20.slice(startIdx, endIdx + 1);
+  const ma60 = d.ma60.slice(startIdx, endIdx + 1);
   const index = d.index.slice(startIdx, endIdx + 1);
 
   if (panel.chart) panel.chart.destroy();
@@ -341,6 +342,7 @@ function buildChart(panel) {{
         {{ type: 'line', label: '5일선', data: ma5, borderColor: '#ffd43b', backgroundColor: 'transparent', borderWidth: 2, pointRadius: 0, tension: 0.2, yAxisID: 'yCount', order: 1 }},
         {{ type: 'line', label: '10일선', data: ma10, borderColor: '#ff922b', backgroundColor: 'transparent', borderWidth: 1.5, pointRadius: 0, tension: 0.2, yAxisID: 'yCount', order: 1 }},
         {{ type: 'line', label: '20일선', data: ma20, borderColor: '#e599f7', backgroundColor: 'transparent', borderWidth: 1.5, pointRadius: 0, tension: 0.2, yAxisID: 'yCount', order: 1 }},
+        {{ type: 'line', label: '12주선', data: ma60, borderColor: '#4dabf7', backgroundColor: 'transparent', borderWidth: 1.5, pointRadius: 0, tension: 0.2, yAxisID: 'yCount', order: 1 }},
         {{ type: 'line', label: '지수(우축)', data: index, borderColor: '#63e6be', backgroundColor: 'transparent', borderWidth: 1.5, borderDash: [4,3], pointRadius: 0, tension: 0.1, yAxisID: 'yIndex', order: 0 }},
       ]
     }},
