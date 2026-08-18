@@ -24,6 +24,7 @@ import os
 from datetime import datetime
 
 import pandas as pd
+import requests
 
 DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data")
 DOCS_DIR = os.path.join(os.path.dirname(__file__), "..", "docs")
@@ -32,16 +33,74 @@ PRICES_PATH = os.path.join(DATA_DIR, "troy_mp_prices.csv")
 KOSPI_PATH = os.path.join(DATA_DIR, "krx_raw.csv")
 OUT_PATH = os.path.join(DOCS_DIR, "troy_mp.html")
 
+TOTAL_CAPITAL = 1_000_000_000  # 총 투입자본(원) - 종목별 매입금액 합계 + 남는 건 현금으로 취급
+
+
+def fetch_index_history(symbol, count=3000):
+    """네이버 차트 API로 지수(KOSPI/KOSDAQ) 일별 종가를 받아온다."""
+    r = requests.get(
+        "https://fchart.stock.naver.com/sise.nhn",
+        params={"symbol": symbol, "timeframe": "day", "count": count, "requestType": 0},
+        timeout=20,
+    )
+    rows = []
+    for line in r.text.split('<item data="')[1:]:
+        raw = line.split('"')[0]
+        parts = raw.split("|")
+        if len(parts) < 5:
+            continue
+        try:
+            rows.append((pd.to_datetime(parts[0], format="%Y%m%d"), float(parts[4])))
+        except ValueError:
+            continue
+    df = pd.DataFrame(rows, columns=["date", "close"]).sort_values("date")
+    return df.set_index("date")["close"]
+
 
 def load_trades():
+    """price를 비워두면(팀이 종목/금액만 적고 단가는 안 적은 경우) 그날 네이버 종가로 자동
+    채운다(main()에서 prices_wide로 채움) - 여기서는 price 없는 행도 일단 살려둔다."""
     trades = pd.read_csv(TRADES_PATH, dtype={"code": str}, parse_dates=["date"])
-    trades = trades.dropna(subset=["code", "date", "action", "price", "amount"])
+    trades = trades.dropna(subset=["code", "date", "action", "amount"])
     trades["code"] = trades["code"].str.zfill(6)
     trades["action"] = trades["action"].str.upper().str.strip()
+    if "sector" not in trades.columns:
+        trades["sector"] = None
     return trades.sort_values("date").reset_index(drop=True)
 
 
-def compute_holdings_table(trades, latest_prices, name_map):
+def fill_missing_prices(trades, prices_wide):
+    """price가 비어있는 행을 그 날짜의 실제 종가(prices_wide)로 채운다. 그 날짜 종가가 아직
+    없으면(당일 장중 등) 가장 최근 종가로 대체한다. 채운 값은 원본 CSV에도 다시 써서 남긴다."""
+    missing = trades["price"].isna()
+    if not missing.any():
+        return trades, False
+
+    changed = False
+    for idx in trades[missing].index:
+        code, date = trades.at[idx, "code"], trades.at[idx, "date"]
+        price = None
+        if code in prices_wide.columns:
+            s = prices_wide[code]
+            if date in s.index and not pd.isna(s.loc[date]):
+                price = float(s.loc[date])
+            else:
+                s_valid = s.dropna()
+                if not s_valid.empty:
+                    price = float(s_valid.iloc[-1])
+        if price is not None:
+            trades.at[idx, "price"] = price
+            changed = True
+
+    if changed:
+        out = trades.copy()
+        out["date"] = out["date"].dt.strftime("%Y-%m-%d")
+        out.to_csv(TRADES_PATH, index=False, encoding="utf-8-sig")
+        print(f"매매일지에 빈 단가 {missing.sum()}건을 네이버 종가로 채워서 저장했습니다.")
+    return trades, changed
+
+
+def compute_holdings_table(trades, latest_prices, name_map, sector_map):
     """이동평균원가법으로 종목별 현재 보유수량/원가/평균매수단가를 계산."""
     pos = {}  # code -> {"shares": x, "cost": y}
     for _, row in trades.iterrows():
@@ -70,6 +129,7 @@ def compute_holdings_table(trades, latest_prices, name_map):
         rows.append({
             "code": code,
             "name": name_map.get(code, code),
+            "sector": sector_map.get(code) or "-",
             "shares": p["shares"],
             "avg_price": avg_price,
             "cost_basis": p["cost"],
@@ -78,24 +138,40 @@ def compute_holdings_table(trades, latest_prices, name_map):
             "ret_pct": ret_pct,
         })
 
-    total_eval = sum(r["eval_value"] for r in rows if r["eval_value"]) or 1
+    stock_eval = sum(r["eval_value"] for r in rows if r["eval_value"])
+    cash = max(TOTAL_CAPITAL - sum(p["cost"] for p in pos.values()), 0)
+    total_eval = stock_eval + cash
+
     for r in rows:
         r["weight_pct"] = (r["eval_value"] / total_eval * 100) if r["eval_value"] else None
-
     rows.sort(key=lambda r: r["eval_value"] or 0, reverse=True)
+
+    if cash > 0:
+        rows.append({
+            "code": "-", "name": "현금", "sector": "-", "shares": None, "avg_price": None,
+            "cost_basis": cash, "cur_price": None, "eval_value": cash, "ret_pct": None,
+            "weight_pct": cash / total_eval * 100,
+        })
+
     return rows, total_eval
 
 
-def compute_twr_index(trades, prices_wide, kospi):
-    """일별 TWR 지수(MP)와 코스피(BM) 지수를 편입 첫날=100으로 리베이스해서 같이 반환."""
+def compute_twr_index(trades, prices_wide, kospi, kosdaq):
+    """일별 TWR 지수(MP)와 코스피/코스닥(BM) 지수를 편입 첫날=100으로 리베이스해서 같이 반환.
+    미투자 현금(TOTAL_CAPITAL - 누적 순매수금액)은 수익률 0%로 취급해서 v_start/v_end 양쪽에
+    똑같이 더해준다 - 그래야 "몇 %는 현금이라 안 움직인다"는 게 지수에 정확히 희석 반영된다."""
     inception = trades["date"].min()
-    all_dates = sorted(set(prices_wide.index) & set(kospi.index))
+    common_dates = set(prices_wide.index) & set(kospi.index)
+    if kosdaq is not None:
+        common_dates &= set(kosdaq.index)
+    all_dates = sorted(common_dates)
     all_dates = [d for d in all_dates if d >= inception]
     if not all_dates:
-        return [], [], []
+        return [], [], [], []
 
     codes = sorted(trades["code"].unique())
     shares = {c: 0.0 for c in codes}
+    cash = TOTAL_CAPITAL
     trades_by_date = {d: g for d, g in trades.groupby("date")}
 
     mp_index = [100.0]
@@ -105,12 +181,18 @@ def compute_twr_index(trades, prices_wide, kospi):
     if prev_date in trades_by_date:
         for _, row in trades_by_date[prev_date].iterrows():
             qty = row["amount"] / row["price"]
-            shares[row["code"]] += qty if row["action"] == "BUY" else -qty
+            if row["action"] == "BUY":
+                shares[row["code"]] += qty
+                cash -= row["amount"]
+            else:
+                shares[row["code"]] -= qty
+                cash += row["amount"]
+    prev_cash = cash
 
     for d in all_dates[1:]:
-        v_start = sum(shares[c] * prices_wide.at[prev_date, c] for c in codes
+        v_start = prev_cash + sum(shares[c] * prices_wide.at[prev_date, c] for c in codes
                        if not pd.isna(prices_wide.at[prev_date, c]) and shares[c] != 0)
-        v_end = sum(shares[c] * prices_wide.at[d, c] for c in codes
+        v_end = prev_cash + sum(shares[c] * prices_wide.at[d, c] for c in codes
                      if not pd.isna(prices_wide.at[d, c]) and shares[c] != 0)
         if v_start > 0:
             r = v_end / v_start - 1
@@ -122,13 +204,23 @@ def compute_twr_index(trades, prices_wide, kospi):
         if d in trades_by_date:
             for _, row in trades_by_date[d].iterrows():
                 qty = row["amount"] / row["price"]
-                shares[row["code"]] += qty if row["action"] == "BUY" else -qty
+                if row["action"] == "BUY":
+                    shares[row["code"]] += qty
+                    cash -= row["amount"]
+                else:
+                    shares[row["code"]] -= qty
+                    cash += row["amount"]
         prev_date = d
+        prev_cash = cash
 
     kospi_base = kospi.loc[dates_out[0]]
-    bm_index = [kospi.loc[d] / kospi_base * 100 for d in dates_out]
+    bm_kospi = [kospi.loc[d] / kospi_base * 100 for d in dates_out]
+    bm_kosdaq = []
+    if kosdaq is not None:
+        kosdaq_base = kosdaq.loc[dates_out[0]]
+        bm_kosdaq = [kosdaq.loc[d] / kosdaq_base * 100 for d in dates_out]
 
-    return dates_out, mp_index, bm_index
+    return dates_out, mp_index, bm_kospi, bm_kosdaq
 
 
 def main():
@@ -139,6 +231,8 @@ def main():
 
     kospi_df = pd.read_csv(KOSPI_PATH, parse_dates=["date"]).sort_values("date")
     kospi = kospi_df.set_index("date")["kospi_close"]
+    print("코스닥 지수 수집 중...")
+    kosdaq = fetch_index_history("KOSDAQ")
 
     if trades.empty:
         render_empty_page(kospi_df)
@@ -146,6 +240,7 @@ def main():
         return
 
     name_map = dict(zip(trades["code"], trades["name"]))
+    sector_map = dict(zip(trades["code"], trades["sector"]))
 
     if not os.path.exists(PRICES_PATH):
         print("경고: 종목 가격 데이터가 없습니다. fetch_troy_mp_prices.py를 먼저 실행하세요.")
@@ -154,6 +249,8 @@ def main():
     prices["code"] = prices["code"].str.zfill(6)
     prices_wide = prices.pivot_table(index="date", columns="code", values="close").ffill()
 
+    trades, _ = fill_missing_prices(trades, prices_wide)
+
     latest_prices = {}
     for code in trades["code"].unique():
         if code in prices_wide.columns:
@@ -161,15 +258,17 @@ def main():
             if not s.empty:
                 latest_prices[code] = float(s.iloc[-1])
 
-    holdings, total_eval = compute_holdings_table(trades, latest_prices, name_map)
-    dates_out, mp_index, bm_index = compute_twr_index(trades, prices_wide, kospi)
+    holdings, total_eval = compute_holdings_table(trades, latest_prices, name_map, sector_map)
+    dates_out, mp_index, bm_kospi, bm_kosdaq = compute_twr_index(trades, prices_wide, kospi, kosdaq)
 
     dates_json = json.dumps([d.strftime("%Y-%m-%d") for d in dates_out])
     mp_json = json.dumps([round(v, 3) for v in mp_index])
-    bm_json = json.dumps([round(v, 3) for v in bm_index])
+    bm_kospi_json = json.dumps([round(v, 3) for v in bm_kospi])
+    bm_kosdaq_json = json.dumps([round(v, 3) for v in bm_kosdaq])
 
     mp_latest = mp_index[-1] if mp_index else 100.0
-    bm_latest = bm_index[-1] if bm_index else 100.0
+    bm_kospi_latest = bm_kospi[-1] if bm_kospi else 100.0
+    bm_kosdaq_latest = bm_kosdaq[-1] if bm_kosdaq else 100.0
 
     rows_html = ""
     for r in holdings:
@@ -179,11 +278,13 @@ def main():
         cur_price_str = f"{r['cur_price']:,.0f}" if r["cur_price"] else "N/A"
         eval_value_str = f"{r['eval_value']:,.0f}" if r["eval_value"] else "N/A"
         weight_str = f"{r['weight_pct']:.1f}%" if r["weight_pct"] is not None else "N/A"
+        avg_price_str = f"{r['avg_price']:,.0f}" if r["avg_price"] is not None else "-"
         rows_html += f"""
         <tr>
           <td>{r['name']}</td>
           <td>{r['code']}</td>
-          <td>{r['avg_price']:,.0f}</td>
+          <td>{r['sector']}</td>
+          <td>{avg_price_str}</td>
           <td>{cur_price_str}</td>
           <td style="color:{ret_color}">{ret_str}</td>
           <td>{r['cost_basis']:,.0f}</td>
@@ -194,10 +295,12 @@ def main():
     html = TEMPLATE.format(
         dates_json=dates_json,
         mp_json=mp_json,
-        bm_json=bm_json,
+        bm_kospi_json=bm_kospi_json,
+        bm_kosdaq_json=bm_kosdaq_json,
         mp_latest=f"{mp_latest:,.2f}",
-        bm_latest=f"{bm_latest:,.2f}",
-        alpha=f"{mp_latest - bm_latest:+.2f}",
+        bm_kospi_latest=f"{bm_kospi_latest:,.2f}",
+        bm_kosdaq_latest=f"{bm_kosdaq_latest:,.2f}",
+        alpha=f"{mp_latest - bm_kospi_latest:+.2f}",
         inception=trades['date'].min().strftime('%Y-%m-%d'),
         n_holdings=len(holdings),
         total_eval=f"{total_eval:,.0f}",
@@ -207,7 +310,7 @@ def main():
     os.makedirs(DOCS_DIR, exist_ok=True)
     with open(OUT_PATH, "w", encoding="utf-8") as f:
         f.write(html)
-    print(f"저장 완료: {OUT_PATH} (보유 {len(holdings)}종목, MP지수 {mp_latest:.2f} vs BM {bm_latest:.2f})")
+    print(f"저장 완료: {OUT_PATH} (보유 {len(holdings)}종목, MP지수 {mp_latest:.2f} vs 코스피 {bm_kospi_latest:.2f} vs 코스닥 {bm_kosdaq_latest:.2f})")
 
 
 EMPTY_TEMPLATE = """<!doctype html>
@@ -277,15 +380,16 @@ TEMPLATE = """<!doctype html>
 
   <div class="badges">
     <div class="badge mp"><div class="label">트로이 MP 지수</div><div class="value">{mp_latest}</div></div>
-    <div class="badge bm"><div class="label">코스피(BM) 지수</div><div class="value">{bm_latest}</div></div>
-    <div class="badge alpha"><div class="label">초과성과(알파, %p)</div><div class="value">{alpha}</div></div>
+    <div class="badge bm"><div class="label">코스피(BM) 지수</div><div class="value">{bm_kospi_latest}</div></div>
+    <div class="badge bm"><div class="label">코스닥(BM) 지수</div><div class="value">{bm_kosdaq_latest}</div></div>
+    <div class="badge alpha"><div class="label">초과성과(vs 코스피, %p)</div><div class="value">{alpha}</div></div>
   </div>
 
   <div class="chart-wrap"><canvas id="navChart"></canvas></div>
 
   <table>
     <thead><tr>
-      <th>종목명</th><th>코드</th><th>평균매수단가</th><th>현재가</th><th>수익률</th><th>매입금액(잔액)</th><th>평가금액</th><th>비중</th>
+      <th>종목명</th><th>코드</th><th>섹터</th><th>평균매수단가</th><th>현재가</th><th>수익률</th><th>매입금액(잔액)</th><th>평가금액</th><th>비중</th>
     </tr></thead>
     <tbody>{rows_html}
     </tbody>
@@ -294,11 +398,13 @@ TEMPLATE = """<!doctype html>
   <div class="note">
     <h3 style="font-size:13px; color:#c7cbd1; margin:0 0 8px 0;">산출 방법론</h3>
     <b>포트폴리오 변경</b> — <code>data/manual/troy_mp_trades.csv</code> 매매일지에 행을 추가/수정하는 방식.
-    파이프라인 실행마다 자동으로 반영됩니다.<br><br>
+    파이프라인 실행마다 자동으로 반영됩니다. 단가(price)를 비워두면 그날 네이버 종가로 자동 채워집니다.<br><br>
+    <b>현금</b> — 총 투입자본(10억원 기준) 중 종목에 배분되지 않은 나머지는 "현금"으로 잡아 수익률 0%로
+    취급합니다(비중 계산의 분모에도 포함되어 종목별 비중이 왜곡되지 않습니다).<br><br>
     <b>지수 산출</b> — 일별 시간가중수익률(TWR) 연쇄복리. 그날의 매매는 그날 수익률에 영향을 주지 않고(매매는
-    종가 체결 가정, 다음날 비중부터 반영) 순수하게 전일 보유 바스켓의 가격변동만 반영합니다. 그래서 신규 편입·비중
-    조절이 지수 레벨을 왜곡하지 않습니다(펀드 성과평가 TWR 방식과 동일). 미보유 현금은 수익률 0%로 취급합니다.
-    MP·코스피(BM) 모두 편입 첫날을 100으로 리베이스합니다.<br><br>
+    종가 체결 가정, 다음날 비중부터 반영) 순수하게 전일 보유 바스켓(현금 포함)의 가격변동만 반영합니다. 그래서
+    신규 편입·비중 조절이 지수 레벨을 왜곡하지 않습니다(펀드 성과평가 TWR 방식과 동일).
+    MP·코스피·코스닥(BM) 모두 편입 첫날을 100으로 리베이스합니다.<br><br>
     <b>평균매수단가</b> — 이동평균원가법. 매수 시 원가에 매입금액을 더하고, 매도 시 매도수량 비율만큼 원가를 비례
     차감합니다.
   </div>
@@ -306,7 +412,8 @@ TEMPLATE = """<!doctype html>
 <script>
 const dates = {dates_json};
 const mpIndex = {mp_json};
-const bmIndex = {bm_json};
+const bmKospiIndex = {bm_kospi_json};
+const bmKosdaqIndex = {bm_kosdaq_json};
 
 new Chart(document.getElementById('navChart').getContext('2d'), {{
   type: 'line',
@@ -314,7 +421,8 @@ new Chart(document.getElementById('navChart').getContext('2d'), {{
     labels: dates,
     datasets: [
       {{ label: '트로이 MP', data: mpIndex, borderColor: '#ff8787', backgroundColor: 'transparent', tension: 0.1, pointRadius: 0, borderWidth: 2 }},
-      {{ label: '코스피(BM)', data: bmIndex, borderColor: '#4dabf7', backgroundColor: 'transparent', tension: 0.1, pointRadius: 0, borderWidth: 2, borderDash: [5,3] }},
+      {{ label: '코스피(BM)', data: bmKospiIndex, borderColor: '#4dabf7', backgroundColor: 'transparent', tension: 0.1, pointRadius: 0, borderWidth: 2, borderDash: [5,3] }},
+      {{ label: '코스닥(BM)', data: bmKosdaqIndex, borderColor: '#63e6be', backgroundColor: 'transparent', tension: 0.1, pointRadius: 0, borderWidth: 2, borderDash: [2,3] }},
     ]
   }},
   options: {{
