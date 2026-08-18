@@ -222,11 +222,25 @@ def load_fnguide_map():
     return m
 
 
-def apply_fnguide_correction(code, data, fnguide_map, current_use_year):
-    """엑셀에 없거나(구멍) 오래된 현재 회계연도(use_year) 구간 값을 FnGuide 컨센서스로 덮어쓴다.
-    과거 구간(이미 지나간 회계연도)은 FnGuide로 되돌릴 수 없으니 건드리지 않고, 지금 활성
-    회계연도에 해당하는 날짜들(시계열 맨 끝의 연속 구간)만 보정한다."""
-    op_by_year = fnguide_map.get(code)
+def load_manual_overrides():
+    """data/manual/op_band_overrides.csv -> {code: {year: op_won}} - 사용자가 직접 지정한 값.
+    FnGuide보다도 우선순위가 높다(사용자가 명시적으로 지정한 값이 최종 권위)."""
+    path = os.path.join(MANUAL_DIR, "op_band_overrides.csv")
+    if not os.path.exists(path):
+        return {}
+    df = pd.read_csv(path, dtype={"code": str})
+    m = {}
+    for _, row in df.iterrows():
+        m.setdefault(row["code"], {})[int(row["year"])] = row["op_100mil"] * 1e8  # 억원 -> 원
+    return m
+
+
+def apply_year_override(code, data, override_map, current_use_year):
+    """엑셀/FnGuide 값을 현재 회계연도(use_year) 구간에 한해 override_map 값으로 덮어쓴다.
+    과거 구간(이미 지나간 회계연도)은 되돌릴 수 없으니 건드리지 않고, 지금 활성 회계연도에
+    해당하는 날짜들(시계열 맨 끝의 연속 구간)만 보정한다. FnGuide 교차검증과 사용자 수동
+    지정(data/manual/op_band_overrides.csv) 둘 다 이 함수를 공용으로 쓴다."""
+    op_by_year = override_map.get(code)
     if not op_by_year or current_use_year not in op_by_year:
         return data
 
@@ -282,9 +296,16 @@ def main():
     if fnguide_map:
         print(f"FnGuide 보정 적용 중(현재 회계연도 FY{current_use_year}, {len(fnguide_map)}종목 커버)...")
         for code in all_results:
-            all_results[code] = apply_fnguide_correction(code, all_results[code], fnguide_map, current_use_year)
+            all_results[code] = apply_year_override(code, all_results[code], fnguide_map, current_use_year)
     else:
         print("FnGuide 데이터 없음(fetch_op_band_consensus.py 미실행) - 엑셀 원본만 사용")
+
+    manual_map = load_manual_overrides()
+    if manual_map:
+        print(f"수동 지정값 적용 중({len(manual_map)}종목, FnGuide보다 우선)...")
+        for code in manual_map:
+            if code in all_results:
+                all_results[code] = apply_year_override(code, all_results[code], manual_map, current_use_year)
 
     os.makedirs(DETAIL_OUT_DIR, exist_ok=True)
     os.makedirs(SCREEN_DIR, exist_ok=True)
