@@ -300,7 +300,8 @@ def main():
         mp_latest=f"{mp_latest:,.2f}",
         bm_kospi_latest=f"{bm_kospi_latest:,.2f}",
         bm_kosdaq_latest=f"{bm_kosdaq_latest:,.2f}",
-        alpha=f"{mp_latest - bm_kospi_latest:+.2f}",
+        alpha_kospi=f"{mp_latest - bm_kospi_latest:+.2f}",
+        alpha_kosdaq=f"{mp_latest - bm_kosdaq_latest:+.2f}",
         inception=trades['date'].min().strftime('%Y-%m-%d'),
         n_holdings=len(holdings),
         total_eval=f"{total_eval:,.0f}",
@@ -382,7 +383,8 @@ TEMPLATE = """<!doctype html>
     <div class="badge mp"><div class="label">트로이 MP 지수</div><div class="value">{mp_latest}</div></div>
     <div class="badge bm"><div class="label">코스피(BM) 지수</div><div class="value">{bm_kospi_latest}</div></div>
     <div class="badge bm"><div class="label">코스닥(BM) 지수</div><div class="value">{bm_kosdaq_latest}</div></div>
-    <div class="badge alpha"><div class="label">초과성과(vs 코스피, %p)</div><div class="value">{alpha}</div></div>
+    <div class="badge alpha"><div class="label">초과성과(vs 코스피, %p)</div><div class="value">{alpha_kospi}</div></div>
+    <div class="badge alpha"><div class="label">초과성과(vs 코스닥, %p)</div><div class="value">{alpha_kosdaq}</div></div>
   </div>
 
   <div class="chart-wrap"><canvas id="navChart"></canvas></div>
