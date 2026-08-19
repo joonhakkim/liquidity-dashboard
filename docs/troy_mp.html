@@ -17,11 +17,15 @@
   .badge.bm .value { color:#4dabf7; }
   .badge.alpha .value { color:#63e6be; }
   .chart-wrap { height:420px; position:relative; max-width:1100px; margin-bottom:28px; }
-  table { border-collapse: collapse; width:100%; max-width:1000px; font-size:13px; }
+  table { border-collapse: collapse; width:100%; font-size:13px; }
   th, td { padding:8px 12px; text-align:right; border-bottom:1px solid #23262e; }
   th:first-child, td:first-child { text-align:left; }
   th:nth-child(2), td:nth-child(2) { text-align:left; color:#9aa0a6; }
   th { color:#9aa0a6; font-weight:normal; font-size:12px; }
+  .main-row { display:flex; align-items:flex-start; gap:20px; flex-wrap:wrap; }
+  .holdings-col { flex:1 1 700px; max-width:1000px; }
+  .history-col { flex:0 0 340px; background:#1a1d24; border-radius:10px; padding:16px 18px; max-height:640px; overflow-y:auto; }
+  .history-col h3 { font-size:13px; color:#c7cbd1; margin:0 0 10px 0; }
   .note { color:#9aa0a6; font-size:12px; line-height:1.7; max-width:900px; background:#1a1d24; border-radius:10px; padding:16px 18px; margin-top:24px; }
   .note b { color:#ffa94d; }
 </style>
@@ -38,7 +42,7 @@
   <div id="page-content" style="display:none">
   <a class="back" href="index.html">&larr; 홈</a>
   <h1>트로이 MP 트래커</h1>
-  <div class="updated">최종 갱신: 2026-08-19 19:01 &middot; 편입 시작일 2026-08-18 (=100 기준) &middot; 보유 27종목 &middot; 평가금액 합계 952,123,860원</div>
+  <div class="updated">최종 갱신: 2026-08-20 08:44 &middot; 편입 시작일 2026-08-18 (=100 기준) &middot; 보유 27종목 &middot; 평가금액 합계 952,123,860원</div>
 
   <div class="badges">
     <div class="badge mp"><div class="label">트로이 MP 지수</div><div class="value">95.21</div></div>
@@ -50,11 +54,13 @@
 
   <div class="chart-wrap"><canvas id="navChart"></canvas></div>
 
-  <table>
-    <thead><tr>
-      <th>종목명</th><th>코드</th><th>섹터</th><th>평균매수단가</th><th>현재가</th><th>수익률</th><th>매입금액(잔액)</th><th>평가금액</th><th>비중</th>
-    </tr></thead>
-    <tbody>
+  <div class="main-row">
+    <div class="holdings-col">
+      <table>
+        <thead><tr>
+          <th>종목명</th><th>코드</th><th>섹터</th><th>평균매수단가</th><th>현재가</th><th>누적 수익률</th><th>매입금액(잔액)</th><th>평가금액</th><th>비중</th>
+        </tr></thead>
+        <tbody>
         <tr>
           <td>삼성전자</td>
           <td>005930</td>
@@ -352,8 +358,162 @@
           <td>N/A</td>
           <td>N/A</td>
         </tr>
-    </tbody>
-  </table>
+        </tbody>
+      </table>
+    </div>
+    <div class="history-col">
+      <h3>편입·편출 / 비중 조절 히스토리</h3>
+      <table>
+        <thead><tr><th>날짜</th><th>종목</th><th>구분</th><th>금액(원)</th></tr></thead>
+        <tbody>
+        <tr>
+          <td>08/18</td>
+          <td>SK하이닉스</td>
+          <td style="color:#ffa94d">편입</td>
+          <td>249,300,000</td>
+        </tr>
+        <tr>
+          <td>08/18</td>
+          <td>현대해상</td>
+          <td style="color:#ffa94d">편입</td>
+          <td>19,979,400</td>
+        </tr>
+        <tr>
+          <td>08/18</td>
+          <td>현대차</td>
+          <td style="color:#ffa94d">편입</td>
+          <td>20,010,000</td>
+        </tr>
+        <tr>
+          <td>08/18</td>
+          <td>삼성전자</td>
+          <td style="color:#ffa94d">편입</td>
+          <td>249,973,500</td>
+        </tr>
+        <tr>
+          <td>08/18</td>
+          <td>이수화학</td>
+          <td style="color:#ffa94d">편입</td>
+          <td>20,002,180</td>
+        </tr>
+        <tr>
+          <td>08/18</td>
+          <td>LS</td>
+          <td style="color:#ffa94d">편입</td>
+          <td>29,884,500</td>
+        </tr>
+        <tr>
+          <td>08/18</td>
+          <td>GS건설</td>
+          <td style="color:#ffa94d">편입</td>
+          <td>20,011,900</td>
+        </tr>
+        <tr>
+          <td>08/18</td>
+          <td>삼성SDI</td>
+          <td style="color:#ffa94d">편입</td>
+          <td>20,008,000</td>
+        </tr>
+        <tr>
+          <td>08/18</td>
+          <td>S-OIL</td>
+          <td style="color:#ffa94d">편입</td>
+          <td>19,968,000</td>
+        </tr>
+        <tr>
+          <td>08/18</td>
+          <td>SK텔레콤</td>
+          <td style="color:#ffa94d">편입</td>
+          <td>19,960,000</td>
+        </tr>
+        <tr>
+          <td>08/18</td>
+          <td>팬오션</td>
+          <td style="color:#ffa94d">편입</td>
+          <td>19,998,440</td>
+        </tr>
+        <tr>
+          <td>08/18</td>
+          <td>STX엔진</td>
+          <td style="color:#ffa94d">편입</td>
+          <td>20,002,500</td>
+        </tr>
+        <tr>
+          <td>08/18</td>
+          <td>코세스</td>
+          <td style="color:#ffa94d">편입</td>
+          <td>19,993,750</td>
+        </tr>
+        <tr>
+          <td>08/18</td>
+          <td>KB금융</td>
+          <td style="color:#ffa94d">편입</td>
+          <td>20,051,500</td>
+        </tr>
+        <tr>
+          <td>08/18</td>
+          <td>아스플로</td>
+          <td style="color:#ffa94d">편입</td>
+          <td>19,993,750</td>
+        </tr>
+        <tr>
+          <td>08/18</td>
+          <td>엘티씨</td>
+          <td style="color:#ffa94d">편입</td>
+          <td>20,011,200</td>
+        </tr>
+        <tr>
+          <td>08/18</td>
+          <td>코스맥스</td>
+          <td style="color:#ffa94d">편입</td>
+          <td>20,076,000</td>
+        </tr>
+        <tr>
+          <td>08/18</td>
+          <td>알테오젠</td>
+          <td style="color:#ffa94d">편입</td>
+          <td>34,866,000</td>
+        </tr>
+        <tr>
+          <td>08/18</td>
+          <td>파마리서치</td>
+          <td style="color:#ffa94d">편입</td>
+          <td>20,043,000</td>
+        </tr>
+        <tr>
+          <td>08/18</td>
+          <td>심텍</td>
+          <td style="color:#ffa94d">편입</td>
+          <td>19,962,000</td>
+        </tr>
+        <tr>
+          <td>08/18</td>
+          <td>실리콘투</td>
+          <td style="color:#ffa94d">편입</td>
+          <td>19,980,500</td>
+        </tr>
+        <tr>
+          <td>08/18</td>
+          <td>세아제강</td>
+          <td style="color:#ffa94d">편입</td>
+          <td>19,980,000</td>
+        </tr>
+        <tr>
+          <td>08/18</td>
+          <td>우리금융지주</td>
+          <td style="color:#ffa94d">편입</td>
+          <td>20,013,750</td>
+        </tr>
+        <tr>
+          <td>08/18</td>
+          <td>HD현대에너지솔루션</td>
+          <td style="color:#ffa94d">편입</td>
+          <td>20,060,600</td>
+        </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
 
   <div class="note">
     <h3 style="font-size:13px; color:#c7cbd1; margin:0 0 8px 0;">산출 방법론</h3>

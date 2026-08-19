@@ -156,6 +156,53 @@ def compute_holdings_table(trades, latest_prices, name_map, sector_map):
     return rows, total_eval
 
 
+def render_trade_history_html(trades, name_map):
+    """매매일지를 최신순으로 나열하되, 종목별 누적 보유수량을 추적해서 각 매매가 신규 편입/비중
+    확대/비중 축소/전량 편출 중 어디에 해당하는지 자동으로 라벨링한다."""
+    running_shares = {}
+    history = []
+    for _, row in trades.sort_values(["date", "code"]).iterrows():
+        code = row["code"]
+        qty = row["amount"] / row["price"]
+        prev_shares = running_shares.get(code, 0.0)
+        if row["action"] == "BUY":
+            new_shares = prev_shares + qty
+            label = "편입" if prev_shares <= 1e-6 else "비중 확대"
+            color = "#ffa94d"
+        else:
+            new_shares = prev_shares - qty
+            label = "편출" if new_shares <= 1e-6 else "비중 축소"
+            color = "#4dabf7"
+        running_shares[code] = new_shares
+        history.append({
+            "date": row["date"],
+            "name": name_map.get(code, code),
+            "label": label,
+            "color": color,
+            "amount": row["amount"],
+        })
+
+    history.sort(key=lambda h: h["date"], reverse=True)
+
+    if not history:
+        return '<div style="color:#9aa0a6; font-size:12px;">매매 이력이 없습니다.</div>'
+
+    rows_html = ""
+    for h in history:
+        rows_html += f"""
+        <tr>
+          <td>{h['date'].strftime('%m/%d')}</td>
+          <td>{h['name']}</td>
+          <td style="color:{h['color']}">{h['label']}</td>
+          <td>{h['amount']:,.0f}</td>
+        </tr>"""
+    return f"""<table>
+        <thead><tr><th>날짜</th><th>종목</th><th>구분</th><th>금액(원)</th></tr></thead>
+        <tbody>{rows_html}
+        </tbody>
+      </table>"""
+
+
 def compute_twr_index(trades, prices_wide, kospi, kosdaq):
     """일별 TWR 지수(MP)와 코스피/코스닥(BM) 지수를 편입 첫날=100으로 리베이스해서 같이 반환.
     미투자 현금(TOTAL_CAPITAL - 누적 순매수금액)은 수익률 0%로 취급해서 v_start/v_end 양쪽에
@@ -321,7 +368,10 @@ def main():
           <td>{weight_str}</td>
         </tr>"""
 
+    history_html = render_trade_history_html(trades, name_map)
+
     html = TEMPLATE.format(
+        history_html=history_html,
         dates_json=dates_json,
         mp_json=mp_json,
         bm_kospi_json=bm_kospi_json,
@@ -398,11 +448,15 @@ TEMPLATE = """<!doctype html>
   .badge.bm .value {{ color:#4dabf7; }}
   .badge.alpha .value {{ color:#63e6be; }}
   .chart-wrap {{ height:420px; position:relative; max-width:1100px; margin-bottom:28px; }}
-  table {{ border-collapse: collapse; width:100%; max-width:1000px; font-size:13px; }}
+  table {{ border-collapse: collapse; width:100%; font-size:13px; }}
   th, td {{ padding:8px 12px; text-align:right; border-bottom:1px solid #23262e; }}
   th:first-child, td:first-child {{ text-align:left; }}
   th:nth-child(2), td:nth-child(2) {{ text-align:left; color:#9aa0a6; }}
   th {{ color:#9aa0a6; font-weight:normal; font-size:12px; }}
+  .main-row {{ display:flex; align-items:flex-start; gap:20px; flex-wrap:wrap; }}
+  .holdings-col {{ flex:1 1 700px; max-width:1000px; }}
+  .history-col {{ flex:0 0 340px; background:#1a1d24; border-radius:10px; padding:16px 18px; max-height:640px; overflow-y:auto; }}
+  .history-col h3 {{ font-size:13px; color:#c7cbd1; margin:0 0 10px 0; }}
   .note {{ color:#9aa0a6; font-size:12px; line-height:1.7; max-width:900px; background:#1a1d24; border-radius:10px; padding:16px 18px; margin-top:24px; }}
   .note b {{ color:#ffa94d; }}
 </style>
@@ -431,13 +485,21 @@ TEMPLATE = """<!doctype html>
 
   <div class="chart-wrap"><canvas id="navChart"></canvas></div>
 
-  <table>
-    <thead><tr>
-      <th>종목명</th><th>코드</th><th>섹터</th><th>평균매수단가</th><th>현재가</th><th>수익률</th><th>매입금액(잔액)</th><th>평가금액</th><th>비중</th>
-    </tr></thead>
-    <tbody>{rows_html}
-    </tbody>
-  </table>
+  <div class="main-row">
+    <div class="holdings-col">
+      <table>
+        <thead><tr>
+          <th>종목명</th><th>코드</th><th>섹터</th><th>평균매수단가</th><th>현재가</th><th>누적 수익률</th><th>매입금액(잔액)</th><th>평가금액</th><th>비중</th>
+        </tr></thead>
+        <tbody>{rows_html}
+        </tbody>
+      </table>
+    </div>
+    <div class="history-col">
+      <h3>편입·편출 / 비중 조절 히스토리</h3>
+      {history_html}
+    </div>
+  </div>
 
   <div class="note">
     <h3 style="font-size:13px; color:#c7cbd1; margin:0 0 8px 0;">산출 방법론</h3>
