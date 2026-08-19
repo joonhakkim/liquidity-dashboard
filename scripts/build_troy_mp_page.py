@@ -270,6 +270,16 @@ def main():
     bm_kospi_latest = bm_kospi[-1] if bm_kospi else 100.0
     bm_kosdaq_latest = bm_kosdaq[-1] if bm_kosdaq else 100.0
 
+    # 리베이스(=100)된 BM지수 말고 실제 지수 값(포인트)도 참고용으로 하단에 표시한다. 코스닥은
+    # fetch_index_history()를 지금 이 시점에 라이브로 호출해서 장중이면 당일 실시간가가 섞여
+    # 들어올 수 있는데, 페이지의 나머지(코스피·MP지수)는 전부 "하루 한 번, 종가 기준"이라
+    # 날짜를 맞추기 위해 dates_out(=차트/지수 계산에 실제로 쓰인 마지막 날짜) 기준으로 조회한다.
+    ref_date = dates_out[-1] if dates_out else None
+    kospi_actual_latest = float(kospi.loc[ref_date]) if ref_date is not None and ref_date in kospi.index else None
+    kosdaq_actual_latest = float(kosdaq.loc[ref_date]) if ref_date is not None and kosdaq is not None and ref_date in kosdaq.index else None
+    kospi_actual_date = ref_date.strftime("%Y-%m-%d") if ref_date is not None else "N/A"
+    kosdaq_actual_date = kospi_actual_date
+
     rows_html = ""
     for r in holdings:
         ret = r["ret_pct"]
@@ -302,6 +312,10 @@ def main():
         bm_kosdaq_latest=f"{bm_kosdaq_latest:,.2f}",
         alpha_kospi=f"{mp_latest - bm_kospi_latest:+.2f}",
         alpha_kosdaq=f"{mp_latest - bm_kosdaq_latest:+.2f}",
+        kospi_actual=f"{kospi_actual_latest:,.2f}" if kospi_actual_latest is not None else "N/A",
+        kospi_actual_date=kospi_actual_date,
+        kosdaq_actual=f"{kosdaq_actual_latest:,.2f}" if kosdaq_actual_latest is not None else "N/A",
+        kosdaq_actual_date=kosdaq_actual_date,
         inception=trades['date'].min().strftime('%Y-%m-%d'),
         n_holdings=len(holdings),
         total_eval=f"{total_eval:,.0f}",
@@ -409,6 +423,11 @@ TEMPLATE = """<!doctype html>
     MP·코스피·코스닥(BM) 모두 편입 첫날을 100으로 리베이스합니다.<br><br>
     <b>평균매수단가</b> — 이동평균원가법. 매수 시 원가에 매입금액을 더하고, 매도 시 매도수량 비율만큼 원가를 비례
     차감합니다.
+  </div>
+
+  <div class="badges" style="margin-top:16px;">
+    <div class="badge bm"><div class="label">코스피 실제 지수({kospi_actual_date})</div><div class="value">{kospi_actual}</div></div>
+    <div class="badge bm"><div class="label">코스닥 실제 지수({kosdaq_actual_date})</div><div class="value">{kosdaq_actual}</div></div>
   </div>
 
 <script>
