@@ -336,12 +336,14 @@ def main():
     # 계산에는 전혀 반영되지 않고, 테이블에 기준값만 나란히 보여주기 위한 표시 전용 행).
     holdings.append({
         "code": "-", "name": "코스피 지수(기준)", "sector": "-", "shares": None, "avg_price": None,
-        "cost_basis": None, "cur_price": kospi_actual_latest, "eval_value": None, "ret_pct": None,
+        "cost_basis": None, "cur_price": kospi_actual_latest, "eval_value": None,
+        "ret_pct": bm_kospi_latest - 100 if bm_kospi_latest is not None else None,
         "weight_pct": None,
     })
     holdings.append({
         "code": "-", "name": "코스닥 지수(기준)", "sector": "-", "shares": None, "avg_price": None,
-        "cost_basis": None, "cur_price": kosdaq_actual_latest, "eval_value": None, "ret_pct": None,
+        "cost_basis": None, "cur_price": kosdaq_actual_latest, "eval_value": None,
+        "ret_pct": bm_kosdaq_latest - 100 if bm_kosdaq_latest is not None else None,
         "weight_pct": None,
     })
 
