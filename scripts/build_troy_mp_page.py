@@ -292,6 +292,26 @@ def compute_twr_index(trades, prices_wide, kospi, kosdaq):
     return dates_out, mp_index, bm_kospi, bm_kosdaq
 
 
+def compute_period_alpha(dates_out, mp_index, bm_index, days_back=None, prev_trading_day=False):
+    """최근 N일(달력 기준) 또는 직전 거래일 대비 MP수익률-BM수익률(초과성과, %p)을 계산.
+    dates_out/mp_index/bm_index 둘 다 같은 인덱스에 대응하는 리스트(편입일=100 리베이스 시리즈)라서
+    구간 시작점 인덱스만 다르게 잡으면 "그 구간 동안의" 초과성과가 나온다(레벨차 = 수익률차, 둘 다 같은
+    시작 base=100이었기 때문). 데이터가 그 기간만큼 아직 안 쌓였으면 None(N/A) 반환."""
+    if len(dates_out) < 2:
+        return None
+    if prev_trading_day:
+        start_idx = -2
+    else:
+        target_date = pd.Timestamp(dates_out[-1]) - pd.Timedelta(days=int(days_back))
+        candidates = [i for i, d in enumerate(dates_out) if d <= target_date]
+        if not candidates:
+            return None
+        start_idx = candidates[-1]
+    mp_ret = mp_index[-1] / mp_index[start_idx] - 1
+    bm_ret = bm_index[-1] / bm_index[start_idx] - 1
+    return (mp_ret - bm_ret) * 100
+
+
 def main():
     if not os.path.exists(TRADES_PATH):
         print("매매일지 파일이 없습니다:", TRADES_PATH)
@@ -342,6 +362,18 @@ def main():
     mp_latest = mp_index[-1] if mp_index else 100.0
     bm_kospi_latest = bm_kospi[-1] if bm_kospi else 100.0
     bm_kosdaq_latest = bm_kosdaq[-1] if bm_kosdaq else 100.0
+
+    def fmt_alpha(v):
+        return f"{v:+.2f}%p" if v is not None else "N/A"
+
+    alpha_periods = {}
+    for bm_name, bm_series in [("kospi", bm_kospi), ("kosdaq", bm_kosdaq)]:
+        alpha_periods[f"alpha_{bm_name}_1d"] = fmt_alpha(
+            compute_period_alpha(dates_out, mp_index, bm_series, prev_trading_day=True))
+        alpha_periods[f"alpha_{bm_name}_1w"] = fmt_alpha(
+            compute_period_alpha(dates_out, mp_index, bm_series, days_back=7))
+        alpha_periods[f"alpha_{bm_name}_1m"] = fmt_alpha(
+            compute_period_alpha(dates_out, mp_index, bm_series, days_back=30))
 
     # 리베이스(=100)된 BM지수 말고 실제 지수 값(포인트)도 참고용으로 하단에 표시한다. 코스닥은
     # fetch_index_history()를 지금 이 시점에 라이브로 호출해서 장중이면 당일 실시간가가 섞여
@@ -401,6 +433,7 @@ def main():
 
     html = TEMPLATE.format(
         history_html=history_html,
+        **alpha_periods,
         dates_json=dates_json,
         mp_json=mp_json,
         bm_kospi_json=bm_kospi_json,
@@ -470,6 +503,9 @@ TEMPLATE = """<!doctype html>
   h1 {{ font-size:20px; margin:8px 0 4px 0; }}
   .updated {{ color:#9aa0a6; font-size:13px; margin-bottom:20px; }}
   .badges {{ display:grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap:12px; margin-bottom:20px; max-width:820px; }}
+  table.alpha-table {{ max-width:600px; background:#1a1d24; border-radius:10px; margin-bottom:24px; }}
+  table.alpha-table th, table.alpha-table td {{ border-bottom:none; padding:10px 14px; }}
+  table.alpha-table td:not(:first-child) {{ font-weight:bold; }}
   .badge {{ background:#1a1d24; border-radius:10px; padding:14px 16px; }}
   .badge .label {{ color:#9aa0a6; font-size:12px; }}
   .badge .value {{ font-size:20px; font-weight:bold; margin-top:4px; }}
@@ -512,6 +548,14 @@ TEMPLATE = """<!doctype html>
     <div class="badge alpha"><div class="label">초과성과(vs 코스피, %p)</div><div class="value">{alpha_kospi}</div></div>
     <div class="badge alpha"><div class="label">초과성과(vs 코스닥, %p)</div><div class="value">{alpha_kosdaq}</div></div>
   </div>
+
+  <table class="alpha-table">
+    <thead><tr><th>구간별 초과성과</th><th>총 누적(편입일~)</th><th>1일</th><th>1주일</th><th>1개월</th></tr></thead>
+    <tbody>
+      <tr><td>vs 코스피</td><td>{alpha_kospi}%p</td><td>{alpha_kospi_1d}</td><td>{alpha_kospi_1w}</td><td>{alpha_kospi_1m}</td></tr>
+      <tr><td>vs 코스닥</td><td>{alpha_kosdaq}%p</td><td>{alpha_kosdaq_1d}</td><td>{alpha_kosdaq_1w}</td><td>{alpha_kosdaq_1m}</td></tr>
+    </tbody>
+  </table>
 
   <div class="chart-wrap"><canvas id="navChart"></canvas></div>
 
