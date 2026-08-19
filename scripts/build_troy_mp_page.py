@@ -29,9 +29,11 @@ import requests
 
 DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data")
 DOCS_DIR = os.path.join(os.path.dirname(__file__), "..", "docs")
+DOWNLOADS_DIR = os.path.join(DOCS_DIR, "downloads")
 TRADES_PATH = os.path.join(DATA_DIR, "manual", "troy_mp_trades.csv")
 PRICES_PATH = os.path.join(DATA_DIR, "troy_mp_prices.csv")
 OUT_PATH = os.path.join(DOCS_DIR, "troy_mp.html")
+XLSX_HISTORY_PATH = os.path.join(DOWNLOADS_DIR, "troy_mp_history.xlsx")
 
 TOTAL_CAPITAL = 1_000_000_000  # 총 투입자본(원) - 종목별 매입금액 합계 + 남는 건 현금으로 취급
 
@@ -156,9 +158,9 @@ def compute_holdings_table(trades, latest_prices, name_map, sector_map):
     return rows, total_eval
 
 
-def render_trade_history_html(trades, name_map):
-    """매매일지를 최신순으로 나열하되, 종목별 누적 보유수량을 추적해서 각 매매가 신규 편입/비중
-    확대/비중 축소/전량 편출 중 어디에 해당하는지 자동으로 라벨링한다."""
+def build_trade_history(trades, name_map):
+    """매매일지를 종목별 누적 보유수량 추적해서 각 매매가 신규 편입/비중 확대/비중 축소/전량 편출
+    중 어디에 해당하는지 자동으로 라벨링한 리스트로 변환(최신순). HTML 렌더링과 엑셀 저장이 공유."""
     running_shares = {}
     history = []
     for _, row in trades.sort_values(["date", "code"]).iterrows():
@@ -176,14 +178,19 @@ def render_trade_history_html(trades, name_map):
         running_shares[code] = new_shares
         history.append({
             "date": row["date"],
+            "code": code,
             "name": name_map.get(code, code),
             "label": label,
             "color": color,
+            "price": row["price"],
+            "qty": qty,
             "amount": row["amount"],
         })
-
     history.sort(key=lambda h: h["date"], reverse=True)
+    return history
 
+
+def render_trade_history_html(history):
     if not history:
         return '<div style="color:#9aa0a6; font-size:12px;">매매 이력이 없습니다.</div>'
 
@@ -201,6 +208,21 @@ def render_trade_history_html(trades, name_map):
         <tbody>{rows_html}
         </tbody>
       </table>"""
+
+
+def write_trade_history_xlsx(history):
+    os.makedirs(DOWNLOADS_DIR, exist_ok=True)
+    df = pd.DataFrame([{
+        "날짜": h["date"].strftime("%Y-%m-%d"),
+        "종목명": h["name"],
+        "코드": h["code"],
+        "구분": h["label"],
+        "단가": h["price"],
+        "수량": round(h["qty"], 4),
+        "금액(원)": h["amount"],
+    } for h in history])
+    with pd.ExcelWriter(XLSX_HISTORY_PATH, engine="openpyxl") as writer:
+        df.to_excel(writer, sheet_name="편입편출 히스토리", index=False)
 
 
 def compute_twr_index(trades, prices_wide, kospi, kosdaq):
@@ -373,7 +395,9 @@ def main():
           <td>{weight_str}</td>
         </tr>"""
 
-    history_html = render_trade_history_html(trades, name_map)
+    history = build_trade_history(trades, name_map)
+    history_html = render_trade_history_html(history)
+    write_trade_history_xlsx(history)
 
     html = TEMPLATE.format(
         history_html=history_html,
@@ -462,6 +486,7 @@ TEMPLATE = """<!doctype html>
   .holdings-col {{ flex:1 1 700px; max-width:1000px; }}
   .history-col {{ flex:0 0 340px; background:#1a1d24; border-radius:10px; padding:16px 18px; max-height:640px; overflow-y:auto; }}
   .history-col h3 {{ font-size:13px; color:#c7cbd1; margin:0 0 10px 0; }}
+  .history-col a.dl {{ display:block; color:#4dabf7; font-size:12px; text-decoration:none; margin-bottom:12px; }}
   .note {{ color:#9aa0a6; font-size:12px; line-height:1.7; max-width:900px; background:#1a1d24; border-radius:10px; padding:16px 18px; margin-top:24px; }}
   .note b {{ color:#ffa94d; }}
 </style>
@@ -502,6 +527,7 @@ TEMPLATE = """<!doctype html>
     </div>
     <div class="history-col">
       <h3>편입·편출 / 비중 조절 히스토리</h3>
+      <a class="dl" href="downloads/troy_mp_history.xlsx">&#128190; 엑셀 다운로드</a>
       {history_html}
     </div>
   </div>
