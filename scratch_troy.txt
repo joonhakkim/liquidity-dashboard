@@ -1,0 +1,242 @@
+<tbody>
+        <tr>
+          <td>SK하이닉스</td>
+          <td>000660</td>
+          <td>1,621,000</td>
+          <td>1,662,000</td>
+          <td style="color:#ff6b6b">+2.53%</td>
+          <td>250,000,000</td>
+          <td>256,323,257</td>
+          <td>26.2%</td>
+        </tr>
+        <tr>
+          <td>삼성전자</td>
+          <td>005930</td>
+          <td>263,500</td>
+          <td>268,500</td>
+          <td style="color:#ff6b6b">+1.90%</td>
+          <td>250,000,000</td>
+          <td>254,743,833</td>
+          <td>26.0%</td>
+        </tr>
+        <tr>
+          <td>알테오젠</td>
+          <td>196170</td>
+          <td>295,000</td>
+          <td>298,000</td>
+          <td style="color:#ff6b6b">+1.02%</td>
+          <td>35,000,000</td>
+          <td>35,355,932</td>
+          <td>3.6%</td>
+        </tr>
+        <tr>
+          <td>LS</td>
+          <td>006260</td>
+          <td>342,000</td>
+          <td>343,500</td>
+          <td style="color:#ff6b6b">+0.44%</td>
+          <td>30,000,000</td>
+          <td>30,131,579</td>
+          <td>3.1%</td>
+        </tr>
+        <tr>
+          <td>파마리서치</td>
+          <td>214450</td>
+          <td>383,000</td>
+          <td>393,000</td>
+          <td style="color:#ff6b6b">+2.61%</td>
+          <td>20,000,000</td>
+          <td>20,522,193</td>
+          <td>2.1%</td>
+        </tr>
+        <tr>
+          <td>현대차</td>
+          <td>005380</td>
+          <td>427,000</td>
+          <td>435,000</td>
+          <td style="color:#ff6b6b">+1.87%</td>
+          <td>20,000,000</td>
+          <td>20,374,707</td>
+          <td>2.1%</td>
+        </tr>
+        <tr>
+          <td>코세스</td>
+          <td>089890</td>
+          <td>22,450</td>
+          <td>22,850</td>
+          <td style="color:#ff6b6b">+1.78%</td>
+          <td>20,000,000</td>
+          <td>20,356,347</td>
+          <td>2.1%</td>
+        </tr>
+        <tr>
+          <td>삼성SDI</td>
+          <td>006400</td>
+          <td>479,500</td>
+          <td>488,000</td>
+          <td style="color:#ff6b6b">+1.77%</td>
+          <td>20,000,000</td>
+          <td>20,354,536</td>
+          <td>2.1%</td>
+        </tr>
+        <tr>
+          <td>코스맥스</td>
+          <td>192820</td>
+          <td>235,000</td>
+          <td>239,000</td>
+          <td style="color:#ff6b6b">+1.70%</td>
+          <td>20,000,000</td>
+          <td>20,340,426</td>
+          <td>2.1%</td>
+        </tr>
+        <tr>
+          <td>SK텔레콤</td>
+          <td>017670</td>
+          <td>98,200</td>
+          <td>99,800</td>
+          <td style="color:#ff6b6b">+1.63%</td>
+          <td>20,000,000</td>
+          <td>20,325,866</td>
+          <td>2.1%</td>
+        </tr>
+        <tr>
+          <td>심텍</td>
+          <td>222800</td>
+          <td>109,400</td>
+          <td>110,900</td>
+          <td style="color:#ff6b6b">+1.37%</td>
+          <td>20,000,000</td>
+          <td>20,274,223</td>
+          <td>2.1%</td>
+        </tr>
+        <tr>
+          <td>STX엔진</td>
+          <td>077970</td>
+          <td>25,900</td>
+          <td>26,250</td>
+          <td style="color:#ff6b6b">+1.35%</td>
+          <td>20,000,000</td>
+          <td>20,270,270</td>
+          <td>2.1%</td>
+        </tr>
+        <tr>
+          <td>세아제강</td>
+          <td>306200</td>
+          <td>134,400</td>
+          <td>135,000</td>
+          <td style="color:#ff6b6b">+0.45%</td>
+          <td>20,000,000</td>
+          <td>20,089,286</td>
+          <td>2.1%</td>
+        </tr>
+        <tr>
+          <td>KB금융</td>
+          <td>105560</td>
+          <td>168,100</td>
+          <td>168,500</td>
+          <td style="color:#ff6b6b">+0.24%</td>
+          <td>20,000,000</td>
+          <td>20,047,591</td>
+          <td>2.0%</td>
+        </tr>
+        <tr>
+          <td>우리금융지주</td>
+          <td>316140</td>
+          <td>33,700</td>
+          <td>33,750</td>
+          <td style="color:#ff6b6b">+0.15%</td>
+          <td>20,000,000</td>
+          <td>20,029,674</td>
+          <td>2.0%</td>
+        </tr>
+        <tr>
+          <td>팬오션</td>
+          <td>028670</td>
+          <td>6,040</td>
+          <td>6,040</td>
+          <td style="color:#ff6b6b">+0.00%</td>
+          <td>20,000,000</td>
+          <td>20,000,000</td>
+          <td>2.0%</td>
+        </tr>
+        <tr>
+          <td>HD현대에너지솔루션</td>
+          <td>322000</td>
+          <td>124,600</td>
+          <td>124,600</td>
+          <td style="color:#ff6b6b">+0.00%</td>
+          <td>20,000,000</td>
+          <td>20,000,000</td>
+          <td>2.0%</td>
+        </tr>
+        <tr>
+          <td>이수화학</td>
+          <td>005950</td>
+          <td>13,570</td>
+          <td>13,570</td>
+          <td style="color:#ff6b6b">+0.00%</td>
+          <td>20,000,000</td>
+          <td>20,000,000</td>
+          <td>2.0%</td>
+        </tr>
+        <tr>
+          <td>GS건설</td>
+          <td>006360</td>
+          <td>34,150</td>
+          <td>34,150</td>
+          <td style="color:#ff6b6b">+0.00%</td>
+          <td>20,000,000</td>
+          <td>20,000,000</td>
+          <td>2.0%</td>
+        </tr>
+        <tr>
+          <td>엘티씨</td>
+          <td>170920</td>
+          <td>37,900</td>
+          <td>37,900</td>
+          <td style="color:#ff6b6b">+0.00%</td>
+          <td>20,000,000</td>
+          <td>20,000,000</td>
+          <td>2.0%</td>
+        </tr>
+        <tr>
+          <td>아스플로</td>
+          <td>159010</td>
+          <td>22,850</td>
+          <td>22,850</td>
+          <td style="color:#ff6b6b">+0.00%</td>
+          <td>20,000,000</td>
+          <td>20,000,000</td>
+          <td>2.0%</td>
+        </tr>
+        <tr>
+          <td>S-OIL</td>
+          <td>010950</td>
+          <td>154,600</td>
+          <td>153,600</td>
+          <td style="color:#4dabf7">-0.65%</td>
+          <td>20,000,000</td>
+          <td>19,870,634</td>
+          <td>2.0%</td>
+        </tr>
+        <tr>
+          <td>실리콘투</td>
+          <td>257720</td>
+          <td>45,250</td>
+          <td>44,500</td>
+          <td style="color:#4dabf7">-1.66%</td>
+          <td>20,000,000</td>
+          <td>19,668,508</td>
+          <td>2.0%</td>
+        </tr>
+        <tr>
+          <td>현대해상</td>
+          <td>001450</td>
+          <td>50,600</td>
+          <td>49,700</td>
+          <td style="color:#4dabf7">-1.78%</td>
+          <td>20,000,000</td>
+          <td>19,644,269</td>
+          <td>2.0%</td>
+        </tr>
+    
