@@ -4,7 +4,8 @@
 입력: data/manual/troy_mp_trades.csv (팀이 직접 편집하는 매매일지 - 이 파일에 행을 추가/수정하는 것
 자체가 "포트폴리오 변경"이다. 컬럼: date, code, name, action(BUY/SELL), price(체결단가,원), amount(매매금액,원))
 + data/troy_mp_prices.csv (fetch_troy_mp_prices.py가 종목별로 받아온 일별 종가)
-+ data/krx_raw.csv (코스피 종가, BM 비교용)
++ 코스피/코스닥 지수(BM 비교용, 네이버에서 라이브로 받아옴 - data/krx_raw.csv는 당일 아침에만 갱신돼서
+당일 종가가 하루 늦게 반영되는 문제가 있어 여기서는 쓰지 않는다)
 
 지수 산출 방법론 - 일별 시간가중수익률(TWR) 연쇄복리:
   하루 수익률 r(t) = [전일 보유수량으로 오늘 종가 평가한 가치] / [전일 보유수량으로 전일 종가 평가한 가치] - 1
@@ -30,7 +31,6 @@ DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data")
 DOCS_DIR = os.path.join(os.path.dirname(__file__), "..", "docs")
 TRADES_PATH = os.path.join(DATA_DIR, "manual", "troy_mp_trades.csv")
 PRICES_PATH = os.path.join(DATA_DIR, "troy_mp_prices.csv")
-KOSPI_PATH = os.path.join(DATA_DIR, "krx_raw.csv")
 OUT_PATH = os.path.join(DOCS_DIR, "troy_mp.html")
 
 TOTAL_CAPITAL = 1_000_000_000  # 총 투입자본(원) - 종목별 매입금액 합계 + 남는 건 현금으로 취급
@@ -229,13 +229,17 @@ def main():
         return
     trades = load_trades()
 
-    kospi_df = pd.read_csv(KOSPI_PATH, parse_dates=["date"]).sort_values("date")
-    kospi = kospi_df.set_index("date")["kospi_close"]
+    # data/krx_raw.csv(코스피 종가)는 메인 파이프라인이 매일 아침 07:30에만 갱신하는데, 그 시점엔
+    # KRX가 아직 전날 종가만 발표한 상태라 당일 종가가 하루 늦게 반영된다(트로이 MP는 종가 확정 후인
+    # 17:30에 별도 실행되므로 종목별 현재가는 당일 반영되는데 코스피만 하루 밀리는 불일치가 있었음,
+    # 2026-08-19 발견). 코스닥과 동일하게 네이버에서 라이브로 받아와서 날짜를 맞춘다.
+    print("코스피 지수 수집 중...")
+    kospi = fetch_index_history("KOSPI")
     print("코스닥 지수 수집 중...")
     kosdaq = fetch_index_history("KOSDAQ")
 
     if trades.empty:
-        render_empty_page(kospi_df)
+        render_empty_page()
         print("트로이 MP에 아직 편입된 종목이 없습니다. 안내 페이지만 생성했습니다.")
         return
 
@@ -369,7 +373,7 @@ EMPTY_TEMPLATE = """<!doctype html>
 """
 
 
-def render_empty_page(kospi_df):
+def render_empty_page():
     os.makedirs(DOCS_DIR, exist_ok=True)
     with open(OUT_PATH, "w", encoding="utf-8") as f:
         f.write(EMPTY_TEMPLATE)

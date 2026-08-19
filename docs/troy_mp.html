@@ -38,14 +38,14 @@
   <div id="page-content" style="display:none">
   <a class="back" href="index.html">&larr; 홈</a>
   <h1>트로이 MP 트래커</h1>
-  <div class="updated">최종 갱신: 2026-08-19 17:30 &middot; 편입 시작일 2026-08-18 (=100 기준) &middot; 보유 27종목 &middot; 평가금액 합계 952,123,860원</div>
+  <div class="updated">최종 갱신: 2026-08-19 19:01 &middot; 편입 시작일 2026-08-18 (=100 기준) &middot; 보유 27종목 &middot; 평가금액 합계 952,123,860원</div>
 
   <div class="badges">
-    <div class="badge mp"><div class="label">트로이 MP 지수</div><div class="value">100.00</div></div>
-    <div class="badge bm"><div class="label">코스피(BM) 지수</div><div class="value">100.00</div></div>
-    <div class="badge bm"><div class="label">코스닥(BM) 지수</div><div class="value">100.00</div></div>
-    <div class="badge alpha"><div class="label">초과성과(vs 코스피, %p)</div><div class="value">+0.00</div></div>
-    <div class="badge alpha"><div class="label">초과성과(vs 코스닥, %p)</div><div class="value">+0.00</div></div>
+    <div class="badge mp"><div class="label">트로이 MP 지수</div><div class="value">95.21</div></div>
+    <div class="badge bm"><div class="label">코스피(BM) 지수</div><div class="value">94.20</div></div>
+    <div class="badge bm"><div class="label">코스닥(BM) 지수</div><div class="value">98.83</div></div>
+    <div class="badge alpha"><div class="label">초과성과(vs 코스피, %p)</div><div class="value">+1.02</div></div>
+    <div class="badge alpha"><div class="label">초과성과(vs 코스닥, %p)</div><div class="value">-3.62</div></div>
   </div>
 
   <div class="chart-wrap"><canvas id="navChart"></canvas></div>
@@ -335,7 +335,7 @@
           <td>-</td>
           <td>-</td>
           <td>-</td>
-          <td>6,870</td>
+          <td>6,471</td>
           <td style="color:#adb5bd">N/A</td>
           <td>-</td>
           <td>N/A</td>
@@ -346,7 +346,7 @@
           <td>-</td>
           <td>-</td>
           <td>-</td>
-          <td>834</td>
+          <td>824</td>
           <td style="color:#adb5bd">N/A</td>
           <td>-</td>
           <td>N/A</td>
@@ -370,16 +370,16 @@
   </div>
 
   <div class="badges" style="margin-top:16px;">
-    <div class="badge bm"><div class="label">코스피 실제 지수(2026-08-18)</div><div class="value">6,869.83</div></div>
-    <div class="badge bm"><div class="label">코스닥 실제 지수(2026-08-18)</div><div class="value">834.20</div></div>
+    <div class="badge bm"><div class="label">코스피 실제 지수(2026-08-19)</div><div class="value">6,471.17</div></div>
+    <div class="badge bm"><div class="label">코스닥 실제 지수(2026-08-19)</div><div class="value">824.46</div></div>
   </div>
   </div>
 
 <script>
-const dates = ["2026-08-18"];
-const mpIndex = [100.0];
-const bmKospiIndex = [100.0];
-const bmKosdaqIndex = [100.0];
+const dates = ["2026-08-18", "2026-08-19"];
+const mpIndex = [100.0, 95.212];
+const bmKospiIndex = [100.0, 94.197];
+const bmKosdaqIndex = [100.0, 98.832];
 
 function initChart() {
   if (window.__navChartInited) return;
