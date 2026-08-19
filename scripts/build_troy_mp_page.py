@@ -280,6 +280,20 @@ def main():
     kospi_actual_date = ref_date.strftime("%Y-%m-%d") if ref_date is not None else "N/A"
     kosdaq_actual_date = kospi_actual_date
 
+    # "현금" 다음에 코스피/코스닥 지수를 참고용 행으로 추가한다 - 실제 보유 종목이 아니라서
+    # cost_basis/eval_value/weight_pct는 전부 None으로 둔다(총 매입금액·평가금액·BM지수
+    # 계산에는 전혀 반영되지 않고, 테이블에 기준값만 나란히 보여주기 위한 표시 전용 행).
+    holdings.append({
+        "code": "-", "name": "코스피 지수(기준)", "sector": "-", "shares": None, "avg_price": None,
+        "cost_basis": None, "cur_price": kospi_actual_latest, "eval_value": None, "ret_pct": None,
+        "weight_pct": None,
+    })
+    holdings.append({
+        "code": "-", "name": "코스닥 지수(기준)", "sector": "-", "shares": None, "avg_price": None,
+        "cost_basis": None, "cur_price": kosdaq_actual_latest, "eval_value": None, "ret_pct": None,
+        "weight_pct": None,
+    })
+
     rows_html = ""
     for r in holdings:
         ret = r["ret_pct"]
@@ -289,6 +303,7 @@ def main():
         eval_value_str = f"{r['eval_value']:,.0f}" if r["eval_value"] else "N/A"
         weight_str = f"{r['weight_pct']:.1f}%" if r["weight_pct"] is not None else "N/A"
         avg_price_str = f"{r['avg_price']:,.0f}" if r["avg_price"] is not None else "-"
+        cost_basis_str = f"{r['cost_basis']:,.0f}" if r["cost_basis"] is not None else "-"
         rows_html += f"""
         <tr>
           <td>{r['name']}</td>
@@ -297,7 +312,7 @@ def main():
           <td>{avg_price_str}</td>
           <td>{cur_price_str}</td>
           <td style="color:{ret_color}">{ret_str}</td>
-          <td>{r['cost_basis']:,.0f}</td>
+          <td>{cost_basis_str}</td>
           <td>{eval_value_str}</td>
           <td>{weight_str}</td>
         </tr>"""
