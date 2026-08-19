@@ -404,6 +404,15 @@ TEMPLATE = """<!doctype html>
 </style>
 </head>
 <body>
+  <div id="lock-screen" style="position:fixed;inset:0;background:#0f1115;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:1000;">
+    <div style="background:#1a1d24;border-radius:12px;padding:32px 36px;max-width:320px;width:90%;text-align:center;">
+      <div style="font-size:15px;color:#e6e6e6;margin-bottom:14px;">비밀번호를 입력하세요</div>
+      <input id="pw-input" type="password" style="width:100%;box-sizing:border-box;padding:10px 12px;border-radius:8px;border:1px solid #333;background:#0f1115;color:#e6e6e6;font-size:14px;" autofocus>
+      <div id="pw-error" style="color:#ff6b6b;font-size:12px;margin-top:8px;height:14px;"></div>
+      <button id="pw-submit" style="margin-top:12px;width:100%;padding:10px;border-radius:8px;border:none;background:#4dabf7;color:#0f1115;font-weight:bold;cursor:pointer;">확인</button>
+    </div>
+  </div>
+  <div id="page-content" style="display:none">
   <a class="back" href="index.html">&larr; 홈</a>
   <h1>트로이 MP 트래커</h1>
   <div class="updated">최종 갱신: {updated_at} &middot; 편입 시작일 {inception} (=100 기준) &middot; 보유 {n_holdings}종목 &middot; 평가금액 합계 {total_eval}원</div>
@@ -444,6 +453,7 @@ TEMPLATE = """<!doctype html>
     <div class="badge bm"><div class="label">코스피 실제 지수({kospi_actual_date})</div><div class="value">{kospi_actual}</div></div>
     <div class="badge bm"><div class="label">코스닥 실제 지수({kosdaq_actual_date})</div><div class="value">{kosdaq_actual}</div></div>
   </div>
+  </div>
 
 <script>
 const dates = {dates_json};
@@ -451,25 +461,55 @@ const mpIndex = {mp_json};
 const bmKospiIndex = {bm_kospi_json};
 const bmKosdaqIndex = {bm_kosdaq_json};
 
-new Chart(document.getElementById('navChart').getContext('2d'), {{
-  type: 'line',
-  data: {{
-    labels: dates,
-    datasets: [
-      {{ label: '트로이 MP', data: mpIndex, borderColor: '#ff8787', backgroundColor: 'transparent', tension: 0.1, pointRadius: 0, borderWidth: 2 }},
-      {{ label: '코스피(BM)', data: bmKospiIndex, borderColor: '#4dabf7', backgroundColor: 'transparent', tension: 0.1, pointRadius: 0, borderWidth: 2, borderDash: [5,3] }},
-      {{ label: '코스닥(BM)', data: bmKosdaqIndex, borderColor: '#63e6be', backgroundColor: 'transparent', tension: 0.1, pointRadius: 0, borderWidth: 2, borderDash: [2,3] }},
-    ]
-  }},
-  options: {{
-    responsive: true, maintainAspectRatio: false,
-    plugins: {{ legend: {{ labels: {{ color: '#e6e6e6' }} }} }},
-    scales: {{
-      x: {{ ticks: {{ color: '#9aa0a6', maxTicksLimit: 12 }}, grid: {{ color: '#23262e' }} }},
-      y: {{ title: {{ display: true, text: '지수(편입일=100)', color: '#9aa0a6' }}, ticks: {{ color: '#9aa0a6' }}, grid: {{ color: '#23262e' }} }},
+function initChart() {{
+  if (window.__navChartInited) return;
+  window.__navChartInited = true;
+  new Chart(document.getElementById('navChart').getContext('2d'), {{
+    type: 'line',
+    data: {{
+      labels: dates,
+      datasets: [
+        {{ label: '트로이 MP', data: mpIndex, borderColor: '#ff8787', backgroundColor: 'transparent', tension: 0.1, pointRadius: 0, borderWidth: 2 }},
+        {{ label: '코스피(BM)', data: bmKospiIndex, borderColor: '#4dabf7', backgroundColor: 'transparent', tension: 0.1, pointRadius: 0, borderWidth: 2, borderDash: [5,3] }},
+        {{ label: '코스닥(BM)', data: bmKosdaqIndex, borderColor: '#63e6be', backgroundColor: 'transparent', tension: 0.1, pointRadius: 0, borderWidth: 2, borderDash: [2,3] }},
+      ]
+    }},
+    options: {{
+      responsive: true, maintainAspectRatio: false,
+      plugins: {{ legend: {{ labels: {{ color: '#e6e6e6' }} }} }},
+      scales: {{
+        x: {{ ticks: {{ color: '#9aa0a6', maxTicksLimit: 12 }}, grid: {{ color: '#23262e' }} }},
+        y: {{ title: {{ display: true, text: '지수(편입일=100)', color: '#9aa0a6' }}, ticks: {{ color: '#9aa0a6' }}, grid: {{ color: '#23262e' }} }},
+      }}
     }}
+  }});
+}}
+
+const PW_HASH = "03f1a9ee7721268c34ba420e058dd33d487bec8379c9dea6a997b6968400a60e";
+async function sha256Hex(str) {{
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(str));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, "0")).join("");
+}}
+function unlockPage() {{
+  document.getElementById("lock-screen").style.display = "none";
+  document.getElementById("page-content").style.display = "block";
+  initChart();
+}}
+async function tryUnlock() {{
+  const val = document.getElementById("pw-input").value;
+  const hash = await sha256Hex(val);
+  if (hash === PW_HASH) {{
+    sessionStorage.setItem("troy_mp_unlocked", "1");
+    unlockPage();
+  }} else {{
+    document.getElementById("pw-error").textContent = "비밀번호가 틀렸습니다";
   }}
-}});
+}}
+document.getElementById("pw-submit").addEventListener("click", tryUnlock);
+document.getElementById("pw-input").addEventListener("keydown", e => {{ if (e.key === "Enter") tryUnlock(); }});
+if (sessionStorage.getItem("troy_mp_unlocked") === "1") {{
+  unlockPage();
+}}
 </script>
 </body>
 </html>
