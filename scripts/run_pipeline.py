@@ -5,13 +5,23 @@
 - 성공/실패와 관계없이 logs/YYYY-MM-DD.log 에 전체 출력을 남긴다.
 - 하나라도 실패하면 logs/error.log 에 이어서(append) 에러를 기록하고,
   나머지 단계는 계속 진행한다 (한 소스가 막혀도 나머지는 갱신되도록).
-- git commit + push는 두 번 한다: (1) 유동성 대시보드/트로이 MP/크랙스프레드처럼 빠른 핵심
+- git commit + push는 세 번 한다: (1) 유동성 대시보드/트로이 MP/크랙스프레드처럼 빠른 핵심
   단계들이 끝난 직후 한 번, (2) DART 스크리닝처럼 종목이 577개라 API 레이트리밋에 걸려 몇 시간씩
-  걸리기도 하는 느린 단계들까지 다 끝난 뒤 마지막에 한 번 더. 원래는 맨 끝에 한 번만 커밋했는데,
-  Windows 작업 스케줄러의 실행시간 제한(1시간)에 걸려 DART 단계가 안 끝나면 프로세스가 강제
-  종료(SCHED_S_TASK_TERMINATED)되면서 유동성 대시보드 배포까지 며칠씩 안 되는 문제가 있었다
-  (2026-08-13, 사용자가 "금투협 데이터가 8/10에서 멈춰있다"고 알려줘서 발견). 중간 체크포인트를
-  추가하면 뒤쪽이 잘려도 앞쪽 핵심 배포는 이미 끝난 상태라 이 문제가 사라진다.
+  걸리기도 하는 느린 단계들까지 다 끝난 뒤 한 번 더, (3) KRX 재시도(CATCHUP_STEPS) 이후 마지막
+  한 번. 원래는 맨 끝에 한 번만 커밋했는데, Windows 작업 스케줄러의 실행시간 제한(1시간)에
+  걸려 DART 단계가 안 끝나면 프로세스가 강제 종료(SCHED_S_TASK_TERMINATED)되면서 유동성
+  대시보드 배포까지 며칠씩 안 되는 문제가 있었다(2026-08-13, 사용자가 "금투협 데이터가
+  8/10에서 멈춰있다"고 알려줘서 발견). 중간 체크포인트를 추가하면 뒤쪽이 잘려도 앞쪽 핵심
+  배포는 이미 끝난 상태라 이 문제가 사라진다.
+
+- CATCHUP_STEPS(2026-08-19 추가): ADR/볼린저밴드/PER트래커는 KRX Open API(stk_bydd_trd/
+  ksq_bydd_trd)의 당일 데이터에 의존하는데, KRX가 가끔 아침 7시반(CORE_STEPS 시점)까지도
+  발표를 안 한다(사용자 PC가 07:20~18:30에만 켜져 있어서 저녁 늦은 재시도는 불가능). 마침
+  DART 스크리닝(SLOW_STEPS)이 끝나는 늦은 오전엔 KRX가 발표를 끝낸 경우가 많아서, 이 시점에
+  ADR/볼린저밴드도 한 번 더 재시도한다(PER트래커는 이미 SLOW_STEPS에 있었고 이 재시도 덕분에
+  같은 날 우연히 살아난 적이 있어서 - 그게 "중복"이 아니라 의도된 안전장치였다는 걸 알게 됨).
+  fetch_adr.py/fetch_bollinger_prices.py 둘 다 이미 받은 날짜는 건너뛰는 멱등적 로직이라
+  하루 두 번 돌아도 안전하다.
 """
 import subprocess
 import sys
@@ -62,6 +72,18 @@ SLOW_STEPS = [
     ("fetch_op_band_consensus.py", "OP밴드: 전종목 FnGuide 컨센서스 교차검증 수집(종목당 API 호출, 느림)"),
     ("build_op_band.py", "OP밴드 트래커 재빌드(FnGuide 교차검증 반영)"),
     ("build_home.py", "홈페이지 빌드(스크리닝/PER 트래커 최신 링크 반영용으로 한 번 더)"),
+]
+
+# KRX 재시도 단계 - CORE_STEPS(아침 7시반) 시점엔 KRX가 당일 데이터를 아직 안 줬을 수 있는데,
+# SLOW_STEPS(DART 등)가 끝나는 늦은 오전엔 발표가 끝나있는 경우가 많다. fetch_adr.py/
+# fetch_bollinger_prices.py 둘 다 이미 받은 날짜는 건너뛰므로 하루 두 번 돌아도 안전(멱등).
+CATCHUP_STEPS = [
+    ("fetch_adr.py", "[재시도] 코스피/코스닥 ADR (KRX 발표 지연 대비)"),
+    ("fetch_bollinger_prices.py", "[재시도] 볼린저밴드 돌파종목수용 종가 (KRX 발표 지연 대비)"),
+    ("build_bollinger_breakout.py", "[재시도] 볼린저밴드 돌파 종목수 트래커 재빌드"),
+    ("build_dashboard.py", "[재시도] 유동성 대시보드 재빌드(ADR 반영)"),
+    ("build_risk_signals.py", "[재시도] 조정 경고 신호 재빌드"),
+    ("build_home.py", "[재시도] 홈페이지 재빌드"),
 ]
 
 
@@ -133,7 +155,10 @@ def main():
         slow_ok = run_steps(SLOW_STEPS, write, error_log_path)
         git_deploy(write, f"데이터 자동 갱신(스크리닝/PER) {today}")
 
-        overall_ok = core_ok and slow_ok
+        catchup_ok = run_steps(CATCHUP_STEPS, write, error_log_path)
+        git_deploy(write, f"데이터 자동 갱신(KRX 재시도) {today}")
+
+        overall_ok = core_ok and slow_ok and catchup_ok
         write(f"\n===== 파이프라인 실행 종료: {datetime.now().isoformat()} (성공={overall_ok}) =====")
 
     sys.exit(0 if overall_ok else 1)
