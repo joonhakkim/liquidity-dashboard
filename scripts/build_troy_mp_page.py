@@ -321,20 +321,32 @@ def pct_return(level):
     return (level / BASE_INDEX - 1) * 100 if level is not None else None
 
 
-def compute_period_alpha(dates_out, mp_index, bm_index, days_back=None, prev_trading_day=False):
-    """최근 N일(달력 기준) 또는 직전 거래일 대비 MP수익률-BM수익률(초과성과, %p)을 계산.
-    비율(mp_index[-1]/mp_index[start_idx])로 계산해서 BASE_INDEX 값과 무관하게 항상 정확한
-    %가 나온다. 데이터가 그 기간만큼 아직 안 쌓였으면 None(N/A) 반환."""
+def _period_start_idx(dates_out, days_back=None, prev_trading_day=False):
+    """최근 N일(달력 기준) 또는 직전 거래일에 해당하는 dates_out 인덱스를 찾는다.
+    데이터가 그 기간만큼 아직 안 쌓였으면 None."""
     if len(dates_out) < 2:
         return None
     if prev_trading_day:
-        start_idx = -2
-    else:
-        target_date = pd.Timestamp(dates_out[-1]) - pd.Timedelta(days=int(days_back))
-        candidates = [i for i, d in enumerate(dates_out) if d <= target_date]
-        if not candidates:
-            return None
-        start_idx = candidates[-1]
+        return -2
+    target_date = pd.Timestamp(dates_out[-1]) - pd.Timedelta(days=int(days_back))
+    candidates = [i for i, d in enumerate(dates_out) if d <= target_date]
+    return candidates[-1] if candidates else None
+
+
+def compute_period_return(dates_out, index_series, days_back=None, prev_trading_day=False):
+    """최근 N일(달력 기준) 또는 직전 거래일 대비 지수 자체의 수익률(%)을 계산. 비율로
+    계산해서 BASE_INDEX 값과 무관하게 항상 정확한 %가 나온다."""
+    start_idx = _period_start_idx(dates_out, days_back, prev_trading_day)
+    if start_idx is None:
+        return None
+    return (index_series[-1] / index_series[start_idx] - 1) * 100
+
+
+def compute_period_alpha(dates_out, mp_index, bm_index, days_back=None, prev_trading_day=False):
+    """최근 N일(달력 기준) 또는 직전 거래일 대비 MP수익률-BM수익률(초과성과, %p)을 계산."""
+    start_idx = _period_start_idx(dates_out, days_back, prev_trading_day)
+    if start_idx is None:
+        return None
     mp_ret = mp_index[-1] / mp_index[start_idx] - 1
     bm_ret = bm_index[-1] / bm_index[start_idx] - 1
     return (mp_ret - bm_ret) * 100
@@ -402,12 +414,18 @@ def main(portfolio, other_portfolios):
     bm_kospi_latest = bm_kospi[-1] if bm_kospi else float(BASE_INDEX)
     bm_kosdaq_latest = bm_kosdaq[-1] if bm_kosdaq else float(BASE_INDEX)
 
-    def fmt_alpha(v):
-        """초과성과 표 칸에 야광(neon) 색으로 강조해서 표시 - 양수는 네온 그린, 음수는 네온 핑크."""
+    def fmt_neon(v, suffix):
+        """초과성과/자체 수익률 표 칸에 야광(neon) 색으로 강조해서 표시 - 양수는 네온 그린, 음수는 네온 핑크."""
         if v is None:
             return '<span style="color:#6b7280">N/A</span>'
         color = "#39ff14" if v >= 0 else "#ff2ec4"
-        return f'<span style="color:{color}; text-shadow:0 0 6px {color}88;">{v:+.2f}%p</span>'
+        return f'<span style="color:{color}; text-shadow:0 0 6px {color}88;">{v:+.2f}{suffix}</span>'
+
+    def fmt_alpha(v):
+        return fmt_neon(v, "%p")
+
+    def fmt_return(v):
+        return fmt_neon(v, "%")
 
     alpha_periods = {}
     for bm_name, bm_series, bm_latest in [("kospi", bm_kospi, bm_kospi_latest), ("kosdaq", bm_kosdaq, bm_kosdaq_latest)]:
@@ -418,6 +436,15 @@ def main(portfolio, other_portfolios):
             compute_period_alpha(dates_out, mp_index, bm_series, days_back=7))
         alpha_periods[f"alpha_{bm_name}_1m"] = fmt_alpha(
             compute_period_alpha(dates_out, mp_index, bm_series, days_back=30))
+
+    # 포트폴리오 자체의 구간별 수익률(벤치마크 대비 초과성과가 아니라 순수 자체 수익률) -
+    # 초과성과 표 옆에 나란히 보여주기 위함.
+    own_periods = {
+        "own_total": fmt_return(pct_return(mp_latest)),
+        "own_1d": fmt_return(compute_period_return(dates_out, mp_index, prev_trading_day=True)),
+        "own_1w": fmt_return(compute_period_return(dates_out, mp_index, days_back=7)),
+        "own_1m": fmt_return(compute_period_return(dates_out, mp_index, days_back=30)),
+    }
 
     # 리베이스된 BM지수 말고 실제 지수 값(포인트)도 참고용으로 하단에 표시한다. 코스닥은
     # fetch_index_history()를 지금 이 시점에 라이브로 호출해서 장중이면 당일 실시간가가 섞여
@@ -490,6 +517,7 @@ def main(portfolio, other_portfolios):
         xlsx_name=xlsx_name,
         base_index=f"{BASE_INDEX:,}",
         **alpha_periods,
+        **own_periods,
         dates_json=dates_json,
         mp_json=mp_json,
         bm_kospi_json=bm_kospi_json,
@@ -579,7 +607,8 @@ TEMPLATE = """<!doctype html>
   .mp-tabs a {{ color:#9aa0a6; background:#1a1d24; }}
   .mp-tabs span.active {{ color:#0f1115; background:#4dabf7; font-weight:bold; }}
   .badges {{ display:grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap:12px; margin-bottom:20px; max-width:820px; }}
-  table.alpha-table {{ max-width:600px; background:#1a1d24; border-radius:10px; margin-bottom:24px; }}
+  .table-row {{ display:flex; gap:16px; flex-wrap:wrap; margin-bottom:24px; }}
+  table.alpha-table {{ max-width:600px; background:#1a1d24; border-radius:10px; margin-bottom:0; }}
   table.alpha-table th, table.alpha-table td {{ border-bottom:none; padding:10px 14px; }}
   table.alpha-table td:not(:first-child) {{ font-weight:bold; }}
   .badge {{ background:#1a1d24; border-radius:10px; padding:14px 16px; }}
@@ -624,13 +653,21 @@ TEMPLATE = """<!doctype html>
     <div class="badge bm"><div class="label">코스닥(BM) 지수</div><div class="value">{bm_kosdaq_latest}</div></div>
   </div>
 
-  <table class="alpha-table">
-    <thead><tr><th>구간별 초과성과</th><th>총 누적(편입일~)</th><th>1일</th><th>1주일</th><th>1개월</th></tr></thead>
-    <tbody>
-      <tr><td>vs 코스피</td><td>{alpha_kospi_total}</td><td>{alpha_kospi_1d}</td><td>{alpha_kospi_1w}</td><td>{alpha_kospi_1m}</td></tr>
-      <tr><td>vs 코스닥</td><td>{alpha_kosdaq_total}</td><td>{alpha_kosdaq_1d}</td><td>{alpha_kosdaq_1w}</td><td>{alpha_kosdaq_1m}</td></tr>
-    </tbody>
-  </table>
+  <div class="table-row">
+    <table class="alpha-table">
+      <thead><tr><th>포트폴리오 자체 수익률</th><th>총 누적(편입일~)</th><th>1일</th><th>1주일</th><th>1개월</th></tr></thead>
+      <tbody>
+        <tr><td>{page_name}</td><td>{own_total}</td><td>{own_1d}</td><td>{own_1w}</td><td>{own_1m}</td></tr>
+      </tbody>
+    </table>
+    <table class="alpha-table">
+      <thead><tr><th>구간별 초과성과</th><th>총 누적(편입일~)</th><th>1일</th><th>1주일</th><th>1개월</th></tr></thead>
+      <tbody>
+        <tr><td>vs 코스피</td><td>{alpha_kospi_total}</td><td>{alpha_kospi_1d}</td><td>{alpha_kospi_1w}</td><td>{alpha_kospi_1m}</td></tr>
+        <tr><td>vs 코스닥</td><td>{alpha_kosdaq_total}</td><td>{alpha_kosdaq_1d}</td><td>{alpha_kosdaq_1w}</td><td>{alpha_kosdaq_1m}</td></tr>
+      </tbody>
+    </table>
+  </div>
 
   <div class="chart-wrap"><canvas id="navChart"></canvas></div>
 
