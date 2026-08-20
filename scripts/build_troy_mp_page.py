@@ -655,13 +655,13 @@ TEMPLATE = """<!doctype html>
 
   <div class="table-row">
     <table class="alpha-table">
-      <thead><tr><th>포트폴리오 자체 수익률</th><th>총 누적(편입일~)</th><th>1일</th><th>1주일</th><th>1개월</th></tr></thead>
+      <thead><tr><th>포트폴리오 자체 수익률</th><th>총 누적(시작일~)</th><th>1일</th><th>1주일</th><th>1개월</th></tr></thead>
       <tbody>
         <tr><td>{page_name}</td><td>{own_total}</td><td>{own_1d}</td><td>{own_1w}</td><td>{own_1m}</td></tr>
       </tbody>
     </table>
     <table class="alpha-table">
-      <thead><tr><th>구간별 초과성과</th><th>총 누적(편입일~)</th><th>1일</th><th>1주일</th><th>1개월</th></tr></thead>
+      <thead><tr><th>구간별 초과성과</th><th>총 누적(시작일~)</th><th>1일</th><th>1주일</th><th>1개월</th></tr></thead>
       <tbody>
         <tr><td>vs 코스피</td><td>{alpha_kospi_total}</td><td>{alpha_kospi_1d}</td><td>{alpha_kospi_1w}</td><td>{alpha_kospi_1m}</td></tr>
         <tr><td>vs 코스닥</td><td>{alpha_kosdaq_total}</td><td>{alpha_kosdaq_1d}</td><td>{alpha_kosdaq_1w}</td><td>{alpha_kosdaq_1m}</td></tr>
