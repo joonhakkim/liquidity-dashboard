@@ -102,7 +102,7 @@ def fill_missing_prices(trades, prices_wide):
     return trades, changed
 
 
-def compute_holdings_table(trades, latest_prices, name_map, sector_map):
+def compute_holdings_table(trades, latest_prices, prev_prices, name_map, sector_map):
     """이동평균원가법으로 종목별 현재 보유수량/원가/평균매수단가를 계산."""
     pos = {}  # code -> {"shares": x, "cost": y}
     for _, row in trades.iterrows():
@@ -126,8 +126,10 @@ def compute_holdings_table(trades, latest_prices, name_map, sector_map):
             continue
         avg_price = p["cost"] / p["shares"]
         cur_price = latest_prices.get(code)
+        prev_price = prev_prices.get(code)
         eval_value = p["shares"] * cur_price if cur_price else None
         ret_pct = (cur_price / avg_price - 1) * 100 if cur_price else None
+        day_ret_pct = (cur_price / prev_price - 1) * 100 if cur_price and prev_price else None
         rows.append({
             "code": code,
             "name": name_map.get(code, code),
@@ -138,6 +140,7 @@ def compute_holdings_table(trades, latest_prices, name_map, sector_map):
             "cur_price": cur_price,
             "eval_value": eval_value,
             "ret_pct": ret_pct,
+            "day_ret_pct": day_ret_pct,
         })
 
     stock_eval = sum(r["eval_value"] for r in rows if r["eval_value"])
@@ -152,7 +155,7 @@ def compute_holdings_table(trades, latest_prices, name_map, sector_map):
         rows.append({
             "code": "-", "name": "현금", "sector": "-", "shares": None, "avg_price": None,
             "cost_basis": cash, "cur_price": None, "eval_value": cash, "ret_pct": None,
-            "weight_pct": cash / total_eval * 100,
+            "day_ret_pct": None, "weight_pct": cash / total_eval * 100,
         })
 
     return rows, total_eval
@@ -345,13 +348,16 @@ def main():
     trades, _ = fill_missing_prices(trades, prices_wide)
 
     latest_prices = {}
+    prev_prices = {}
     for code in trades["code"].unique():
         if code in prices_wide.columns:
             s = prices_wide[code].dropna()
             if not s.empty:
                 latest_prices[code] = float(s.iloc[-1])
+            if len(s) >= 2:
+                prev_prices[code] = float(s.iloc[-2])
 
-    holdings, total_eval = compute_holdings_table(trades, latest_prices, name_map, sector_map)
+    holdings, total_eval = compute_holdings_table(trades, latest_prices, prev_prices, name_map, sector_map)
     dates_out, mp_index, bm_kospi, bm_kosdaq = compute_twr_index(trades, prices_wide, kospi, kosdaq)
 
     dates_json = json.dumps([d.strftime("%Y-%m-%d") for d in dates_out])
@@ -391,17 +397,20 @@ def main():
     # 누적 수익률 칸에는 지수 자체 수익률이 아니라 "MP수익률 - 지수수익률"(=초과성과, 위 배지의
     # 초과성과와 동일한 값)을 표시한다 - MP가 벤치마크 대비 누적으로 얼마나 앞서/뒤처졌는지를
     # 종목 리스트에서 바로 보기 위함.
+    kospi_day_ret = (bm_kospi[-1] / bm_kospi[-2] - 1) * 100 if len(bm_kospi) >= 2 else None
+    kosdaq_day_ret = (bm_kosdaq[-1] / bm_kosdaq[-2] - 1) * 100 if len(bm_kosdaq) >= 2 else None
+
     holdings.append({
         "code": "-", "name": "코스피 지수(기준)", "sector": "-", "shares": None, "avg_price": None,
         "cost_basis": None, "cur_price": kospi_actual_latest, "eval_value": None,
         "ret_pct": mp_latest - bm_kospi_latest if bm_kospi_latest is not None else None,
-        "weight_pct": None,
+        "day_ret_pct": kospi_day_ret, "weight_pct": None,
     })
     holdings.append({
         "code": "-", "name": "코스닥 지수(기준)", "sector": "-", "shares": None, "avg_price": None,
         "cost_basis": None, "cur_price": kosdaq_actual_latest, "eval_value": None,
         "ret_pct": mp_latest - bm_kosdaq_latest if bm_kosdaq_latest is not None else None,
-        "weight_pct": None,
+        "day_ret_pct": kosdaq_day_ret, "weight_pct": None,
     })
 
     rows_html = ""
@@ -409,6 +418,9 @@ def main():
         ret = r["ret_pct"]
         ret_str = "N/A" if ret is None else f"{ret:+.2f}%"
         ret_color = "#adb5bd" if ret is None else ("#ff6b6b" if ret >= 0 else "#4dabf7")
+        day_ret = r.get("day_ret_pct")
+        day_ret_str = "N/A" if day_ret is None else f"{day_ret:+.2f}%"
+        day_ret_color = "#adb5bd" if day_ret is None else ("#ff6b6b" if day_ret >= 0 else "#4dabf7")
         cur_price_str = f"{r['cur_price']:,.0f}" if r["cur_price"] else "N/A"
         eval_value_str = f"{r['eval_value']:,.0f}" if r["eval_value"] else "N/A"
         weight_str = f"{r['weight_pct']:.1f}%" if r["weight_pct"] is not None else "N/A"
@@ -421,6 +433,7 @@ def main():
           <td>{r['sector']}</td>
           <td>{avg_price_str}</td>
           <td>{cur_price_str}</td>
+          <td style="color:{day_ret_color}">{day_ret_str}</td>
           <td style="color:{ret_color}">{ret_str}</td>
           <td>{cost_basis_str}</td>
           <td>{eval_value_str}</td>
@@ -563,7 +576,7 @@ TEMPLATE = """<!doctype html>
     <div class="holdings-col">
       <table>
         <thead><tr>
-          <th>종목명</th><th>코드</th><th>섹터</th><th>평균매수단가</th><th>현재가</th><th>누적 수익률</th><th>매입금액(잔액)</th><th>평가금액</th><th>비중</th>
+          <th>종목명</th><th>코드</th><th>섹터</th><th>평균매수단가</th><th>현재가</th><th>1일 수익률</th><th>누적 수익률</th><th>매입금액(잔액)</th><th>평가금액</th><th>비중</th>
         </tr></thead>
         <tbody>{rows_html}
         </tbody>
