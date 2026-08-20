@@ -159,23 +159,38 @@ def compute_holdings_table(trades, latest_prices, prev_prices, name_map, sector_
 
 
 def build_trade_history(trades, name_map):
-    """매매일지를 종목별 누적 보유수량 추적해서 각 매매가 신규 편입/비중 확대/비중 축소/전량 편출
-    중 어디에 해당하는지 자동으로 라벨링한 리스트로 변환(최신순). HTML 렌더링과 엑셀 저장이 공유."""
-    running_shares = {}
+    """매매일지를 종목별 누적 보유수량/원가 추적해서 각 매매가 신규 편입/비중 확대/비중 축소/전량
+    편출 중 어디에 해당하는지 자동으로 라벨링한 리스트로 변환(최신순). HTML 렌더링과 엑셀 저장이
+    공유. "편출"(전량 매도) 행에는 편입 시점부터 편출 시점까지의 누적 수익률(realized_ret_pct,
+    이동평균원가법 평균매수단가 대비 매도단가)도 같이 계산해서 남긴다."""
+    pos = {}  # code -> {"shares": x, "cost": y} - compute_holdings_table과 동일한 방식
     history = []
     for _, row in trades.sort_values(["date", "code"]).iterrows():
         code = row["code"]
         qty = row["amount"] / row["price"]
-        prev_shares = running_shares.get(code, 0.0)
+        p = pos.setdefault(code, {"shares": 0.0, "cost": 0.0})
+        prev_shares = p["shares"]
+        realized_ret_pct = None
         if row["action"] == "BUY":
-            new_shares = prev_shares + qty
+            p["shares"] += qty
+            p["cost"] += row["amount"]
             label = "편입" if prev_shares <= 1e-6 else "비중 확대"
             color = "#ffa94d"
         else:
-            new_shares = prev_shares - qty
-            label = "편출" if new_shares <= 1e-6 else "비중 축소"
+            avg_cost_before = p["cost"] / p["shares"] if p["shares"] > 1e-6 else None
+            if p["shares"] > 0:
+                ratio = min(qty / p["shares"], 1.0)
+                p["cost"] *= (1 - ratio)
+                p["shares"] -= qty
+            else:
+                p["shares"] -= qty
+            if p["shares"] <= 1e-6:
+                label = "편출"
+                if avg_cost_before:
+                    realized_ret_pct = (row["price"] / avg_cost_before - 1) * 100
+            else:
+                label = "비중 축소"
             color = "#4dabf7"
-        running_shares[code] = new_shares
         history.append({
             "date": row["date"],
             "code": code,
@@ -185,6 +200,7 @@ def build_trade_history(trades, name_map):
             "price": row["price"],
             "qty": qty,
             "amount": row["amount"],
+            "realized_ret_pct": realized_ret_pct,
         })
     history.sort(key=lambda h: h["date"], reverse=True)
     return history
@@ -196,15 +212,22 @@ def render_trade_history_html(history):
 
     rows_html = ""
     for h in history:
+        ret = h.get("realized_ret_pct")
+        if ret is None:
+            ret_html = "-"
+        else:
+            ret_color = "#ff6b6b" if ret >= 0 else "#4dabf7"
+            ret_html = f'<span style="color:{ret_color}">{ret:+.2f}%</span>'
         rows_html += f"""
         <tr>
           <td>{h['date'].strftime('%m/%d')}</td>
           <td>{h['name']}</td>
           <td style="color:{h['color']}">{h['label']}</td>
           <td>{h['amount']:,.0f}</td>
+          <td>{ret_html}</td>
         </tr>"""
     return f"""<table>
-        <thead><tr><th>날짜</th><th>종목</th><th>구분</th><th>금액(원)</th></tr></thead>
+        <thead><tr><th>날짜</th><th>종목</th><th>구분</th><th>금액(원)</th><th>편입~편출 누적수익률</th></tr></thead>
         <tbody>{rows_html}
         </tbody>
       </table>"""
@@ -220,6 +243,7 @@ def write_trade_history_xlsx(history, xlsx_path):
         "단가": h["price"],
         "수량": round(h["qty"], 4),
         "금액(원)": h["amount"],
+        "편입~편출 누적수익률(%)": round(h["realized_ret_pct"], 2) if h.get("realized_ret_pct") is not None else None,
     } for h in history])
     with pd.ExcelWriter(xlsx_path, engine="openpyxl") as writer:
         df.to_excel(writer, sheet_name="편입편출 히스토리", index=False)
@@ -572,7 +596,7 @@ TEMPLATE = """<!doctype html>
   th {{ color:#9aa0a6; font-weight:normal; font-size:12px; }}
   .main-row {{ display:flex; align-items:flex-start; gap:20px; flex-wrap:wrap; }}
   .holdings-col {{ flex:1 1 700px; max-width:1000px; }}
-  .history-col {{ flex:0 0 340px; background:#1a1d24; border-radius:10px; padding:16px 18px; max-height:640px; overflow-y:auto; }}
+  .history-col {{ flex:0 0 420px; background:#1a1d24; border-radius:10px; padding:16px 18px; max-height:640px; overflow-y:auto; }}
   .history-col h3 {{ font-size:13px; color:#c7cbd1; margin:0 0 10px 0; }}
   .history-col a.dl {{ display:block; color:#4dabf7; font-size:12px; text-decoration:none; margin-bottom:12px; }}
   .note {{ color:#9aa0a6; font-size:12px; line-height:1.7; max-width:900px; background:#1a1d24; border-radius:10px; padding:16px 18px; margin-top:24px; }}
