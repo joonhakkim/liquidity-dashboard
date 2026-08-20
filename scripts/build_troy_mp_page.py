@@ -1,9 +1,13 @@
 """
-트로이 MP(모델 포트폴리오) 트래커 페이지(docs/troy_mp.html)를 만든다.
+MP(모델 포트폴리오) 트래커 페이지들(docs/troy_mp.html, docs/momentum_mp.html, ...)을 만든다.
+mp_portfolios.PORTFOLIOS를 순회하며 포트폴리오별로 같은 로직을 반복 적용한다(2026-08-20,
+"모멘텀 MP" 추가하며 "트로이 MP" 전용 하드코딩을 일반화 - 새 포트폴리오는 mp_portfolios.py에
+항목만 추가하면 됨).
 
-입력: data/manual/troy_mp_trades.csv (팀이 직접 편집하는 매매일지 - 이 파일에 행을 추가/수정하는 것
-자체가 "포트폴리오 변경"이다. 컬럼: date, code, name, action(BUY/SELL), price(체결단가,원), amount(매매금액,원))
-+ data/troy_mp_prices.csv (fetch_troy_mp_prices.py가 종목별로 받아온 일별 종가)
+입력(포트폴리오별): data/manual/<id>_trades.csv (팀이 직접 편집하는 매매일지 - 이 파일에 행을
+추가/수정하는 것 자체가 "포트폴리오 변경". 컬럼: date, code, name, action(BUY/SELL),
+price(체결단가,원), amount(매매금액,원), sector)
++ data/<id>_prices.csv (fetch_troy_mp_prices.py가 종목별로 받아온 일별 종가)
 + 코스피/코스닥 지수(BM 비교용, 네이버에서 라이브로 받아옴 - data/krx_raw.csv는 당일 아침에만 갱신돼서
 당일 종가가 하루 늦게 반영되는 문제가 있어 여기서는 쓰지 않는다)
 
@@ -13,7 +17,8 @@
   보유수량에만 반영), 순수하게 "전일 보유 종목바스켓의 가격변동"만 반영한다. 이렇게 하면 신규 편입/비중
   조절(매매금액 유입출)이 지수 레벨을 왜곡하지 않는다(펀드 성과평가의 표준 TWR 방식과 동일 원리) - 그래서
   총 투입자본(초기 원금) 같은 걸 별도로 물어볼 필요가 없다. 미보유 현금은 수익률 0%로 취급(별도 비중 없음).
-  MP지수·코스피(BM)지수 둘 다 "MP에 처음 종목이 편입된 날"을 100으로 리베이스한다.
+  MP지수·코스피(BM)지수 둘 다 "MP에 처음 종목이 편입된 날"을 BASE_INDEX(=10000)로 리베이스한다
+  (원래 100이었는데 2026-08-20에 사용자 요청으로 10000으로 변경).
 
 보유종목 테이블 - 이동평균원가법(weighted-average cost)으로 매수단가를 관리한다:
   BUY: shares += amount/price, cost_basis += amount
@@ -27,15 +32,7 @@ from datetime import datetime
 import pandas as pd
 import requests
 
-DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data")
-DOCS_DIR = os.path.join(os.path.dirname(__file__), "..", "docs")
-DOWNLOADS_DIR = os.path.join(DOCS_DIR, "downloads")
-TRADES_PATH = os.path.join(DATA_DIR, "manual", "troy_mp_trades.csv")
-PRICES_PATH = os.path.join(DATA_DIR, "troy_mp_prices.csv")
-OUT_PATH = os.path.join(DOCS_DIR, "troy_mp.html")
-XLSX_HISTORY_PATH = os.path.join(DOWNLOADS_DIR, "troy_mp_history.xlsx")
-
-TOTAL_CAPITAL = 1_000_000_000  # 총 투입자본(원) - 종목별 매입금액 합계 + 남는 건 현금으로 취급
+from mp_portfolios import PORTFOLIOS, BASE_INDEX, TOTAL_CAPITAL, DOCS_DIR, DOWNLOADS_DIR
 
 
 def fetch_index_history(symbol, count=3000):
@@ -59,10 +56,10 @@ def fetch_index_history(symbol, count=3000):
     return df.set_index("date")["close"]
 
 
-def load_trades():
+def load_trades(trades_path):
     """price를 비워두면(팀이 종목/금액만 적고 단가는 안 적은 경우) 그날 네이버 종가로 자동
     채운다(main()에서 prices_wide로 채움) - 여기서는 price 없는 행도 일단 살려둔다."""
-    trades = pd.read_csv(TRADES_PATH, dtype={"code": str}, parse_dates=["date"])
+    trades = pd.read_csv(trades_path, dtype={"code": str}, parse_dates=["date"])
     trades = trades.dropna(subset=["code", "date", "action", "amount"])
     trades["code"] = trades["code"].str.zfill(6)
     trades["action"] = trades["action"].str.upper().str.strip()
@@ -71,7 +68,7 @@ def load_trades():
     return trades.sort_values("date").reset_index(drop=True)
 
 
-def fill_missing_prices(trades, prices_wide):
+def fill_missing_prices(trades, prices_wide, trades_path):
     """price가 비어있는 행을 그 날짜의 실제 종가(prices_wide)로 채운다. 그 날짜 종가가 아직
     없으면(당일 장중 등) 가장 최근 종가로 대체한다. 채운 값은 원본 CSV에도 다시 써서 남긴다."""
     missing = trades["price"].isna()
@@ -97,7 +94,7 @@ def fill_missing_prices(trades, prices_wide):
     if changed:
         out = trades.copy()
         out["date"] = out["date"].dt.strftime("%Y-%m-%d")
-        out.to_csv(TRADES_PATH, index=False, encoding="utf-8-sig")
+        out.to_csv(trades_path, index=False, encoding="utf-8-sig")
         print(f"매매일지에 빈 단가 {missing.sum()}건을 네이버 종가로 채워서 저장했습니다.")
     return trades, changed
 
@@ -213,7 +210,7 @@ def render_trade_history_html(history):
       </table>"""
 
 
-def write_trade_history_xlsx(history):
+def write_trade_history_xlsx(history, xlsx_path):
     os.makedirs(DOWNLOADS_DIR, exist_ok=True)
     df = pd.DataFrame([{
         "날짜": h["date"].strftime("%Y-%m-%d"),
@@ -224,12 +221,12 @@ def write_trade_history_xlsx(history):
         "수량": round(h["qty"], 4),
         "금액(원)": h["amount"],
     } for h in history])
-    with pd.ExcelWriter(XLSX_HISTORY_PATH, engine="openpyxl") as writer:
+    with pd.ExcelWriter(xlsx_path, engine="openpyxl") as writer:
         df.to_excel(writer, sheet_name="편입편출 히스토리", index=False)
 
 
 def compute_twr_index(trades, prices_wide, kospi, kosdaq):
-    """일별 TWR 지수(MP)와 코스피/코스닥(BM) 지수를 편입 첫날=100으로 리베이스해서 같이 반환.
+    """일별 TWR 지수(MP)와 코스피/코스닥(BM) 지수를 편입 첫날=BASE_INDEX로 리베이스해서 같이 반환.
     미투자 현금(TOTAL_CAPITAL - 누적 순매수금액)은 수익률 0%로 취급해서 v_start/v_end 양쪽에
     똑같이 더해준다 - 그래야 "몇 %는 현금이라 안 움직인다"는 게 지수에 정확히 희석 반영된다."""
     inception = trades["date"].min()
@@ -246,7 +243,7 @@ def compute_twr_index(trades, prices_wide, kospi, kosdaq):
     cash = TOTAL_CAPITAL
     trades_by_date = {d: g for d, g in trades.groupby("date")}
 
-    mp_index = [100.0]
+    mp_index = [float(BASE_INDEX)]
     dates_out = [all_dates[0]]
 
     prev_date = all_dates[0]
@@ -286,20 +283,24 @@ def compute_twr_index(trades, prices_wide, kospi, kosdaq):
         prev_cash = cash
 
     kospi_base = kospi.loc[dates_out[0]]
-    bm_kospi = [kospi.loc[d] / kospi_base * 100 for d in dates_out]
+    bm_kospi = [kospi.loc[d] / kospi_base * BASE_INDEX for d in dates_out]
     bm_kosdaq = []
     if kosdaq is not None:
         kosdaq_base = kosdaq.loc[dates_out[0]]
-        bm_kosdaq = [kosdaq.loc[d] / kosdaq_base * 100 for d in dates_out]
+        bm_kosdaq = [kosdaq.loc[d] / kosdaq_base * BASE_INDEX for d in dates_out]
 
     return dates_out, mp_index, bm_kospi, bm_kosdaq
 
 
+def pct_return(level):
+    """리베이스된 지수 레벨(BASE_INDEX 기준)을 편입일 대비 누적 수익률(%)로 변환."""
+    return (level / BASE_INDEX - 1) * 100 if level is not None else None
+
+
 def compute_period_alpha(dates_out, mp_index, bm_index, days_back=None, prev_trading_day=False):
     """최근 N일(달력 기준) 또는 직전 거래일 대비 MP수익률-BM수익률(초과성과, %p)을 계산.
-    dates_out/mp_index/bm_index 둘 다 같은 인덱스에 대응하는 리스트(편입일=100 리베이스 시리즈)라서
-    구간 시작점 인덱스만 다르게 잡으면 "그 구간 동안의" 초과성과가 나온다(레벨차 = 수익률차, 둘 다 같은
-    시작 base=100이었기 때문). 데이터가 그 기간만큼 아직 안 쌓였으면 None(N/A) 반환."""
+    비율(mp_index[-1]/mp_index[start_idx])로 계산해서 BASE_INDEX 값과 무관하게 항상 정확한
+    %가 나온다. 데이터가 그 기간만큼 아직 안 쌓였으면 None(N/A) 반환."""
     if len(dates_out) < 2:
         return None
     if prev_trading_day:
@@ -315,37 +316,45 @@ def compute_period_alpha(dates_out, mp_index, bm_index, days_back=None, prev_tra
     return (mp_ret - bm_ret) * 100
 
 
-def main():
-    if not os.path.exists(TRADES_PATH):
-        print("매매일지 파일이 없습니다:", TRADES_PATH)
+def main(portfolio, other_portfolios):
+    trades_path = portfolio["trades_path"]
+    prices_path = portfolio["prices_path"]
+    out_path = portfolio["out_path"]
+    xlsx_path = portfolio["xlsx_path"]
+    name = portfolio["name"]
+
+    if not os.path.exists(trades_path):
+        print(f"[{name}] 매매일지 파일이 없습니다:", trades_path)
         return
-    trades = load_trades()
+    trades = load_trades(trades_path)
 
     # data/krx_raw.csv(코스피 종가)는 메인 파이프라인이 매일 아침 07:30에만 갱신하는데, 그 시점엔
-    # KRX가 아직 전날 종가만 발표한 상태라 당일 종가가 하루 늦게 반영된다(트로이 MP는 종가 확정 후인
+    # KRX가 아직 전날 종가만 발표한 상태라 당일 종가가 하루 늦게 반영된다(MP트래커는 종가 확정 후인
     # 17:30에 별도 실행되므로 종목별 현재가는 당일 반영되는데 코스피만 하루 밀리는 불일치가 있었음,
     # 2026-08-19 발견). 코스닥과 동일하게 네이버에서 라이브로 받아와서 날짜를 맞춘다.
-    print("코스피 지수 수집 중...")
+    print(f"[{name}] 코스피 지수 수집 중...")
     kospi = fetch_index_history("KOSPI")
-    print("코스닥 지수 수집 중...")
+    print(f"[{name}] 코스닥 지수 수집 중...")
     kosdaq = fetch_index_history("KOSDAQ")
 
+    nav_html = render_nav_html(portfolio, other_portfolios)
+
     if trades.empty:
-        render_empty_page()
-        print("트로이 MP에 아직 편입된 종목이 없습니다. 안내 페이지만 생성했습니다.")
+        render_empty_page(portfolio, nav_html)
+        print(f"[{name}] 아직 편입된 종목이 없습니다. 안내 페이지만 생성했습니다.")
         return
 
     name_map = dict(zip(trades["code"], trades["name"]))
     sector_map = dict(zip(trades["code"], trades["sector"]))
 
-    if not os.path.exists(PRICES_PATH):
-        print("경고: 종목 가격 데이터가 없습니다. fetch_troy_mp_prices.py를 먼저 실행하세요.")
+    if not os.path.exists(prices_path):
+        print(f"[{name}] 경고: 종목 가격 데이터가 없습니다. fetch_troy_mp_prices.py를 먼저 실행하세요.")
         return
-    prices = pd.read_csv(PRICES_PATH, dtype={"code": str}, parse_dates=["date"])
+    prices = pd.read_csv(prices_path, dtype={"code": str}, parse_dates=["date"])
     prices["code"] = prices["code"].str.zfill(6)
     prices_wide = prices.pivot_table(index="date", columns="code", values="close").ffill()
 
-    trades, _ = fill_missing_prices(trades, prices_wide)
+    trades, _ = fill_missing_prices(trades, prices_wide, trades_path)
 
     latest_prices = {}
     prev_prices = {}
@@ -365,9 +374,9 @@ def main():
     bm_kospi_json = json.dumps([round(v, 3) for v in bm_kospi])
     bm_kosdaq_json = json.dumps([round(v, 3) for v in bm_kosdaq])
 
-    mp_latest = mp_index[-1] if mp_index else 100.0
-    bm_kospi_latest = bm_kospi[-1] if bm_kospi else 100.0
-    bm_kosdaq_latest = bm_kosdaq[-1] if bm_kosdaq else 100.0
+    mp_latest = mp_index[-1] if mp_index else float(BASE_INDEX)
+    bm_kospi_latest = bm_kospi[-1] if bm_kospi else float(BASE_INDEX)
+    bm_kosdaq_latest = bm_kosdaq[-1] if bm_kosdaq else float(BASE_INDEX)
 
     def fmt_alpha(v):
         """초과성과 표 칸에 야광(neon) 색으로 강조해서 표시 - 양수는 네온 그린, 음수는 네온 핑크."""
@@ -377,8 +386,8 @@ def main():
         return f'<span style="color:{color}; text-shadow:0 0 6px {color}88;">{v:+.2f}%p</span>'
 
     alpha_periods = {}
-    for bm_name, bm_series in [("kospi", bm_kospi), ("kosdaq", bm_kosdaq)]:
-        alpha_periods[f"alpha_{bm_name}_total"] = fmt_alpha(mp_latest - bm_kospi_latest if bm_name == "kospi" else mp_latest - bm_kosdaq_latest)
+    for bm_name, bm_series, bm_latest in [("kospi", bm_kospi, bm_kospi_latest), ("kosdaq", bm_kosdaq, bm_kosdaq_latest)]:
+        alpha_periods[f"alpha_{bm_name}_total"] = fmt_alpha(pct_return(mp_latest) - pct_return(bm_latest))
         alpha_periods[f"alpha_{bm_name}_1d"] = fmt_alpha(
             compute_period_alpha(dates_out, mp_index, bm_series, prev_trading_day=True))
         alpha_periods[f"alpha_{bm_name}_1w"] = fmt_alpha(
@@ -386,7 +395,7 @@ def main():
         alpha_periods[f"alpha_{bm_name}_1m"] = fmt_alpha(
             compute_period_alpha(dates_out, mp_index, bm_series, days_back=30))
 
-    # 리베이스(=100)된 BM지수 말고 실제 지수 값(포인트)도 참고용으로 하단에 표시한다. 코스닥은
+    # 리베이스된 BM지수 말고 실제 지수 값(포인트)도 참고용으로 하단에 표시한다. 코스닥은
     # fetch_index_history()를 지금 이 시점에 라이브로 호출해서 장중이면 당일 실시간가가 섞여
     # 들어올 수 있는데, 페이지의 나머지(코스피·MP지수)는 전부 "하루 한 번, 종가 기준"이라
     # 날짜를 맞추기 위해 dates_out(=차트/지수 계산에 실제로 쓰인 마지막 날짜) 기준으로 조회한다.
@@ -408,13 +417,13 @@ def main():
     holdings.append({
         "code": "-", "name": "코스피 지수(기준)", "sector": "-", "shares": None, "avg_price": None,
         "cost_basis": None, "cur_price": kospi_actual_latest, "eval_value": None,
-        "ret_pct": bm_kospi_latest - 100 if bm_kospi_latest is not None else None,
+        "ret_pct": pct_return(bm_kospi_latest),
         "day_ret_pct": kospi_day_ret, "weight_pct": None,
     })
     holdings.append({
         "code": "-", "name": "코스닥 지수(기준)", "sector": "-", "shares": None, "avg_price": None,
         "cost_basis": None, "cur_price": kosdaq_actual_latest, "eval_value": None,
-        "ret_pct": bm_kosdaq_latest - 100 if bm_kosdaq_latest is not None else None,
+        "ret_pct": pct_return(bm_kosdaq_latest),
         "day_ret_pct": kosdaq_day_ret, "weight_pct": None,
     })
 
@@ -447,10 +456,15 @@ def main():
 
     history = build_trade_history(trades, name_map)
     history_html = render_trade_history_html(history)
-    write_trade_history_xlsx(history)
+    write_trade_history_xlsx(history, xlsx_path)
+    xlsx_name = os.path.basename(xlsx_path)
 
     html = TEMPLATE.format(
+        page_name=name,
+        nav_html=nav_html,
         history_html=history_html,
+        xlsx_name=xlsx_name,
+        base_index=f"{BASE_INDEX:,}",
         **alpha_periods,
         dates_json=dates_json,
         mp_json=mp_json,
@@ -459,8 +473,6 @@ def main():
         mp_latest=f"{mp_latest:,.2f}",
         bm_kospi_latest=f"{bm_kospi_latest:,.2f}",
         bm_kosdaq_latest=f"{bm_kosdaq_latest:,.2f}",
-        alpha_kospi=f"{mp_latest - bm_kospi_latest:+.2f}",
-        alpha_kosdaq=f"{mp_latest - bm_kosdaq_latest:+.2f}",
         kospi_actual=f"{kospi_actual_latest:,.2f}" if kospi_actual_latest is not None else "N/A",
         kospi_actual_date=kospi_actual_date,
         kosdaq_actual=f"{kosdaq_actual_latest:,.2f}" if kosdaq_actual_latest is not None else "N/A",
@@ -472,30 +484,48 @@ def main():
         updated_at=datetime.now().strftime("%Y-%m-%d %H:%M"),
     )
     os.makedirs(DOCS_DIR, exist_ok=True)
-    with open(OUT_PATH, "w", encoding="utf-8") as f:
+    with open(out_path, "w", encoding="utf-8") as f:
         f.write(html)
-    print(f"저장 완료: {OUT_PATH} (보유 {len(holdings)}종목, MP지수 {mp_latest:.2f} vs 코스피 {bm_kospi_latest:.2f} vs 코스닥 {bm_kosdaq_latest:.2f})")
+    print(f"[{name}] 저장 완료: {out_path} (보유 {len(holdings)}종목, MP지수 {mp_latest:.2f} vs 코스피 {bm_kospi_latest:.2f} vs 코스닥 {bm_kosdaq_latest:.2f})")
+
+
+def render_nav_html(portfolio, other_portfolios):
+    """여러 MP 포트폴리오 페이지 사이를 전환할 수 있는 탭 - 현재 페이지는 굵게, 나머지는 링크."""
+    items = []
+    for p in [portfolio] + other_portfolios:
+        label = p["name"]
+        href = os.path.basename(p["out_path"])
+        if p is portfolio:
+            items.append(f'<span class="mp-tab active">{label}</span>')
+        else:
+            items.append(f'<a class="mp-tab" href="{href}">{label}</a>')
+    return '<div class="mp-tabs">' + "".join(items) + '</div>'
 
 
 EMPTY_TEMPLATE = """<!doctype html>
 <html lang="ko">
 <head>
 <meta charset="utf-8">
-<title>트로이 MP 트래커</title>
+<title>{page_name} 트래커</title>
 <style>
   body {{ font-family: -apple-system, "Malgun Gothic", sans-serif; background:#0f1115; color:#e6e6e6; margin:0; padding:24px; }}
   a.back {{ color:#4dabf7; font-size:13px; text-decoration:none; }}
   h1 {{ font-size:20px; margin:16px 0 4px 0; }}
   .note {{ color:#9aa0a6; font-size:13px; line-height:1.8; max-width:640px; background:#1a1d24; border-radius:10px; padding:20px 22px; margin-top:20px; }}
   code {{ background:#23262e; padding:1px 6px; border-radius:4px; }}
+  .mp-tabs {{ margin:14px 0; }}
+  .mp-tabs a, .mp-tabs span {{ display:inline-block; margin-right:8px; padding:6px 14px; border-radius:8px; font-size:13px; text-decoration:none; }}
+  .mp-tabs a {{ color:#9aa0a6; background:#1a1d24; }}
+  .mp-tabs span.active {{ color:#0f1115; background:#4dabf7; font-weight:bold; }}
 </style>
 </head>
 <body>
   <a class="back" href="index.html">&larr; 홈</a>
-  <h1>트로이 MP 트래커</h1>
+  <h1>{page_name} 트래커</h1>
+  {nav_html}
   <div class="note">
     아직 편입된 종목이 없습니다.<br><br>
-    <code>data/manual/troy_mp_trades.csv</code> 파일에 매매 행을 추가하면(date, code, name, action(BUY/SELL),
+    매매일지 파일에 매매 행을 추가하면(date, code, name, action(BUY/SELL),
     price, amount) 다음 파이프라인 실행부터 자동으로 이 페이지에 반영됩니다.
   </div>
 </body>
@@ -503,23 +533,27 @@ EMPTY_TEMPLATE = """<!doctype html>
 """
 
 
-def render_empty_page():
+def render_empty_page(portfolio, nav_html):
     os.makedirs(DOCS_DIR, exist_ok=True)
-    with open(OUT_PATH, "w", encoding="utf-8") as f:
-        f.write(EMPTY_TEMPLATE)
+    with open(portfolio["out_path"], "w", encoding="utf-8") as f:
+        f.write(EMPTY_TEMPLATE.format(page_name=portfolio["name"], nav_html=nav_html))
 
 
 TEMPLATE = """<!doctype html>
 <html lang="ko">
 <head>
 <meta charset="utf-8">
-<title>트로이 MP 트래커</title>
+<title>{page_name} 트래커</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
 <style>
   body {{ font-family: -apple-system, "Malgun Gothic", sans-serif; background:#0f1115; color:#e6e6e6; margin:0; padding:24px; }}
   a.back {{ color:#4dabf7; font-size:13px; text-decoration:none; margin-right:12px; }}
   h1 {{ font-size:20px; margin:8px 0 4px 0; }}
   .updated {{ color:#9aa0a6; font-size:13px; margin-bottom:20px; }}
+  .mp-tabs {{ margin:14px 0 18px 0; }}
+  .mp-tabs a, .mp-tabs span {{ display:inline-block; margin-right:8px; padding:6px 14px; border-radius:8px; font-size:13px; text-decoration:none; }}
+  .mp-tabs a {{ color:#9aa0a6; background:#1a1d24; }}
+  .mp-tabs span.active {{ color:#0f1115; background:#4dabf7; font-weight:bold; }}
   .badges {{ display:grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap:12px; margin-bottom:20px; max-width:820px; }}
   table.alpha-table {{ max-width:600px; background:#1a1d24; border-radius:10px; margin-bottom:24px; }}
   table.alpha-table th, table.alpha-table td {{ border-bottom:none; padding:10px 14px; }}
@@ -556,11 +590,12 @@ TEMPLATE = """<!doctype html>
   </div>
   <div id="page-content" style="display:none">
   <a class="back" href="index.html">&larr; 홈</a>
-  <h1>트로이 MP 트래커</h1>
-  <div class="updated">최종 갱신: {updated_at} &middot; 편입 시작일 {inception} (=100 기준) &middot; 보유 {n_holdings}종목 &middot; 평가금액 합계 {total_eval}원</div>
+  <h1>{page_name} 트래커</h1>
+  {nav_html}
+  <div class="updated">최종 갱신: {updated_at} &middot; 편입 시작일 {inception} (={base_index} 기준) &middot; 보유 {n_holdings}종목 &middot; 평가금액 합계 {total_eval}원</div>
 
   <div class="badges">
-    <div class="badge mp"><div class="label">트로이 MP 지수</div><div class="value">{mp_latest}</div></div>
+    <div class="badge mp"><div class="label">{page_name} 지수</div><div class="value">{mp_latest}</div></div>
     <div class="badge bm"><div class="label">코스피(BM) 지수</div><div class="value">{bm_kospi_latest}</div></div>
     <div class="badge bm"><div class="label">코스닥(BM) 지수</div><div class="value">{bm_kosdaq_latest}</div></div>
   </div>
@@ -587,21 +622,21 @@ TEMPLATE = """<!doctype html>
     </div>
     <div class="history-col">
       <h3>편입·편출 / 비중 조절 히스토리</h3>
-      <a class="dl" href="downloads/troy_mp_history.xlsx">&#128190; 엑셀 다운로드</a>
+      <a class="dl" href="downloads/{xlsx_name}">&#128190; 엑셀 다운로드</a>
       {history_html}
     </div>
   </div>
 
   <div class="note">
     <h3 style="font-size:13px; color:#c7cbd1; margin:0 0 8px 0;">산출 방법론</h3>
-    <b>포트폴리오 변경</b> — <code>data/manual/troy_mp_trades.csv</code> 매매일지에 행을 추가/수정하는 방식.
+    <b>포트폴리오 변경</b> — 매매일지에 행을 추가/수정하는 방식.
     파이프라인 실행마다 자동으로 반영됩니다. 단가(price)를 비워두면 그날 네이버 종가로 자동 채워집니다.<br><br>
     <b>현금</b> — 총 투입자본(10억원 기준) 중 종목에 배분되지 않은 나머지는 "현금"으로 잡아 수익률 0%로
     취급합니다(비중 계산의 분모에도 포함되어 종목별 비중이 왜곡되지 않습니다).<br><br>
     <b>지수 산출</b> — 일별 시간가중수익률(TWR) 연쇄복리. 그날의 매매는 그날 수익률에 영향을 주지 않고(매매는
     종가 체결 가정, 다음날 비중부터 반영) 순수하게 전일 보유 바스켓(현금 포함)의 가격변동만 반영합니다. 그래서
     신규 편입·비중 조절이 지수 레벨을 왜곡하지 않습니다(펀드 성과평가 TWR 방식과 동일).
-    MP·코스피·코스닥(BM) 모두 편입 첫날을 100으로 리베이스합니다.<br><br>
+    MP·코스피·코스닥(BM) 모두 편입 첫날을 {base_index}로 리베이스합니다.<br><br>
     <b>평균매수단가</b> — 이동평균원가법. 매수 시 원가에 매입금액을 더하고, 매도 시 매도수량 비율만큼 원가를 비례
     차감합니다.
   </div>
@@ -626,7 +661,7 @@ function initChart() {{
     data: {{
       labels: dates,
       datasets: [
-        {{ label: '트로이 MP', data: mpIndex, borderColor: '#ff8787', backgroundColor: 'transparent', tension: 0.1, pointRadius: 0, borderWidth: 2 }},
+        {{ label: '{page_name}', data: mpIndex, borderColor: '#ff8787', backgroundColor: 'transparent', tension: 0.1, pointRadius: 0, borderWidth: 2 }},
         {{ label: '코스피(BM)', data: bmKospiIndex, borderColor: '#4dabf7', backgroundColor: 'transparent', tension: 0.1, pointRadius: 0, borderWidth: 2, borderDash: [5,3] }},
         {{ label: '코스닥(BM)', data: bmKosdaqIndex, borderColor: '#63e6be', backgroundColor: 'transparent', tension: 0.1, pointRadius: 0, borderWidth: 2, borderDash: [2,3] }},
       ]
@@ -636,7 +671,7 @@ function initChart() {{
       plugins: {{ legend: {{ labels: {{ color: '#e6e6e6' }} }} }},
       scales: {{
         x: {{ ticks: {{ color: '#9aa0a6', maxTicksLimit: 12 }}, grid: {{ color: '#23262e' }} }},
-        y: {{ title: {{ display: true, text: '지수(편입일=100)', color: '#9aa0a6' }}, ticks: {{ color: '#9aa0a6' }}, grid: {{ color: '#23262e' }} }},
+        y: {{ title: {{ display: true, text: '지수(편입일={base_index})', color: '#9aa0a6' }}, ticks: {{ color: '#9aa0a6' }}, grid: {{ color: '#23262e' }} }},
       }}
     }}
   }});
@@ -656,7 +691,7 @@ async function tryUnlock() {{
   const val = document.getElementById("pw-input").value;
   const hash = await sha256Hex(val);
   if (hash === PW_HASH) {{
-    sessionStorage.setItem("troy_mp_unlocked", "1");
+    sessionStorage.setItem("mp_unlocked", "1");
     unlockPage();
   }} else {{
     document.getElementById("pw-error").textContent = "비밀번호가 틀렸습니다";
@@ -664,7 +699,7 @@ async function tryUnlock() {{
 }}
 document.getElementById("pw-submit").addEventListener("click", tryUnlock);
 document.getElementById("pw-input").addEventListener("keydown", e => {{ if (e.key === "Enter") tryUnlock(); }});
-if (sessionStorage.getItem("troy_mp_unlocked") === "1") {{
+if (sessionStorage.getItem("mp_unlocked") === "1") {{
   unlockPage();
 }}
 </script>
@@ -674,4 +709,6 @@ if (sessionStorage.getItem("troy_mp_unlocked") === "1") {{
 
 
 if __name__ == "__main__":
-    main()
+    for p in PORTFOLIOS:
+        others = [o for o in PORTFOLIOS if o is not p]
+        main(p, others)

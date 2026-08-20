@@ -1,6 +1,8 @@
 """
-트로이 MP 트래커 전용 경량 파이프라인. 장마감(15:30) 후 종가가 확정되는 매일 17:30에
+MP(모델 포트폴리오) 트래커 전용 경량 파이프라인. 장마감(15:30) 후 종가가 확정되는 매일 17:30에
 실행되도록 별도 스케줄(register_troy_mp_task_windows.ps1)로 등록한다.
+fetch_troy_mp_prices.py/build_troy_mp_page.py 둘 다 mp_portfolios.PORTFOLIOS를 순회하므로
+트로이 MP·모멘텀 MP 등 등록된 포트폴리오 전부가 이 파이프라인 한 번으로 같이 갱신된다.
 
 원래는 run_pipeline.py(아침 07:30)에 같이 있었는데, 그러면 전날 종가로 하루 늦게
 갱신되는 문제가 있었다(코스피 선행 PER 트래커가 겪었던 것과 동일한 문제 -
@@ -18,8 +20,8 @@ LOGS_DIR = BASE_DIR / "logs"
 PYTHON = sys.executable
 
 STEPS = [
-    ("fetch_troy_mp_prices.py", "트로이 MP: 편입 종목 일별 종가 수집(네이버 차트 API)"),
-    ("build_troy_mp_page.py", "트로이 MP 트래커 페이지 빌드"),
+    ("fetch_troy_mp_prices.py", "MP 트래커: 편입 종목 일별 종가 수집(네이버 차트 API)"),
+    ("build_troy_mp_page.py", "MP 트래커 페이지 빌드(트로이 MP/모멘텀 MP)"),
     ("build_home.py", "홈페이지 빌드"),
 ]
 
@@ -60,7 +62,7 @@ def main():
             if diff.returncode == 0:
                 write("변경 사항 없음, 커밋 스킵")
             else:
-                commit_msg = f"트로이 MP 자동 갱신 {today}"
+                commit_msg = f"MP 트래커 자동 갱신 {today}"
                 subprocess.run(["git", "commit", "-m", commit_msg], cwd=BASE_DIR, check=True, capture_output=True, text=True)
                 push = subprocess.run(["git", "push"], cwd=BASE_DIR, capture_output=True, text=True)
                 if push.returncode == 0:
