@@ -40,6 +40,9 @@ FRED_SERIES = [
     ("us_reverse_repo", "RRPONTSYD", "2003-01-01"),  # 익일 역레포(ON RRP) 잔액(일별, 십억달러)
     ("us_treasury_10y", "DGS10", "2000-01-01"),  # 미국채 10년물 명목금리(일별, %) - us_real_rate_10y(DFII10, 물가연동채 실질금리)와는 다름
     ("japan_ust_holdings", "FORTREASPOS42609", "2003-01-01"),  # 일본의 미국채(장단기 합산) 보유액(월간, 백만달러)
+    ("us_mmf_total", "MMMFFAQ027S", "2000-01-01"),  # 미국 MMF(머니마켓펀드) 총자산(연준 Flow of Funds, 분기별, 백만달러).
+    # 원래 주간 시리즈(WRMFSL 개인+WIMFSL 기관)를 쓰려 했으나 둘 다 2021-02-01 이후로 발표가
+    # 끊겨서(연준이 H.6 발표 개편) 지금도 계속 갱신되는 분기별 시리즈로 대체.
 ]
 
 

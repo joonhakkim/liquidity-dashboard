@@ -73,6 +73,10 @@ def build_merged():
         m2_monthly = fred.loc[fred["us_m2"].notna(), ["date", "us_m2"]].sort_values("date").reset_index(drop=True)
         m2_monthly["us_m2_yoy"] = m2_monthly["us_m2"] / m2_monthly["us_m2"].shift(12) * 100 - 100
         fred = fred.merge(m2_monthly[["date", "us_m2_yoy"]], on="date", how="left")
+    if not fred.empty and "us_mmf_total" in fred.columns:
+        # us_mmf_total(FRED MMMFFAQ027S)은 백만달러 단위라 다른 지표들과 스케일을 맞추려고
+        # 십억달러로 변환(다른 미국 유동성 지표들이 대체로 십억~조 단위라 자릿수를 줄임).
+        fred["us_mmf_total_bil"] = fred["us_mmf_total"] / 1000
 
     if not adr.empty and "kospi_adv" in adr.columns:
         # ADR(등락비율) = 최근 20거래일 상승종목수 누계 / 하락종목수 누계 x 100. adr_raw.csv는
@@ -245,7 +249,7 @@ PANEL_SOURCES = {
     "유동성지표": "한국은행 ECOS Open API - 한국은행 주요계정(103Y002), M2(161Y008)",
     "실탄게이지": "KOFIA FreeSIS Open API(자동 수집) 기반 계산",
     "예수금·신용거래 현황": "KOFIA FreeSIS (meta/getMetaDataList.do, 자동 수집)",
-    "신용거래융자 · MMF 현황": "KOFIA FreeSIS (meta/getMetaDataList.do, 자동 수집)",
+    "신용거래융자 · MMF 현황": "KOFIA FreeSIS (meta/getMetaDataList.do, 자동 수집) / 미국 MMF: FRED MMMFFAQ027S(연준 Flow of Funds, 분기별)",
     "M2 통화공급 (한국·미국)": "한국: ECOS Open API(161Y008) / 미국: FRED M2SL (둘 다 월별, 단위 다름 - 각각 자체 축)",
     "시가총액 회전율 · M2 비율": "코스피 거래대금: 네이버 금융 / 코스피 시가총액: KRX Open API(stk_bydd_trd, MKTCAP 합산) / M2: ECOS",
     "비트코인 시가총액 vs 코스피": "비트코인: CoinGecko (무료 API, 최근 365일만 제공) / 코스피: 네이버 금융",
@@ -582,6 +586,7 @@ def build_dashboard(merged, raw_latest):
         "신용거래융자 · MMF 현황": build_panel(merged, recent, "split", {
             "신용거래융자(코스피)": "credit_loan_kospi", "신용거래융자(코스닥)": "credit_loan_kosdaq",
             "MMF 개인": "mmf_indiv", "MMF 법인": "mmf_corp",
+            "미국 MMF 총자산(십억달러)": "us_mmf_total_bil",
         }),
         "시가총액 회전율 · M2 비율": build_panel(merged, recent, "split", {
             "코스피 회전율(%)": "kospi_turnover_ratio", "M2/코스피 시가총액(%)": "m2_to_marketcap_ratio",
@@ -643,7 +648,7 @@ def build_dashboard(merged, raw_latest):
         "deriv_deposit", "broker_rp_balance", "margin_call_unpaid", "margin_call_liquidation", "margin_liquidation_ratio",
     ])
     panels["시가총액 회전율 · M2 비율"]["latest"] = latest_date_str(raw_latest, ["kospi_turnover_ratio", "m2_to_marketcap_ratio"])
-    panels["신용거래융자 · MMF 현황"]["latest"] = latest_date_str(raw_latest, ["credit_loan_kospi", "credit_loan_kosdaq", "mmf_indiv", "mmf_corp"])
+    panels["신용거래융자 · MMF 현황"]["latest"] = latest_date_str(raw_latest, ["credit_loan_kospi", "credit_loan_kosdaq", "mmf_indiv", "mmf_corp", "us_mmf_total_bil"])
     panels["비트코인 시가총액 vs 코스피"]["latest"] = latest_date_str(raw_latest, ["kospi_close", "btc_market_cap_usd"])
     panels["코스피 선행지수 vs YoY"]["latest"] = latest_date_str(raw_latest, ["kospi_yoy", "leading_index_yoy"])
     panels["코스피·코스닥 ADR"]["latest"] = latest_date_str(raw_latest, ["kospi_adr", "kosdaq_adr"])
