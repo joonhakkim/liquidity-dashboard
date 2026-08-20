@@ -399,22 +399,22 @@ def main():
     # "현금" 다음에 코스피/코스닥 지수를 참고용 행으로 추가한다 - 실제 보유 종목이 아니라서
     # cost_basis/eval_value/weight_pct는 전부 None으로 둔다(총 매입금액·평가금액·BM지수
     # 계산에는 전혀 반영되지 않고, 테이블에 기준값만 나란히 보여주기 위한 표시 전용 행).
-    # 누적 수익률 칸에는 지수 자체 수익률이 아니라 "MP수익률 - 지수수익률"(=초과성과, 위 배지의
-    # 초과성과와 동일한 값)을 표시한다 - MP가 벤치마크 대비 누적으로 얼마나 앞서/뒤처졌는지를
-    # 종목 리스트에서 바로 보기 위함.
+    # 1일/누적 수익률 칸 둘 다 "지수 자체의" 수익률로 통일한다(한때 누적 칸에 MP초과성과를 넣었었는데,
+    # 1일 칸은 지수 자체 등락률이라 같은 행 안에서 기준이 달라 헷갈린다는 피드백으로 되돌림- MP
+    # 초과성과는 위쪽 "구간별 초과성과" 표에 이미 따로 있어서 여기서 중복 표시할 필요가 없음).
     kospi_day_ret = (bm_kospi[-1] / bm_kospi[-2] - 1) * 100 if len(bm_kospi) >= 2 else None
     kosdaq_day_ret = (bm_kosdaq[-1] / bm_kosdaq[-2] - 1) * 100 if len(bm_kosdaq) >= 2 else None
 
     holdings.append({
         "code": "-", "name": "코스피 지수(기준)", "sector": "-", "shares": None, "avg_price": None,
         "cost_basis": None, "cur_price": kospi_actual_latest, "eval_value": None,
-        "ret_pct": mp_latest - bm_kospi_latest if bm_kospi_latest is not None else None,
+        "ret_pct": bm_kospi_latest - 100 if bm_kospi_latest is not None else None,
         "day_ret_pct": kospi_day_ret, "weight_pct": None,
     })
     holdings.append({
         "code": "-", "name": "코스닥 지수(기준)", "sector": "-", "shares": None, "avg_price": None,
         "cost_basis": None, "cur_price": kosdaq_actual_latest, "eval_value": None,
-        "ret_pct": mp_latest - bm_kosdaq_latest if bm_kosdaq_latest is not None else None,
+        "ret_pct": bm_kosdaq_latest - 100 if bm_kosdaq_latest is not None else None,
         "day_ret_pct": kosdaq_day_ret, "weight_pct": None,
     })
 
