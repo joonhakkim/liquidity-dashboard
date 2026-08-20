@@ -370,10 +370,15 @@ def main():
     bm_kosdaq_latest = bm_kosdaq[-1] if bm_kosdaq else 100.0
 
     def fmt_alpha(v):
-        return f"{v:+.2f}%p" if v is not None else "N/A"
+        """초과성과 표 칸에 야광(neon) 색으로 강조해서 표시 - 양수는 네온 그린, 음수는 네온 핑크."""
+        if v is None:
+            return '<span style="color:#6b7280">N/A</span>'
+        color = "#39ff14" if v >= 0 else "#ff2ec4"
+        return f'<span style="color:{color}; text-shadow:0 0 6px {color}88;">{v:+.2f}%p</span>'
 
     alpha_periods = {}
     for bm_name, bm_series in [("kospi", bm_kospi), ("kosdaq", bm_kosdaq)]:
+        alpha_periods[f"alpha_{bm_name}_total"] = fmt_alpha(mp_latest - bm_kospi_latest if bm_name == "kospi" else mp_latest - bm_kosdaq_latest)
         alpha_periods[f"alpha_{bm_name}_1d"] = fmt_alpha(
             compute_period_alpha(dates_out, mp_index, bm_series, prev_trading_day=True))
         alpha_periods[f"alpha_{bm_name}_1w"] = fmt_alpha(
@@ -558,15 +563,13 @@ TEMPLATE = """<!doctype html>
     <div class="badge mp"><div class="label">트로이 MP 지수</div><div class="value">{mp_latest}</div></div>
     <div class="badge bm"><div class="label">코스피(BM) 지수</div><div class="value">{bm_kospi_latest}</div></div>
     <div class="badge bm"><div class="label">코스닥(BM) 지수</div><div class="value">{bm_kosdaq_latest}</div></div>
-    <div class="badge alpha"><div class="label">초과성과(vs 코스피, %p)</div><div class="value">{alpha_kospi}</div></div>
-    <div class="badge alpha"><div class="label">초과성과(vs 코스닥, %p)</div><div class="value">{alpha_kosdaq}</div></div>
   </div>
 
   <table class="alpha-table">
     <thead><tr><th>구간별 초과성과</th><th>총 누적(편입일~)</th><th>1일</th><th>1주일</th><th>1개월</th></tr></thead>
     <tbody>
-      <tr><td>vs 코스피</td><td>{alpha_kospi}%p</td><td>{alpha_kospi_1d}</td><td>{alpha_kospi_1w}</td><td>{alpha_kospi_1m}</td></tr>
-      <tr><td>vs 코스닥</td><td>{alpha_kosdaq}%p</td><td>{alpha_kosdaq_1d}</td><td>{alpha_kosdaq_1w}</td><td>{alpha_kosdaq_1m}</td></tr>
+      <tr><td>vs 코스피</td><td>{alpha_kospi_total}</td><td>{alpha_kospi_1d}</td><td>{alpha_kospi_1w}</td><td>{alpha_kospi_1m}</td></tr>
+      <tr><td>vs 코스닥</td><td>{alpha_kosdaq_total}</td><td>{alpha_kosdaq_1d}</td><td>{alpha_kosdaq_1w}</td><td>{alpha_kosdaq_1m}</td></tr>
     </tbody>
   </table>
 
