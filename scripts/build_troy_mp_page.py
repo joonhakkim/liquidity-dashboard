@@ -100,8 +100,14 @@ def fill_missing_prices(trades, prices_wide, trades_path):
 
 
 def compute_holdings_table(trades, latest_prices, prev_prices, name_map, sector_map):
-    """이동평균원가법으로 종목별 현재 보유수량/원가/평균매수단가를 계산."""
+    """이동평균원가법으로 종목별 현재 보유수량/원가/평균매수단가를 계산.
+    현금은 "TOTAL_CAPITAL - 현재 보유중인 종목들의 원가 합"이 아니라(이 계산은 편출한 종목의
+    실현손익을 전혀 반영 못 함 - 예: 손실 보고 전량 매도한 뒤 그 매도대금보다 큰 금액을 다른
+    종목에 재투자하면 이 식은 그 차액을 그냥 무시해버린다), 매매일지 전체(편출된 종목 포함)의
+    누적 현금흐름으로 계산한다(compute_twr_index의 현금 추적 방식과 동일 - 그래야 리밸런싱 때
+    실현손익이 정확히 반영된다)."""
     pos = {}  # code -> {"shares": x, "cost": y}
+    cash = TOTAL_CAPITAL
     for _, row in trades.iterrows():
         code = row["code"]
         p = pos.setdefault(code, {"shares": 0.0, "cost": 0.0})
@@ -109,6 +115,7 @@ def compute_holdings_table(trades, latest_prices, prev_prices, name_map, sector_
         if row["action"] == "BUY":
             p["shares"] += qty
             p["cost"] += row["amount"]
+            cash -= row["amount"]
         elif row["action"] == "SELL":
             if p["shares"] > 0:
                 ratio = min(qty / p["shares"], 1.0)
@@ -116,6 +123,7 @@ def compute_holdings_table(trades, latest_prices, prev_prices, name_map, sector_
                 p["shares"] -= qty
             else:
                 p["shares"] -= qty
+            cash += row["amount"]
 
     rows = []
     for code, p in pos.items():
@@ -141,14 +149,15 @@ def compute_holdings_table(trades, latest_prices, prev_prices, name_map, sector_
         })
 
     stock_eval = sum(r["eval_value"] for r in rows if r["eval_value"])
-    cash = max(TOTAL_CAPITAL - sum(p["cost"] for p in pos.values()), 0)
     total_eval = stock_eval + cash
 
     for r in rows:
         r["weight_pct"] = (r["eval_value"] / total_eval * 100) if r["eval_value"] else None
     rows.sort(key=lambda r: r["eval_value"] or 0, reverse=True)
 
-    if cash > 0:
+    # 리밸런싱 반올림으로 생기는 몇백~몇천원 수준의 부동소수점 잔여는 굳이 "현금" 행으로
+    # 보여줄 필요가 없어서(총 투입자본의 0.01% 미만) 그보다 큰 경우에만 행을 추가한다.
+    if abs(cash) > TOTAL_CAPITAL * 0.0001:
         rows.append({
             "code": "-", "name": "현금", "sector": "-", "shares": None, "avg_price": None,
             "cost_basis": cash, "cur_price": None, "eval_value": cash, "ret_pct": None,
