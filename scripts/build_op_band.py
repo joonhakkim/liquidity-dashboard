@@ -37,6 +37,8 @@ from datetime import datetime
 import openpyxl
 import pandas as pd
 
+from build_screening_page import load_sector_map
+
 DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data")
 MANUAL_DIR = os.path.join(DATA_DIR, "manual")
 SCREEN_DIR = os.path.join(DATA_DIR, "screening")
@@ -192,7 +194,7 @@ def pick_band_multiples(mults):
     return multiples or [step]
 
 
-def build_summary_row(code, data):
+def build_summary_row(code, data, sector_map):
     mults = [m for m in data["mult"] if m is not None]
     if not mults:
         return None
@@ -202,6 +204,7 @@ def build_summary_row(code, data):
     percentile = below / len(sorted_mults) * 100
     return {
         "code": code, "name": data["name"],
+        "sector": sector_map.get(data["name"]),
         "latest_date": data["dates"][-1],
         "latest_mult": round(latest_mult, 2),
         "hist_min_mult": round(sorted_mults[0], 2),
@@ -310,6 +313,12 @@ def main():
     os.makedirs(DETAIL_OUT_DIR, exist_ok=True)
     os.makedirs(SCREEN_DIR, exist_ok=True)
 
+    # 섹터는 별도 파일이 없어서 주식 스크리닝 페이지가 쓰는 "*데이터 모음*.xlsm"의
+    # "섹터별 구성 종목" 시트(종목명 -> 섹터)를 그대로 재사용한다(종목코드 기준 매핑이 아니라
+    # 종목명 기준이라 이름이 정확히 일치해야 매칭됨).
+    sector_map = load_sector_map()
+    print(f"섹터 매핑 {len(sector_map)}종목 로드됨" if sector_map else "섹터 매핑 없음(데이터 모음 워크북 미발견)")
+
     summary_rows = []
     for code, data in all_results.items():
         band_multiples = pick_band_multiples(data["mult"])
@@ -322,7 +331,7 @@ def main():
         with open(os.path.join(DETAIL_OUT_DIR, f"{code}.json"), "w", encoding="utf-8") as f:
             json.dump(detail, f, ensure_ascii=False)
 
-        row = build_summary_row(code, data)
+        row = build_summary_row(code, data, sector_map)
         if row:
             summary_rows.append(row)
 
@@ -366,7 +375,7 @@ TEMPLATE = """<!doctype html>
   table {{ border-collapse: collapse; width:100%; max-width:1000px; font-size:13px; }}
   th, td {{ padding:8px 12px; text-align:right; border-bottom:1px solid #23262e; }}
   th:first-child, td:first-child {{ text-align:left; }}
-  th:nth-child(2), td:nth-child(2) {{ text-align:left; color:#9aa0a6; }}
+  th:nth-child(2), td:nth-child(2), th:nth-child(3), td:nth-child(3) {{ text-align:left; color:#9aa0a6; }}
   th {{ color:#9aa0a6; font-weight:normal; font-size:12px; cursor:pointer; user-select:none; }}
   th:hover {{ color:#c7cbd1; }}
   tr {{ cursor:pointer; }}
@@ -396,6 +405,7 @@ TEMPLATE = """<!doctype html>
 
   <div class="filters">
     <label>검색 <input type="text" id="fSearch" placeholder="종목명/코드"></label>
+    <label>섹터 <select id="fSector"><option value="">전체</option></select></label>
     <label>최신배수 최소 <input type="number" id="fMultMin" step="0.1"></label>
     <label>최신배수 최대 <input type="number" id="fMultMax" step="0.1"></label>
     <label><input type="checkbox" id="fIncludeNeg"> 적자(마이너스 배수) 포함</label>
@@ -411,7 +421,7 @@ TEMPLATE = """<!doctype html>
 
   <table>
     <thead><tr>
-      <th>종목명</th><th>코드</th><th>최신배수</th><th>기간중 최소</th><th>기간중 최대</th><th>현재 백분위</th><th>기준일</th>
+      <th>종목명</th><th>코드</th><th>섹터</th><th>최신배수</th><th>기간중 최소</th><th>기간중 최대</th><th>현재 백분위</th><th>기준일</th>
     </tr></thead>
     <tbody id="tbody"></tbody>
   </table>
@@ -444,6 +454,7 @@ function pctlClass(p) {{
 
 function applyFilters() {{
   const search = document.getElementById('fSearch').value.trim().toLowerCase();
+  const sector = document.getElementById('fSector').value;
   const min = parseFloat(document.getElementById('fMultMin').value);
   const max = parseFloat(document.getElementById('fMultMax').value);
   const sort = document.getElementById('fSort').value;
@@ -452,6 +463,7 @@ function applyFilters() {{
   let rows = ROWS.filter(r => {{
     if (!includeNeg && r.latest_mult <= 0) return false;
     if (search && !r.name.toLowerCase().includes(search) && !r.code.toLowerCase().includes(search)) return false;
+    if (sector && r.sector !== sector) return false;
     if (!isNaN(min) && r.latest_mult < min) return false;
     if (!isNaN(max) && r.latest_mult > max) return false;
     return true;
@@ -465,6 +477,7 @@ function applyFilters() {{
     <tr data-code="${{r.code}}">
       <td>${{r.name}}</td>
       <td>${{r.code}}</td>
+      <td>${{r.sector ?? '-'}}</td>
       <td>${{r.latest_mult.toFixed(2)}}x</td>
       <td>${{r.hist_min_mult.toFixed(2)}}x</td>
       <td>${{r.hist_max_mult.toFixed(2)}}x</td>
@@ -477,7 +490,15 @@ function applyFilters() {{
   }});
 }}
 
-['fSearch', 'fMultMin', 'fMultMax', 'fSort', 'fIncludeNeg'].forEach(id => {{
+const sectorSelect = document.getElementById('fSector');
+[...new Set(ROWS.map(r => r.sector).filter(Boolean))].sort().forEach(s => {{
+  const opt = document.createElement('option');
+  opt.value = s;
+  opt.textContent = s;
+  sectorSelect.appendChild(opt);
+}});
+
+['fSearch', 'fSector', 'fMultMin', 'fMultMax', 'fSort', 'fIncludeNeg'].forEach(id => {{
   document.getElementById(id).addEventListener('input', applyFilters);
   document.getElementById(id).addEventListener('change', applyFilters);
 }});
