@@ -52,6 +52,7 @@ CORE_STEPS = [
     ("fetch_news_sentiment.py", "한국은행 뉴스심리지수(ECOS 521Y001, 일별) 수집"),
     ("optimize_percentile_window.py", "통합차트 백분위 지표 최적 기간 재탐색(데이터 누적에 따라 자동 조정)"),
     ("build_dashboard.py", "유동성 대시보드 빌드"),
+    ("fetch_naver_sector.py", "네이버 업종분류 수집(OP밴드/스크리닝 섹터 필터용, 종목코드 기준 전종목)"),
     ("build_op_band.py", "OP밴드 트래커 빌드(data/manual/*기업*밴드*.xlsx 기반, 영업이익 x N배 밴드)"),
     ("build_risk_signals.py", "조정 경고 신호 페이지 빌드(유동성 지표 + 돌파종목수 조합, 지표별 개별 발동 표시)"),
     ("build_home.py", "홈페이지 빌드"),

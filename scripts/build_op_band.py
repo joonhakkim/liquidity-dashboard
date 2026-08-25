@@ -194,7 +194,19 @@ def pick_band_multiples(mults):
     return multiples or [step]
 
 
-def build_summary_row(code, data, sector_map):
+def load_naver_sector_map():
+    """data/sector_map.csv(fetch_naver_sector.py 결과) -> {종목코드(6자리): 섹터}.
+    네이버 자체 업종분류라 상장사 대부분(2500여종목 중 2519개, 99%)을 커버한다 - 반면
+    load_sector_map()(엑셀 "섹터별 구성 종목" 시트)는 팀이 관리하는 테마성 큐레이션이라 913개
+    종목만 커버. 그래서 이쪽을 1순위로 쓰고, 여기 없는 종목만 엑셀 매핑으로 보충한다."""
+    path = os.path.join(DATA_DIR, "sector_map.csv")
+    if not os.path.exists(path):
+        return {}
+    df = pd.read_csv(path, dtype={"code": str})
+    return dict(zip(df["code"], df["sector"]))
+
+
+def build_summary_row(code, data, sector_map, naver_sector_map):
     mults = [m for m in data["mult"] if m is not None]
     if not mults:
         return None
@@ -202,9 +214,11 @@ def build_summary_row(code, data, sector_map):
     sorted_mults = sorted(mults)
     below = sum(1 for m in sorted_mults if m <= latest_mult)
     percentile = below / len(sorted_mults) * 100
+    bare_code = code.lstrip("A")
+    sector = naver_sector_map.get(bare_code) or sector_map.get(data["name"])
     return {
         "code": code, "name": data["name"],
-        "sector": sector_map.get(data["name"]),
+        "sector": sector,
         "latest_date": data["dates"][-1],
         "latest_mult": round(latest_mult, 2),
         "hist_min_mult": round(sorted_mults[0], 2),
@@ -313,11 +327,12 @@ def main():
     os.makedirs(DETAIL_OUT_DIR, exist_ok=True)
     os.makedirs(SCREEN_DIR, exist_ok=True)
 
-    # 섹터는 별도 파일이 없어서 주식 스크리닝 페이지가 쓰는 "*데이터 모음*.xlsm"의
-    # "섹터별 구성 종목" 시트(종목명 -> 섹터)를 그대로 재사용한다(종목코드 기준 매핑이 아니라
-    # 종목명 기준이라 이름이 정확히 일치해야 매칭됨).
+    # 섹터: 1순위는 네이버 업종분류(fetch_naver_sector.py, 종목코드 기준, 상장사 대부분 커버),
+    # 2순위는 주식 스크리닝 페이지가 쓰는 "*데이터 모음*.xlsm"의 "섹터별 구성 종목" 시트(팀이
+    # 관리하는 테마성 큐레이션, 종목명 기준, 913종목만 커버) - 네이버 쪽에 없는 종목만 보충.
+    naver_sector_map = load_naver_sector_map()
     sector_map = load_sector_map()
-    print(f"섹터 매핑 {len(sector_map)}종목 로드됨" if sector_map else "섹터 매핑 없음(데이터 모음 워크북 미발견)")
+    print(f"네이버 업종 매핑 {len(naver_sector_map)}종목, 큐레이션 섹터 매핑 {len(sector_map)}종목 로드됨")
 
     summary_rows = []
     for code, data in all_results.items():
@@ -331,7 +346,7 @@ def main():
         with open(os.path.join(DETAIL_OUT_DIR, f"{code}.json"), "w", encoding="utf-8") as f:
             json.dump(detail, f, ensure_ascii=False)
 
-        row = build_summary_row(code, data, sector_map)
+        row = build_summary_row(code, data, sector_map, naver_sector_map)
         if row:
             summary_rows.append(row)
 
