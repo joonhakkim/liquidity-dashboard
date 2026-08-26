@@ -26,7 +26,8 @@ OP밴드(영업이익 밴드) 트래커 - data/manual/*기업*밴드*.xlsx(데�
 - docs/op_band_data/<종목코드>.json: 종목별 시계열(날짜/시총/영업이익/배수) + 밴드 배수 목록(차트용)
 - data/screening/op_band_summary.csv + docs/op_band.html 안에 임베드되는 요약 테이블(필터/정렬용):
   최신 배수, 과거 밴드(10~90퍼센타일) 대비 지금이 몇 퍼센타일인지 - 지금 밴드 하단에 가까운(=
-  이익 대비 시총이 눌린) 종목을 쉽게 찾을 수 있게.
+  이익 대비 시총이 눌린) 종목을 쉽게 찾을 수 있게. 단, 기간중 최소/최대/백분위는 흑자(양수 배수)
+  구간만으로 계산한다(적자 구간은 배수가 음수로 튀어서 최소치가 의미 없는 숫자가 됨).
 """
 import glob
 import json
@@ -207,11 +208,20 @@ def load_naver_sector_map():
 
 
 def build_summary_row(code, data, sector_map, naver_sector_map):
+    """기간중 최소/최대/백분위는 흑자(영업이익 양수, mult>0) 구간만으로 계산한다 - 적자 구간은
+    배수가 음수로 튀어서(예: 시총은 그대로인데 영업이익이 살짝만 적자여도 배수가 -수백~수천배로
+    뜀) "기간중 최소"가 실제 밸류에이션 하단과 무관한 의미 없는 숫자가 되는 문제가 있었다
+    (2026-08-26, 사용자가 "괴리가 너무 크다"고 지적). 현재(latest_mult)는 적자여도 있는 그대로
+    보여준다 - 실제로 지금 적자인 건 사실이니까. 흑자였던 적이 아예 없는 종목은 밴드 자체가
+    의미 없으니 행을 생성하지 않는다(값을 지어내지 않는다)."""
     mults = [m for m in data["mult"] if m is not None]
     if not mults:
         return None
     latest_mult = mults[-1]
-    sorted_mults = sorted(mults)
+    positive_mults = [m for m in mults if m > 0]
+    if not positive_mults:
+        return None
+    sorted_mults = sorted(positive_mults)
     below = sum(1 for m in sorted_mults if m <= latest_mult)
     percentile = below / len(sorted_mults) * 100
     bare_code = code.lstrip("A")
@@ -224,7 +234,7 @@ def build_summary_row(code, data, sector_map, naver_sector_map):
         "hist_min_mult": round(sorted_mults[0], 2),
         "hist_max_mult": round(sorted_mults[-1], 2),
         "percentile": round(percentile, 1),
-        "n_obs": len(mults),
+        "n_obs": len(positive_mults),
     }
 
 
