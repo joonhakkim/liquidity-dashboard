@@ -402,6 +402,19 @@ TEMPLATE = """<!doctype html>
   .detail-card {{ background:#14161c; border:1px solid #23262e; border-radius:14px; padding:24px; max-width:900px; width:100%; }}
   .detail-card h2 {{ margin:0 0 4px 0; font-size:18px; }}
   .detail-card .sub {{ color:#9aa0a6; font-size:13px; margin-bottom:16px; }}
+  .range-bar {{ display:flex; gap:6px; margin-bottom:10px; flex-wrap:wrap; }}
+  .range-btn {{ background:#1a1d24; border:1px solid #2a2e37; color:#9aa0a6; padding:5px 12px;
+    border-radius:999px; cursor:pointer; font-size:12px; font-family:inherit; }}
+  .range-btn:hover {{ color:#c7cbd1; border-color:#4dabf7; }}
+  .range-btn.active {{ background:#4dabf7; color:#0f1115; border-color:#4dabf7; font-weight:bold; }}
+  .custom-range-bar {{ display:flex; align-items:center; gap:10px; margin-bottom:14px; flex-wrap:wrap; font-size:13px; color:#9aa0a6; }}
+  .custom-range-bar label {{ display:flex; align-items:center; gap:6px; }}
+  .custom-range-bar input[type="date"] {{
+    background:#1a1d24; border:1px solid #2a2e37; color:#e6e6e6; border-radius:6px; padding:5px 8px; font-size:13px;
+  }}
+  .custom-range-bar button {{ background:#1a1d24; border:1px solid #2a2e37; color:#9aa0a6; padding:6px 14px;
+    border-radius:6px; cursor:pointer; font-size:12px; font-family:inherit; }}
+  .custom-range-hint {{ color:#63e6be; }}
   .band-controls {{ display:flex; gap:12px; flex-wrap:wrap; align-items:center; margin-bottom:12px; font-size:13px; color:#9aa0a6; }}
   .band-controls label {{ display:flex; align-items:center; gap:6px; }}
   .band-controls input {{ background:#1a1d24; border:1px solid #2a2e37; color:#e6e6e6; border-radius:6px; padding:5px 8px; font-size:13px; font-family:inherit; }}
@@ -446,6 +459,13 @@ TEMPLATE = """<!doctype html>
       <button class="close-btn" id="closeBtn">&times;</button>
       <h2 id="detailName"></h2>
       <div class="sub" id="detailSub"></div>
+      <div class="range-bar" id="rangeBar"></div>
+      <div class="custom-range-bar">
+        <label>시작 <input type="date" id="rangeStart"></label>
+        <label>종료 <input type="date" id="rangeEnd"></label>
+        <button id="rangeApplyBtn">적용</button>
+        <span class="custom-range-hint" id="rangeCustomHint"></span>
+      </div>
       <div class="band-controls">
         <label>밴드 개수 <input type="number" id="bandCount" min="1" max="20" step="1"></label>
         <label>직접 배수 지정(콤마구분, 예: 5,10,20) <input type="text" id="bandCustom" placeholder="비워두면 자동"></label>
@@ -534,20 +554,71 @@ function pickBandMultiples(mults, targetLines) {{
 }}
 
 let currentDetailData = null;
+let currentBandMultiples = [];
+let currentYMaxOverride = null;
+
+// 기간 선택 - 볼린저밴드 트래커(build_bollinger_breakout.py)와 동일한 프리셋+커스텀 날짜 패턴.
+const rangeBar = document.getElementById('rangeBar');
+const rangeStartInput = document.getElementById('rangeStart');
+const rangeEndInput = document.getElementById('rangeEnd');
+const rangeCustomHint = document.getElementById('rangeCustomHint');
+let currentRange = {{ mode: 'preset', days: null }};
+
+const RANGE_OPTIONS = [
+  {{ label: '1년', days: 365 }},
+  {{ label: '3년', days: 1095 }},
+  {{ label: '5년', days: 1825 }},
+  {{ label: '전체', days: null }},
+];
+
+function computeRangeIndices(dates, range) {{
+  if (!dates.length) return [0, -1];
+  if (range.mode === 'custom') {{
+    let startIdx = 0;
+    if (range.start) {{
+      const found = dates.findIndex(d => d >= range.start);
+      startIdx = found < 0 ? dates.length : found;
+    }}
+    let endIdx = dates.length - 1;
+    if (range.end) {{
+      endIdx = -1;
+      for (let i = dates.length - 1; i >= 0; i--) {{
+        if (dates[i] <= range.end) {{ endIdx = i; break; }}
+      }}
+    }}
+    return [startIdx, endIdx];
+  }}
+  let startIdx = 0;
+  if (range.days !== null) {{
+    const cutoff = new Date(dates[dates.length - 1]);
+    cutoff.setDate(cutoff.getDate() - range.days);
+    const found = dates.findIndex(d => new Date(d) >= cutoff);
+    startIdx = found < 0 ? 0 : found;
+  }}
+  return [startIdx, dates.length - 1];
+}}
 
 function renderChart(data, bandMultiples, yMaxOverrideEok) {{
+  currentBandMultiples = bandMultiples;
+  currentYMaxOverride = yMaxOverrideEok ?? null;
+
+  const [startIdx, endIdx] = computeRangeIndices(data.dates, currentRange);
+  const dates = data.dates.slice(startIdx, endIdx + 1);
+  const op = data.op.slice(startIdx, endIdx + 1);
+  const mktcap = data.mktcap.slice(startIdx, endIdx + 1);
+
   document.getElementById('detailSub').textContent =
     `밴드선: ${{bandMultiples.length ? bandMultiples.map(m => m + 'x').join(', ') : '(표시할 배수 없음)'}}`;
 
   const datasets = bandMultiples.map((m, i) => ({{
     label: `${{m}}x`,
-    data: data.op.map(v => v * m),
+    data: op.map(v => v * m),
     borderColor: `hsl(${{200 + i * 30}}, 60%, 55%)`,
     backgroundColor: 'transparent',
     borderWidth: 1, borderDash: [4, 3], pointRadius: 0, tension: 0,
   }}));
   datasets.push({{
-    label: '시가총액(실제)', data: data.mktcap,
+    label: '시가총액(실제)', data: mktcap,
     borderColor: '#e6e6e6', backgroundColor: 'transparent',
     borderWidth: 2.5, pointRadius: 0, tension: 0, order: 0,
   }});
@@ -556,7 +627,7 @@ function renderChart(data, bandMultiples, yMaxOverrideEok) {{
   // 정작 봐야 할 실제 시가총액 선이 바닥에 눌려 안 보이는 문제 방지 - y축을 실제 시총
   // 범위에 맞춰 제한한다(밴드선은 그 위로 잘려 보이는 게 정상 - 그만큼 비싼 배수라는 뜻).
   // 자동 계산값이 여전히 보기 불편하면 사용자가 "세로축 최대값" 입력으로 직접 덮어쓸 수 있다.
-  const mktcapVals = data.mktcap.filter(v => v != null);
+  const mktcapVals = mktcap.filter(v => v != null);
   const maxMktcap = mktcapVals.length ? Math.max(...mktcapVals) : null;
   const minMktcap = mktcapVals.length ? Math.min(...mktcapVals) : null;
   const yMax = yMaxOverrideEok != null ? yMaxOverrideEok * 1e8 : (maxMktcap != null ? maxMktcap * 4.5 : undefined);
@@ -565,7 +636,7 @@ function renderChart(data, bandMultiples, yMaxOverrideEok) {{
   if (chart) chart.destroy();
   chart = new Chart(document.getElementById('bandChart').getContext('2d'), {{
     type: 'line',
-    data: {{ labels: data.dates, datasets }},
+    data: {{ labels: dates, datasets }},
     options: {{
       responsive: true, maintainAspectRatio: false,
       plugins: {{ legend: {{ labels: {{ color: '#e6e6e6', boxWidth: 14, font: {{ size: 11 }} }} }} }},
@@ -576,6 +647,46 @@ function renderChart(data, bandMultiples, yMaxOverrideEok) {{
     }}
   }});
 }}
+
+function applyCurrentRange() {{
+  if (!currentDetailData) return;
+  renderChart(currentDetailData, currentBandMultiples, currentYMaxOverride);
+}}
+
+function applyRange(days) {{
+  currentRange = {{ mode: 'preset', days }};
+  applyCurrentRange();
+  document.querySelectorAll('.range-btn').forEach(btn => {{
+    btn.classList.toggle('active', btn.dataset.days === String(days));
+  }});
+  rangeStartInput.value = '';
+  rangeEndInput.value = '';
+  rangeCustomHint.textContent = '';
+}}
+
+function applyCustomRange() {{
+  const start = rangeStartInput.value || null;
+  const end = rangeEndInput.value || null;
+  if (!start && !end) return;
+  if (start && end && start > end) {{
+    rangeCustomHint.textContent = '시작일이 종료일보다 늦습니다.';
+    return;
+  }}
+  currentRange = {{ mode: 'custom', start, end }};
+  applyCurrentRange();
+  document.querySelectorAll('.range-btn').forEach(btn => btn.classList.remove('active'));
+  rangeCustomHint.textContent = `${{start || '처음'}} ~ ${{end || '최신'}} 구간 적용됨`;
+}}
+
+document.getElementById('rangeApplyBtn').addEventListener('click', applyCustomRange);
+RANGE_OPTIONS.forEach(opt => {{
+  const btn = document.createElement('button');
+  btn.className = 'range-btn';
+  btn.textContent = opt.label;
+  btn.dataset.days = String(opt.days);
+  btn.onclick = () => applyRange(opt.days);
+  rangeBar.appendChild(btn);
+}});
 
 function applyBandControls() {{
   if (!currentDetailData) return;
@@ -605,6 +716,15 @@ function openDetail(code) {{
       document.getElementById('bandCount').value = data.bandMultiples.length || TARGET_BAND_LINES_DEFAULT;
       document.getElementById('bandCustom').value = '';
       document.getElementById('yAxisMax').value = '';
+      if (data.dates.length) {{
+        rangeStartInput.min = data.dates[0]; rangeStartInput.max = data.dates[data.dates.length - 1];
+        rangeEndInput.min = data.dates[0]; rangeEndInput.max = data.dates[data.dates.length - 1];
+      }}
+      currentRange = {{ mode: 'preset', days: null }};
+      rangeStartInput.value = '';
+      rangeEndInput.value = '';
+      rangeCustomHint.textContent = '';
+      document.querySelectorAll('.range-btn').forEach(btn => btn.classList.toggle('active', btn.dataset.days === 'null'));
       renderChart(data, data.bandMultiples);
       document.getElementById('overlay').classList.add('open');
     }})
