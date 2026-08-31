@@ -1092,8 +1092,14 @@ def main_long_short(portfolio, other_portfolios):
         "ret_pct": pct_return(bm_kosdaq_latest),
         "day_ret_pct": kosdaq_day_ret, "weight_pct": None,
     })
-    long_rows = [r for r in holdings if r["shares"] is not None and r["shares"] > 0]
-    short_rows = [r for r in holdings if r["shares"] is not None and r["shares"] < 0]
+    # 롱/숏 표 분류는 실제 매매 방향(shares 부호)이 아니라 "경제적 방향"(EXPOSURE_BETA 반영) 기준
+    # - 인버스ETF는 매수(shares>0)해도 실질은 코스닥 하락 베팅(숏)이라 숏 표에 넣어달라는 요청
+    # (2026-09-01). 매매/평가금액 자체는 그대로 BUY로 남아있고 표시 위치만 바뀐다.
+    def effective_side(r):
+        return (1 if r["shares"] > 0 else -1) * EXPOSURE_BETA.get(r["code"], 1.0)
+
+    long_rows = [r for r in holdings if r["shares"] is not None and effective_side(r) > 0]
+    short_rows = [r for r in holdings if r["shares"] is not None and effective_side(r) < 0]
     ref_rows = [r for r in holdings if r["shares"] is None]
 
     long_rows_html = render_rows(long_rows)
