@@ -72,4 +72,10 @@ LONG_SHORT_PORTFOLIOS = [
 ]
 
 # fetch_troy_mp_prices.py처럼 "포트폴리오 종류 상관없이 전부 순회"하고 싶을 때 쓰는 합친 리스트.
-ALL_PORTFOLIOS = PORTFOLIOS + LONG_SHORT_PORTFOLIOS
+# 이 순서가 그대로 모든 MP 페이지 상단 탭 순서로 쓰인다(render_nav_html) - PORTFOLIOS/
+# LONG_SHORT_PORTFOLIOS 등록 순서와 무관하게 여기서 최종 표시 순서를 정한다. 민구MP를 맨
+# 마지막에 두고 싶다는 요청(2026-09-01)이 있어서 PORTFOLIOS 뒤에 그냥 이어붙이지 않고 직접 나열.
+_BY_ID = {p["id"]: p for p in PORTFOLIOS + LONG_SHORT_PORTFOLIOS}
+ALL_PORTFOLIOS = [_BY_ID[i] for i in [
+    "troy_mp", "momentum_mp", "kosdaq_long_short", "kosdaq_long_short_index", "mingu_mp",
+]]
