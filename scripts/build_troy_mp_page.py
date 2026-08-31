@@ -157,7 +157,12 @@ def compute_holdings_table(trades, latest_prices, prev_prices, name_map, sector_
             cash_full -= row["amount"]
 
     cash = cash_full  # total_eval 계산엔 항상 전체 현금을 쓴다(TWR 지수와 일치시키기 위함)
-    display_cash = cash_long if cash_mode == "long_only" else cash_full
+    # "현금(롱 잔여)"은 정수 주식수 반올림 때문에 아주 살짝 마이너스가 나올 수 있는데(예: 목표
+    # 금액보다 몇십만원 더 산 경우), 실제로 마이너스 현금(마이너스 잔고)이라는 뜻이 아니라 반올림
+    # 오차일 뿐이라 0으로 바닥을 둔다(2026-09-01, 사용자 요청 - "현금이 마이너스면 안 되는거
+    # 아니냐"). cash_mode="full"(롱온리 포트폴리오)은 기존처럼 마이너스도 그대로 보여준다 -
+    # 그쪽은 실현손익 반영이 핵심이라 마이너스가 실제 의미를 가질 수 있음.
+    display_cash = max(0.0, cash_long) if cash_mode == "long_only" else cash_full
 
     rows = []
     for code, p in pos.items():
