@@ -32,7 +32,7 @@ from datetime import datetime
 import pandas as pd
 import requests
 
-from mp_portfolios import PORTFOLIOS, LONG_SHORT_PORTFOLIOS, BASE_INDEX, TOTAL_CAPITAL, DOCS_DIR, DOWNLOADS_DIR
+from mp_portfolios import PORTFOLIOS, LONG_SHORT_PORTFOLIOS, ALL_PORTFOLIOS, BASE_INDEX, TOTAL_CAPITAL, DOCS_DIR, DOWNLOADS_DIR
 
 
 def fetch_index_history(symbol, count=3000):
@@ -1267,9 +1267,11 @@ if (sessionStorage.getItem("mp_unlocked") === "1") {{
 
 
 if __name__ == "__main__":
+    # 탭 네비게이션은 종류(롱온리/롱숏) 상관없이 등록된 MP 포트폴리오 전부를 보여준다 - 사용자가
+    # "왔다갔다 볼 수 있게" 요청(2026-08-31)해서 그룹을 나누지 않고 ALL_PORTFOLIOS 전체를 씀.
     for p in PORTFOLIOS:
-        others = [o for o in PORTFOLIOS if o is not p]
+        others = [o for o in ALL_PORTFOLIOS if o is not p]
         main(p, others)
     for p in LONG_SHORT_PORTFOLIOS:
-        others = [o for o in LONG_SHORT_PORTFOLIOS if o is not p]
+        others = [o for o in ALL_PORTFOLIOS if o is not p]
         main_long_short(p, others)
