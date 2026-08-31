@@ -794,7 +794,7 @@ TEMPLATE = """<!doctype html>
   a.back {{ color:#4dabf7; font-size:13px; text-decoration:none; margin-right:12px; }}
   h1 {{ font-size:20px; margin:8px 0 4px 0; }}
   .updated {{ color:#9aa0a6; font-size:13px; margin-bottom:20px; }}
-  .mp-tabs {{ margin:14px 0 18px 0; }}
+  .mp-tabs {{ position:sticky; top:0; z-index:100; margin:0 -24px 18px -24px; padding:14px 24px; background:#0f1115; border-bottom:1px solid #23262e; }}
   .mp-tabs a, .mp-tabs span {{ display:inline-block; margin-right:8px; padding:6px 14px; border-radius:8px; font-size:13px; text-decoration:none; }}
   .mp-tabs a {{ color:#9aa0a6; background:#1a1d24; }}
   .mp-tabs span.active {{ color:#0f1115; background:#4dabf7; font-weight:bold; }}
@@ -1156,7 +1156,7 @@ TEMPLATE_LS = """<!doctype html>
   a.back {{ color:#4dabf7; font-size:13px; text-decoration:none; margin-right:12px; }}
   h1 {{ font-size:20px; margin:8px 0 4px 0; }}
   .updated {{ color:#9aa0a6; font-size:13px; margin-bottom:20px; }}
-  .mp-tabs {{ margin:14px 0 18px 0; }}
+  .mp-tabs {{ position:sticky; top:0; z-index:100; margin:0 -24px 18px -24px; padding:14px 24px; background:#0f1115; border-bottom:1px solid #23262e; }}
   .mp-tabs a, .mp-tabs span {{ display:inline-block; margin-right:8px; padding:6px 14px; border-radius:8px; font-size:13px; text-decoration:none; }}
   .mp-tabs a {{ color:#9aa0a6; background:#1a1d24; }}
   .mp-tabs span.active {{ color:#0f1115; background:#4dabf7; font-weight:bold; }}
