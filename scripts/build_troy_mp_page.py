@@ -34,6 +34,11 @@ import requests
 
 from mp_portfolios import PORTFOLIOS, LONG_SHORT_PORTFOLIOS, ALL_PORTFOLIOS, BASE_INDEX, TOTAL_CAPITAL, DOCS_DIR, DOWNLOADS_DIR
 
+# NET EXPOSURE 계산용 종목별 베타 보정치(기본 1.0). 인버스/레버리지 ETF처럼 기초지수와 배율이
+# 다르게 움직이는 상품만 여기 등록한다 - 실제 매매/손익 계산에는 영향 없음(compute_twr_index_ls
+# 참고). KODEX 코스닥150선물인버스 = 코스닥150 -1배 추종.
+EXPOSURE_BETA = {"251340": -1.0}
+
 
 def fetch_index_history(symbol, count=3000):
     """네이버 차트 API로 지수(KOSPI/KOSDAQ) 일별 종가를 받아온다."""
@@ -400,7 +405,13 @@ def compute_twr_index_ls(trades, prices_wide, bm_series):
     이 부호 규약 덕분에 v(t) = cash + 롱평가액 + 숏평가액(음수) 이 항상 TOTAL_CAPITAL 근처에서
     움직이는 순수한 시장중립형 펀드의 NAV가 되고, 비율 기반 TWR 수익률 계산이 그대로 유효하다
     (v_start/v_end가 0 근처로 안 가서 나눗셈이 안전함 - 롱 100%+숏 100% 구조라 항상 양수).
-    추가로 NET EXPOSURE(그날 종가 기준, 롱비중+숏비중)를 매일 계산해서 함께 반환한다."""
+    추가로 NET EXPOSURE(그날 종가 기준, 롱비중+숏비중)를 매일 계산해서 함께 반환하는데, 이때
+    EXPOSURE_BETA로 종목별 베타를 곱해서 보정한다(인버스ETF처럼 기초지수와 반대로 움직이는
+    상품은 "매수했다"는 사실만으로는 실제 시장 방향성을 알 수 없음 - 2026-09-01, KODEX
+    코스닥150선물인버스를 SHORT로 담으면 이중반전으로 오히려 코스닥 상승에 베팅하는 꼴이 되는
+    버그를 사용자가 지적해서 BUY로 바꾸고, 대신 NET EXPOSURE 계산에서만 베타로 보정함).
+    v(t)/실현손익 계산은 항상 실제 shares*price 그대로 쓴다(베타 보정 없음) - 매매/평가금액은
+    이미 시장가로 정확히 반영되므로 이중 보정하면 안 됨."""
     inception = trades["date"].min()
     common_dates = set(prices_wide.index) & set(bm_series.index)
     all_dates = sorted(common_dates)
@@ -432,11 +443,14 @@ def compute_twr_index_ls(trades, prices_wide, bm_series):
 
     def exposure_and_value(date, cash_val):
         exposure = 0.0
+        exposure_adj = 0.0
         for c in codes:
             px = prices_wide.at[date, c]
             if not pd.isna(px) and shares[c] != 0:
-                exposure += shares[c] * px
-        return exposure, cash_val + exposure
+                raw = shares[c] * px
+                exposure += raw
+                exposure_adj += raw * EXPOSURE_BETA.get(c, 1.0)
+        return exposure, exposure_adj, cash_val + exposure
 
     mp_index = [float(BASE_INDEX)]
     dates_out = [all_dates[0]]
@@ -447,12 +461,12 @@ def compute_twr_index_ls(trades, prices_wide, bm_series):
         for _, row in trades_by_date[prev_date].iterrows():
             apply_trade(row)
     prev_cash = cash
-    exposure0, v0 = exposure_and_value(prev_date, prev_cash)
-    net_exposure_out.append(exposure0 / v0 * 100 if v0 else 0.0)
+    _, exposure_adj0, v0 = exposure_and_value(prev_date, prev_cash)
+    net_exposure_out.append(exposure_adj0 / v0 * 100 if v0 else 0.0)
 
     for d in all_dates[1:]:
-        _, v_start = exposure_and_value(prev_date, prev_cash)
-        _, v_end = exposure_and_value(d, prev_cash)
+        _, _, v_start = exposure_and_value(prev_date, prev_cash)
+        _, _, v_end = exposure_and_value(d, prev_cash)
         r = v_end / v_start - 1 if v_start > 0 else 0.0
         mp_index.append(mp_index[-1] * (1 + r))
         dates_out.append(d)
@@ -463,8 +477,8 @@ def compute_twr_index_ls(trades, prices_wide, bm_series):
         prev_date = d
         prev_cash = cash
 
-        exposure_after, v_after = exposure_and_value(d, prev_cash)
-        net_exposure_out.append(exposure_after / v_after * 100 if v_after else 0.0)
+        _, exposure_adj_after, v_after = exposure_and_value(d, prev_cash)
+        net_exposure_out.append(exposure_adj_after / v_after * 100 if v_after else 0.0)
 
     bm_base = bm_series.loc[dates_out[0]]
     bm_out = [bm_series.loc[d] / bm_base * BASE_INDEX for d in dates_out]
@@ -1250,7 +1264,11 @@ TEMPLATE_LS = """<!doctype html>
     (가격이 내려야 이익).<br><br>
     <b>NET EXPOSURE</b> — 롱 비중 합 + 숏 비중 합(둘 다 이미 부호가 반영돼 있어 그냥 더하면 됨).
     0%면 롱숏 익스포저가 정확히 상쇄된 시장중립 상태, +면 순매수(롱 과다), -면 순매도(숏 과다)
-    포지션임을 뜻합니다. 차트에 매일 값이 오른쪽 축(%)으로 같이 표시됩니다.<br><br>
+    포지션임을 뜻합니다. 차트에 매일 값이 오른쪽 축(%)으로 같이 표시됩니다. 단, 인버스ETF처럼
+    기초지수와 반대로 움직이는 상품은 "매수(BUY)"로 담겨 있어도(공매도로 담으면 이중반전되어
+    버그가 됨) NET EXPOSURE 계산에서는 -1배로 보정해서 실제 시장 방향성(코스닥 하락 베팅)이
+    정확히 반영되도록 합니다 - 매입금액/평가금액/수익률 자체는 보정 없이 실제 매수 그대로입니다.
+    <br><br>
     <b>MDD</b> — 편입 시작일 이후 지금까지 지수가 직전 최고점 대비 가장 많이 빠졌던 낙폭(%).<br><br>
     <b>지수 산출</b> — 일별 시간가중수익률(TWR) 연쇄복리(v = 현금 + 롱평가액 + 숏평가액). 그날의
     매매는 그날 수익률에 영향을 주지 않고(매매는 종가 체결 가정, 다음날 비중부터 반영) 순수하게
