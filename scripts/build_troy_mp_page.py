@@ -1012,32 +1012,26 @@ def main_long_short(portfolio, other_portfolios):
     kosdaq_actual_date = ref_date.strftime("%Y-%m-%d") if ref_date is not None else "N/A"
     kosdaq_day_ret = (bm_kosdaq[-1] / bm_kosdaq[-2] - 1) * 100 if len(bm_kosdaq) >= 2 else None
 
-    holdings.append({
-        "code": "-", "name": "코스닥 지수(기준)", "sector": "-", "shares": None, "avg_price": None,
-        "cost_basis": None, "cur_price": kosdaq_actual_latest, "eval_value": None,
-        "ret_pct": pct_return(bm_kosdaq_latest),
-        "day_ret_pct": kosdaq_day_ret, "weight_pct": None,
-    })
-
-    rows_html = ""
-    for r in holdings:
-        ret = r["ret_pct"]
-        ret_str = "N/A" if ret is None else f"{ret:+.2f}%"
-        ret_color = "#adb5bd" if ret is None else ("#ff6b6b" if ret >= 0 else "#4dabf7")
-        day_ret = r.get("day_ret_pct")
-        day_ret_str = "N/A" if day_ret is None else f"{day_ret:+.2f}%"
-        day_ret_color = "#adb5bd" if day_ret is None else ("#ff6b6b" if day_ret >= 0 else "#4dabf7")
-        cur_price_str = f"{r['cur_price']:,.0f}" if r["cur_price"] else "N/A"
-        eval_value_str = f"{r['eval_value']:,.0f}" if r["eval_value"] else "N/A"
-        weight_str = f"{r['weight_pct']:.1f}%" if r["weight_pct"] is not None else "N/A"
-        avg_price_str = f"{r['avg_price']:,.0f}" if r["avg_price"] is not None else "-"
-        cost_basis_str = f"{r['cost_basis']:,.0f}" if r["cost_basis"] is not None else "-"
-        side_tag = ""
-        if r["shares"] is not None:
-            side_tag = ' <span style="color:#ff2ec4; font-size:11px;">[숏]</span>' if r["shares"] < 0 else ' <span style="color:#39ff14; font-size:11px;">[롱]</span>'
-        rows_html += f"""
+    # 롱/숏을 표 자체를 나눠서 보여준다(2026-08-31, 사용자 요청 - 종목명 옆 [롱]/[숏] 태그보다
+    # 롱 칸/숏 칸을 아예 분리하는 게 구분이 더 잘 됨). 코스닥 지수(기준) 참고행은 shares=None이라
+    # 롱/숏 어느 쪽도 아니고, 별도로 작게 표시한다.
+    def render_rows(rows):
+        out = ""
+        for r in rows:
+            ret = r["ret_pct"]
+            ret_str = "N/A" if ret is None else f"{ret:+.2f}%"
+            ret_color = "#adb5bd" if ret is None else ("#ff6b6b" if ret >= 0 else "#4dabf7")
+            day_ret = r.get("day_ret_pct")
+            day_ret_str = "N/A" if day_ret is None else f"{day_ret:+.2f}%"
+            day_ret_color = "#adb5bd" if day_ret is None else ("#ff6b6b" if day_ret >= 0 else "#4dabf7")
+            cur_price_str = f"{r['cur_price']:,.0f}" if r["cur_price"] else "N/A"
+            eval_value_str = f"{r['eval_value']:,.0f}" if r["eval_value"] else "N/A"
+            weight_str = f"{r['weight_pct']:.1f}%" if r["weight_pct"] is not None else "N/A"
+            avg_price_str = f"{r['avg_price']:,.0f}" if r["avg_price"] is not None else "-"
+            cost_basis_str = f"{r['cost_basis']:,.0f}" if r["cost_basis"] is not None else "-"
+            out += f"""
         <tr>
-          <td>{r['name']}{side_tag}</td>
+          <td>{r['name']}</td>
           <td>{r['code']}</td>
           <td>{r['sector']}</td>
           <td>{avg_price_str}</td>
@@ -1048,6 +1042,21 @@ def main_long_short(portfolio, other_portfolios):
           <td>{eval_value_str}</td>
           <td>{weight_str}</td>
         </tr>"""
+        return out
+
+    holdings.append({
+        "code": "-", "name": "코스닥 지수(기준)", "sector": "-", "shares": None, "avg_price": None,
+        "cost_basis": None, "cur_price": kosdaq_actual_latest, "eval_value": None,
+        "ret_pct": pct_return(bm_kosdaq_latest),
+        "day_ret_pct": kosdaq_day_ret, "weight_pct": None,
+    })
+    long_rows = [r for r in holdings if r["shares"] is not None and r["shares"] > 0]
+    short_rows = [r for r in holdings if r["shares"] is not None and r["shares"] < 0]
+    ref_rows = [r for r in holdings if r["shares"] is None]
+
+    long_rows_html = render_rows(long_rows)
+    short_rows_html = render_rows(short_rows)
+    ref_rows_html = render_rows(ref_rows)
 
     history = build_trade_history(trades, name_map)
     history_html = render_trade_history_html(history)
@@ -1074,14 +1083,18 @@ def main_long_short(portfolio, other_portfolios):
         kosdaq_actual_date=kosdaq_actual_date,
         inception=trades['date'].min().strftime('%Y-%m-%d'),
         n_holdings=len(holdings),
+        n_long=len(long_rows),
+        n_short=len(short_rows),
         total_eval=f"{total_eval:,.0f}",
-        rows_html=rows_html,
+        long_rows_html=long_rows_html,
+        short_rows_html=short_rows_html,
+        ref_rows_html=ref_rows_html,
         updated_at=datetime.now().strftime("%Y-%m-%d %H:%M"),
     )
     os.makedirs(DOCS_DIR, exist_ok=True)
     with open(out_path, "w", encoding="utf-8") as f:
         f.write(html)
-    print(f"[{name}] 저장 완료: {out_path} (보유 {len(holdings)}종목, MP지수 {mp_latest:.2f} vs 코스닥 {bm_kosdaq_latest:.2f}, NET EXPOSURE {net_exposure_latest:+.1f}%, MDD {mdd:.2f}%)")
+    print(f"[{name}] 저장 완료: {out_path} (롱 {len(long_rows)}종목/숏 {len(short_rows)}종목, MP지수 {mp_latest:.2f} vs 코스닥 {bm_kosdaq_latest:.2f}, NET EXPOSURE {net_exposure_latest:+.1f}%, MDD {mdd:.2f}%)")
 
 
 TEMPLATE_LS = """<!doctype html>
@@ -1119,6 +1132,9 @@ TEMPLATE_LS = """<!doctype html>
   th {{ color:#9aa0a6; font-weight:normal; font-size:12px; }}
   .main-row {{ display:flex; align-items:flex-start; gap:20px; flex-wrap:wrap; }}
   .holdings-col {{ flex:1 1 700px; max-width:1000px; }}
+  .side-h {{ font-size:13px; font-weight:bold; margin:0 0 8px 0; padding:6px 10px; border-radius:6px; display:inline-block; }}
+  .side-h.long {{ color:#39ff14; background:#39ff1414; }}
+  .side-h.short {{ color:#ff2ec4; background:#ff2ec414; margin-top:24px; }}
   .history-col {{ flex:0 0 420px; background:#1a1d24; border-radius:10px; padding:16px 18px; max-height:640px; overflow-y:auto; }}
   .history-col h3 {{ font-size:13px; color:#c7cbd1; margin:0 0 10px 0; }}
   .history-col a.dl {{ display:block; color:#4dabf7; font-size:12px; text-decoration:none; margin-bottom:12px; }}
@@ -1167,11 +1183,26 @@ TEMPLATE_LS = """<!doctype html>
 
   <div class="main-row">
     <div class="holdings-col">
+      <h3 class="side-h long">롱 ({n_long}종목)</h3>
       <table>
         <thead><tr>
-          <th>종목명</th><th>코드</th><th>섹터</th><th>평균매수(진입)단가</th><th>현재가</th><th>1일 수익률</th><th>누적 수익률</th><th>매입금액(잔액)</th><th>평가금액</th><th>비중</th>
+          <th>종목명</th><th>코드</th><th>섹터</th><th>평균매수단가</th><th>현재가</th><th>1일 수익률</th><th>누적 수익률</th><th>매입금액(잔액)</th><th>평가금액</th><th>비중</th>
         </tr></thead>
-        <tbody>{rows_html}
+        <tbody>{long_rows_html}
+        </tbody>
+      </table>
+
+      <h3 class="side-h short">숏 ({n_short}종목)</h3>
+      <table>
+        <thead><tr>
+          <th>종목명</th><th>코드</th><th>섹터</th><th>평균진입단가</th><th>현재가</th><th>1일 수익률</th><th>누적 수익률</th><th>상환금액(잔액)</th><th>평가금액</th><th>비중</th>
+        </tr></thead>
+        <tbody>{short_rows_html}
+        </tbody>
+      </table>
+
+      <table style="margin-top:16px;">
+        <tbody>{ref_rows_html}
         </tbody>
       </table>
     </div>
@@ -1186,9 +1217,9 @@ TEMPLATE_LS = """<!doctype html>
     <h3 style="font-size:13px; color:#c7cbd1; margin:0 0 8px 0;">산출 방법론</h3>
     <b>포트폴리오 변경</b> — 매매일지에 행을 추가/수정하는 방식(action: BUY/SELL=롱 진입·청산,
     SHORT/COVER=숏 진입·상환). 단가(price)를 비워두면 그날 네이버 종가로 자동 채워집니다.<br><br>
-    <b>비중·평가금액</b> — 숏 포지션은 비중/평가금액이 음수로 표시됩니다(공매도 익스포저).
-    종목명 옆 [롱]/[숏] 태그로 구분합니다. 평균매수(진입)단가·수익률은 숏의 경우 부호를 뒤집어
-    계산합니다(가격이 내려야 이익).<br><br>
+    <b>비중·평가금액</b> — 종목을 롱 표/숏 표로 나눠서 보여줍니다. 숏 표의 비중/평가금액은
+    음수로 표시됩니다(공매도 익스포저). 평균진입단가·수익률은 숏의 경우 부호를 뒤집어 계산합니다
+    (가격이 내려야 이익).<br><br>
     <b>NET EXPOSURE</b> — 롱 비중 합 + 숏 비중 합(둘 다 이미 부호가 반영돼 있어 그냥 더하면 됨).
     0%면 롱숏 익스포저가 정확히 상쇄된 시장중립 상태, +면 순매수(롱 과다), -면 순매도(숏 과다)
     포지션임을 뜻합니다. 차트에 매일 값이 오른쪽 축(%)으로 같이 표시됩니다.<br><br>
