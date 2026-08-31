@@ -716,12 +716,16 @@ def main(portfolio, other_portfolios):
 
 
 def render_nav_html(portfolio, other_portfolios):
-    """여러 MP 포트폴리오 페이지 사이를 전환할 수 있는 탭 - 현재 페이지는 굵게, 나머지는 링크."""
+    """여러 MP 포트폴리오 페이지 사이를 전환할 수 있는 탭 - 현재 페이지는 굵게, 나머지는 링크.
+    탭 순서는 항상 ALL_PORTFOLIOS 등록 순서 그대로 고정한다(2026-09-01, 사용자 지적 - 예전엔
+    "현재 페이지" 탭을 맨 앞으로 보내서 어느 페이지에 있느냐에 따라 탭 순서가 바뀌었음. 항상
+    같은 자리에 같은 탭이 있어야 헷갈리지 않음). other_portfolios 인자는 하위호환을 위해
+    시그니처만 남겨두고(호출부 수정 안 해도 되게) 실제로는 ALL_PORTFOLIOS 전체를 고정 순서로 쓴다."""
     items = []
-    for p in [portfolio] + other_portfolios:
+    for p in ALL_PORTFOLIOS:
         label = p["name"]
         href = os.path.basename(p["out_path"])
-        if p is portfolio:
+        if p["id"] == portfolio["id"]:
             items.append(f'<span class="mp-tab active">{label}</span>')
         else:
             items.append(f'<a class="mp-tab" href="{href}">{label}</a>')
