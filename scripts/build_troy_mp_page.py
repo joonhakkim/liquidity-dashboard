@@ -196,8 +196,11 @@ def compute_holdings_table(trades, latest_prices, prev_prices, name_map, sector_
     rows.sort(key=lambda r: r["eval_value"] or 0, reverse=True)
 
     # 리밸런싱 반올림으로 생기는 몇백~몇천원 수준의 부동소수점 잔여는 굳이 "현금" 행으로
-    # 보여줄 필요가 없어서(총 투입자본의 0.01% 미만) 그보다 큰 경우에만 행을 추가한다.
-    if show_cash_row and abs(display_cash) > TOTAL_CAPITAL * 0.0001:
+    # 보여줄 필요가 없어서(총 투입자본의 0.01% 미만) 그보다 큰 경우에만 행을 추가한다 - 단
+    # cash_mode="long_only"(롱숏 포트폴리오)는 지금 0이어도 "나중에 롱 쪽 리밸런싱하다 현금이
+    # 생길 수 있으니 자리를 남겨달라"는 요청(2026-09-01)이 있어서 금액과 상관없이 항상 행을
+    # 보여준다.
+    if show_cash_row and (cash_mode == "long_only" or abs(display_cash) > TOTAL_CAPITAL * 0.0001):
         cash_label = "현금(롱 잔여)" if cash_mode == "long_only" else "현금"
         rows.append({
             "code": "-", "name": cash_label, "sector": "-", "shares": None, "avg_price": None,
@@ -582,6 +585,7 @@ def main(portfolio, other_portfolios):
     mp_latest = mp_index[-1] if mp_index else float(BASE_INDEX)
     bm_kospi_latest = bm_kospi[-1] if bm_kospi else float(BASE_INDEX)
     bm_kosdaq_latest = bm_kosdaq[-1] if bm_kosdaq else float(BASE_INDEX)
+    mdd = compute_mdd(mp_index)
 
     def fmt_neon(v, suffix):
         """초과성과/자체 수익률 표 칸에 야광(neon) 색으로 강조해서 표시 - 양수는 네온 그린, 음수는 네온 핑크."""
@@ -656,7 +660,7 @@ def main(portfolio, other_portfolios):
         day_ret_str = "N/A" if day_ret is None else f"{day_ret:+.2f}%"
         day_ret_color = "#adb5bd" if day_ret is None else ("#ff6b6b" if day_ret >= 0 else "#4dabf7")
         cur_price_str = f"{r['cur_price']:,.0f}" if r["cur_price"] else "N/A"
-        eval_value_str = f"{r['eval_value']:,.0f}" if r["eval_value"] else "N/A"
+        eval_value_str = f"{r['eval_value']:,.0f}" if r["eval_value"] is not None else "N/A"
         weight_str = f"{r['weight_pct']:.1f}%" if r["weight_pct"] is not None else "N/A"
         avg_price_str = f"{r['avg_price']:,.0f}" if r["avg_price"] is not None else "-"
         cost_basis_str = f"{r['cost_basis']:,.0f}" if r["cost_basis"] is not None else "-"
@@ -694,6 +698,7 @@ def main(portfolio, other_portfolios):
         mp_latest=f"{mp_latest:,.2f}",
         bm_kospi_latest=f"{bm_kospi_latest:,.2f}",
         bm_kosdaq_latest=f"{bm_kosdaq_latest:,.2f}",
+        mdd=f"{mdd:.2f}%" if mdd is not None else "N/A",
         kospi_actual=f"{kospi_actual_latest:,.2f}" if kospi_actual_latest is not None else "N/A",
         kospi_actual_date=kospi_actual_date,
         kosdaq_actual=f"{kosdaq_actual_latest:,.2f}" if kosdaq_actual_latest is not None else "N/A",
@@ -707,7 +712,7 @@ def main(portfolio, other_portfolios):
     os.makedirs(DOCS_DIR, exist_ok=True)
     with open(out_path, "w", encoding="utf-8") as f:
         f.write(html)
-    print(f"[{name}] 저장 완료: {out_path} (보유 {len(holdings)}종목, MP지수 {mp_latest:.2f} vs 코스피 {bm_kospi_latest:.2f} vs 코스닥 {bm_kosdaq_latest:.2f})")
+    print(f"[{name}] 저장 완료: {out_path} (보유 {len(holdings)}종목, MP지수 {mp_latest:.2f} vs 코스피 {bm_kospi_latest:.2f} vs 코스닥 {bm_kosdaq_latest:.2f}, MDD {mdd:.2f}%)")
 
 
 def render_nav_html(portfolio, other_portfolios):
@@ -786,6 +791,7 @@ TEMPLATE = """<!doctype html>
   .badge.mp .value {{ color:#ff8787; }}
   .badge.bm .value {{ color:#4dabf7; }}
   .badge.alpha .value {{ color:#63e6be; }}
+  .badge.mdd .value {{ color:#ff2ec4; }}
   .chart-wrap {{ height:420px; position:relative; max-width:1100px; margin-bottom:28px; }}
   table {{ border-collapse: collapse; width:100%; font-size:13px; }}
   th, td {{ padding:8px 12px; text-align:right; border-bottom:1px solid #23262e; }}
@@ -820,6 +826,7 @@ TEMPLATE = """<!doctype html>
     <div class="badge mp"><div class="label">{page_name} 지수</div><div class="value">{mp_latest}</div></div>
     <div class="badge bm"><div class="label">코스피(BM) 지수</div><div class="value">{bm_kospi_latest}</div></div>
     <div class="badge bm"><div class="label">코스닥(BM) 지수</div><div class="value">{bm_kosdaq_latest}</div></div>
+    <div class="badge mdd"><div class="label">MDD(전체기간 최대낙폭)</div><div class="value">{mdd}</div></div>
   </div>
 
   <div class="table-row">
@@ -1042,7 +1049,7 @@ def main_long_short(portfolio, other_portfolios):
             day_ret_str = "N/A" if day_ret is None else f"{day_ret:+.2f}%"
             day_ret_color = "#adb5bd" if day_ret is None else ("#ff6b6b" if day_ret >= 0 else "#4dabf7")
             cur_price_str = f"{r['cur_price']:,.0f}" if r["cur_price"] else "N/A"
-            eval_value_str = f"{r['eval_value']:,.0f}" if r["eval_value"] else "N/A"
+            eval_value_str = f"{r['eval_value']:,.0f}" if r["eval_value"] is not None else "N/A"
             weight_str = f"{r['weight_pct']:.1f}%" if r["weight_pct"] is not None else "N/A"
             avg_price_str = f"{r['avg_price']:,.0f}" if r["avg_price"] is not None else "-"
             cost_basis_str = f"{r['cost_basis']:,.0f}" if r["cost_basis"] is not None else "-"
