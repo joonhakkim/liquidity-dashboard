@@ -99,7 +99,7 @@ def fill_missing_prices(trades, prices_wide, trades_path):
     return trades, changed
 
 
-def compute_holdings_table(trades, latest_prices, prev_prices, name_map, sector_map, show_cash_row=True):
+def compute_holdings_table(trades, latest_prices, prev_prices, name_map, sector_map, show_cash_row=True, cash_mode="full"):
     """이동평균원가법으로 종목별 현재 보유수량/원가/평균매수단가를 계산.
     현금은 "TOTAL_CAPITAL - 현재 보유중인 종목들의 원가 합"이 아니라(이 계산은 편출한 종목의
     실현손익을 전혀 반영 못 함 - 예: 손실 보고 전량 매도한 뒤 그 매도대금보다 큰 금액을 다른
@@ -111,9 +111,19 @@ def compute_holdings_table(trades, latest_prices, prev_prices, name_map, sector_
     음수로 표현해서 숏 포지션을 나타낸다. SHORT은 BUY의 반대 방향(shares/cost 둘 다 감소, 현금은
     공매도 대금만큼 증가), COVER는 SELL의 반대 방향(shares/cost 둘 다 원위치로 복귀, 현금은 매수
     상환 대금만큼 감소). 기존 BUY/SELL만 쓰는 롱온리 포트폴리오는 이 두 분기를 절대 안 타므로
-    동작이 그대로 유지된다."""
+    동작이 그대로 유지된다.
+
+    cash_mode="full"(기본, 롱온리 포트폴리오용) - BUY/SELL/SHORT/COVER 전부 반영한 현금.
+    cash_mode="long_only"(롱숏 포트폴리오용) - 화면에 보여줄 "현금" 행은 롱 매매(BUY/SELL)만
+    반영한다. SHORT의 공매도 대금을 그대로 현금에 합치면 100%에 가까운 숫자가 나와서
+    "투자 안 하고 노는 돈"처럼 오해를 사는데(실제로는 롱+숏 200% 그로스 익스포저가 걸려있는
+    상태), 사용자가 "나중에 롱 쪽에서 리밸런싱하다 남는 현금이 생길 수 있으니 그 자리를
+    남겨달라"고 해서(2026-09-01) 롱 매매만의 잔여현금을 보여주기로 함. total_eval(포트폴리오
+    전체 평가금액/NAV)은 always cash_mode 상관없이 진짜 전체 현금(cash_full)을 써서 지수와
+    어긋나지 않게 한다 - 화면에 보여주는 값(display_cash)만 다르다."""
     pos = {}  # code -> {"shares": x, "cost": y}
-    cash = TOTAL_CAPITAL
+    cash_full = TOTAL_CAPITAL
+    cash_long = TOTAL_CAPITAL
     for _, row in trades.iterrows():
         code = row["code"]
         p = pos.setdefault(code, {"shares": 0.0, "cost": 0.0})
@@ -122,7 +132,8 @@ def compute_holdings_table(trades, latest_prices, prev_prices, name_map, sector_
         if action == "BUY":
             p["shares"] += qty
             p["cost"] += row["amount"]
-            cash -= row["amount"]
+            cash_full -= row["amount"]
+            cash_long -= row["amount"]
         elif action == "SELL":
             if p["shares"] > 0:
                 ratio = min(qty / p["shares"], 1.0)
@@ -130,11 +141,12 @@ def compute_holdings_table(trades, latest_prices, prev_prices, name_map, sector_
                 p["shares"] -= qty
             else:
                 p["shares"] -= qty
-            cash += row["amount"]
+            cash_full += row["amount"]
+            cash_long += row["amount"]
         elif action == "SHORT":
             p["shares"] -= qty
             p["cost"] -= row["amount"]
-            cash += row["amount"]
+            cash_full += row["amount"]
         elif action == "COVER":
             if p["shares"] < 0:
                 ratio = min(qty / abs(p["shares"]), 1.0)
@@ -142,7 +154,10 @@ def compute_holdings_table(trades, latest_prices, prev_prices, name_map, sector_
                 p["shares"] += qty
             else:
                 p["shares"] += qty
-            cash -= row["amount"]
+            cash_full -= row["amount"]
+
+    cash = cash_full  # total_eval 계산엔 항상 전체 현금을 쓴다(TWR 지수와 일치시키기 위함)
+    display_cash = cash_long if cash_mode == "long_only" else cash_full
 
     rows = []
     for code, p in pos.items():
@@ -177,15 +192,12 @@ def compute_holdings_table(trades, latest_prices, prev_prices, name_map, sector_
 
     # 리밸런싱 반올림으로 생기는 몇백~몇천원 수준의 부동소수점 잔여는 굳이 "현금" 행으로
     # 보여줄 필요가 없어서(총 투입자본의 0.01% 미만) 그보다 큰 경우에만 행을 추가한다.
-    # 롱숏 포트폴리오는 애초에 이 "현금" 행을 안 보여준다(show_cash_row=False) - 숏 매도대금이
-    # 전부 현금으로 잡히는 이 모델 특성상 현금이 거의 항상 총자본의 100% 근처로 나와서
-    # "투자 안 하고 놀리는 돈"처럼 오해를 사기 쉽다(실제로는 롱+숏 200% 그로스 익스포저가
-    # 이미 걸려있는 상태) - NET EXPOSURE 배지가 실제 포지션 상태를 훨씬 명확하게 보여준다.
-    if show_cash_row and abs(cash) > TOTAL_CAPITAL * 0.0001:
+    if show_cash_row and abs(display_cash) > TOTAL_CAPITAL * 0.0001:
+        cash_label = "현금(롱 잔여)" if cash_mode == "long_only" else "현금"
         rows.append({
-            "code": "-", "name": "현금", "sector": "-", "shares": None, "avg_price": None,
-            "cost_basis": cash, "cur_price": None, "eval_value": cash, "ret_pct": None,
-            "day_ret_pct": None, "weight_pct": cash / total_eval * 100,
+            "code": "-", "name": cash_label, "sector": "-", "shares": None, "avg_price": None,
+            "cost_basis": display_cash, "cur_price": None, "eval_value": display_cash, "ret_pct": None,
+            "day_ret_pct": None, "weight_pct": display_cash / total_eval * 100,
         })
 
     return rows, total_eval
@@ -969,7 +981,7 @@ def main_long_short(portfolio, other_portfolios):
             if len(s) >= 2:
                 prev_prices[code] = float(s.iloc[-2])
 
-    holdings, total_eval = compute_holdings_table(trades, latest_prices, prev_prices, name_map, sector_map, show_cash_row=False)
+    holdings, total_eval = compute_holdings_table(trades, latest_prices, prev_prices, name_map, sector_map, show_cash_row=True, cash_mode="long_only")
     dates_out, mp_index, bm_kosdaq, net_exposure = compute_twr_index_ls(trades, prices_wide, kosdaq)
 
     dates_json = json.dumps([d.strftime("%Y-%m-%d") for d in dates_out])
