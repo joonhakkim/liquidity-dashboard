@@ -34,3 +34,28 @@ PORTFOLIOS = [
         "xlsx_path": os.path.join(DOWNLOADS_DIR, "momentum_mp_history.xlsx"),
     },
 ]
+
+# 롱숏(공매도 포함) 포트폴리오 - 롱온리(PORTFOLIOS)와 계산 방식(TWR + SHORT/COVER + NET
+# EXPOSURE + MDD, 벤치마크는 코스닥 하나뿐)이 달라서 build_troy_mp_page.py의 main_long_short()가
+# 따로 처리한다(2026-08-31, "코스닥 롱숏" 2종 추가).
+LONG_SHORT_PORTFOLIOS = [
+    {
+        "id": "kosdaq_long_short",
+        "name": "코스닥 롱숏(개별종목)",
+        "trades_path": os.path.join(DATA_DIR, "manual", "kosdaq_long_short_trades.csv"),
+        "prices_path": os.path.join(DATA_DIR, "kosdaq_long_short_prices.csv"),
+        "out_path": os.path.join(DOCS_DIR, "kosdaq_long_short.html"),
+        "xlsx_path": os.path.join(DOWNLOADS_DIR, "kosdaq_long_short_history.xlsx"),
+    },
+    {
+        "id": "kosdaq_long_short_index",
+        "name": "코스닥 롱숏(지수)",
+        "trades_path": os.path.join(DATA_DIR, "manual", "kosdaq_long_short_index_trades.csv"),
+        "prices_path": os.path.join(DATA_DIR, "kosdaq_long_short_index_prices.csv"),
+        "out_path": os.path.join(DOCS_DIR, "kosdaq_long_short_index.html"),
+        "xlsx_path": os.path.join(DOWNLOADS_DIR, "kosdaq_long_short_index_history.xlsx"),
+    },
+]
+
+# fetch_troy_mp_prices.py처럼 "포트폴리오 종류 상관없이 전부 순회"하고 싶을 때 쓰는 합친 리스트.
+ALL_PORTFOLIOS = PORTFOLIOS + LONG_SHORT_PORTFOLIOS

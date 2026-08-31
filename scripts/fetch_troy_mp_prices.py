@@ -12,7 +12,7 @@ import os
 import pandas as pd
 import requests
 
-from mp_portfolios import PORTFOLIOS
+from mp_portfolios import ALL_PORTFOLIOS
 
 DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data")
 
@@ -70,7 +70,7 @@ def fetch_for_portfolio(trades_path, out_path, label):
 
 
 def main():
-    for p in PORTFOLIOS:
+    for p in ALL_PORTFOLIOS:
         fetch_for_portfolio(p["trades_path"], p["prices_path"], p["name"])
 
 

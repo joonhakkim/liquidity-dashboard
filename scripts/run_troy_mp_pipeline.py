@@ -21,7 +21,7 @@ PYTHON = sys.executable
 
 STEPS = [
     ("fetch_troy_mp_prices.py", "MP 트래커: 편입 종목 일별 종가 수집(네이버 차트 API)"),
-    ("build_troy_mp_page.py", "MP 트래커 페이지 빌드(트로이 MP/모멘텀 MP)"),
+    ("build_troy_mp_page.py", "MP 트래커 페이지 빌드(트로이 MP/모멘텀 MP/코스닥 롱숏 2종)"),
     ("build_home.py", "홈페이지 빌드"),
 ]
 

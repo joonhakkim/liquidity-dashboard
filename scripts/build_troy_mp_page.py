@@ -32,7 +32,7 @@ from datetime import datetime
 import pandas as pd
 import requests
 
-from mp_portfolios import PORTFOLIOS, BASE_INDEX, TOTAL_CAPITAL, DOCS_DIR, DOWNLOADS_DIR
+from mp_portfolios import PORTFOLIOS, LONG_SHORT_PORTFOLIOS, BASE_INDEX, TOTAL_CAPITAL, DOCS_DIR, DOWNLOADS_DIR
 
 
 def fetch_index_history(symbol, count=3000):
@@ -99,24 +99,31 @@ def fill_missing_prices(trades, prices_wide, trades_path):
     return trades, changed
 
 
-def compute_holdings_table(trades, latest_prices, prev_prices, name_map, sector_map):
+def compute_holdings_table(trades, latest_prices, prev_prices, name_map, sector_map, show_cash_row=True):
     """이동평균원가법으로 종목별 현재 보유수량/원가/평균매수단가를 계산.
     현금은 "TOTAL_CAPITAL - 현재 보유중인 종목들의 원가 합"이 아니라(이 계산은 편출한 종목의
     실현손익을 전혀 반영 못 함 - 예: 손실 보고 전량 매도한 뒤 그 매도대금보다 큰 금액을 다른
     종목에 재투자하면 이 식은 그 차액을 그냥 무시해버린다), 매매일지 전체(편출된 종목 포함)의
     누적 현금흐름으로 계산한다(compute_twr_index의 현금 추적 방식과 동일 - 그래야 리밸런싱 때
-    실현손익이 정확히 반영된다)."""
+    실현손익이 정확히 반영된다).
+
+    SHORT/COVER(공매도) 지원(2026-08-31, "코스닥 롱숏" 포트폴리오 추가하며 일반화) - shares를
+    음수로 표현해서 숏 포지션을 나타낸다. SHORT은 BUY의 반대 방향(shares/cost 둘 다 감소, 현금은
+    공매도 대금만큼 증가), COVER는 SELL의 반대 방향(shares/cost 둘 다 원위치로 복귀, 현금은 매수
+    상환 대금만큼 감소). 기존 BUY/SELL만 쓰는 롱온리 포트폴리오는 이 두 분기를 절대 안 타므로
+    동작이 그대로 유지된다."""
     pos = {}  # code -> {"shares": x, "cost": y}
     cash = TOTAL_CAPITAL
     for _, row in trades.iterrows():
         code = row["code"]
         p = pos.setdefault(code, {"shares": 0.0, "cost": 0.0})
         qty = row["amount"] / row["price"]
-        if row["action"] == "BUY":
+        action = row["action"]
+        if action == "BUY":
             p["shares"] += qty
             p["cost"] += row["amount"]
             cash -= row["amount"]
-        elif row["action"] == "SELL":
+        elif action == "SELL":
             if p["shares"] > 0:
                 ratio = min(qty / p["shares"], 1.0)
                 p["cost"] *= (1 - ratio)
@@ -124,17 +131,30 @@ def compute_holdings_table(trades, latest_prices, prev_prices, name_map, sector_
             else:
                 p["shares"] -= qty
             cash += row["amount"]
+        elif action == "SHORT":
+            p["shares"] -= qty
+            p["cost"] -= row["amount"]
+            cash += row["amount"]
+        elif action == "COVER":
+            if p["shares"] < 0:
+                ratio = min(qty / abs(p["shares"]), 1.0)
+                p["cost"] *= (1 - ratio)
+                p["shares"] += qty
+            else:
+                p["shares"] += qty
+            cash -= row["amount"]
 
     rows = []
     for code, p in pos.items():
-        if p["shares"] <= 1e-6:
+        if abs(p["shares"]) <= 1e-6:
             continue
         avg_price = p["cost"] / p["shares"]
         cur_price = latest_prices.get(code)
         prev_price = prev_prices.get(code)
+        sign = 1 if p["shares"] > 0 else -1  # 숏 포지션은 가격이 내릴 때 이익이라 손익 부호를 뒤집는다
         eval_value = p["shares"] * cur_price if cur_price else None
-        ret_pct = (cur_price / avg_price - 1) * 100 if cur_price else None
-        day_ret_pct = (cur_price / prev_price - 1) * 100 if cur_price and prev_price else None
+        ret_pct = sign * (cur_price / avg_price - 1) * 100 if cur_price else None
+        day_ret_pct = sign * (cur_price / prev_price - 1) * 100 if cur_price and prev_price else None
         rows.append({
             "code": code,
             "name": name_map.get(code, code),
@@ -157,7 +177,11 @@ def compute_holdings_table(trades, latest_prices, prev_prices, name_map, sector_
 
     # 리밸런싱 반올림으로 생기는 몇백~몇천원 수준의 부동소수점 잔여는 굳이 "현금" 행으로
     # 보여줄 필요가 없어서(총 투입자본의 0.01% 미만) 그보다 큰 경우에만 행을 추가한다.
-    if abs(cash) > TOTAL_CAPITAL * 0.0001:
+    # 롱숏 포트폴리오는 애초에 이 "현금" 행을 안 보여준다(show_cash_row=False) - 숏 매도대금이
+    # 전부 현금으로 잡히는 이 모델 특성상 현금이 거의 항상 총자본의 100% 근처로 나와서
+    # "투자 안 하고 놀리는 돈"처럼 오해를 사기 쉽다(실제로는 롱+숏 200% 그로스 익스포저가
+    # 이미 걸려있는 상태) - NET EXPOSURE 배지가 실제 포지션 상태를 훨씬 명확하게 보여준다.
+    if show_cash_row and abs(cash) > TOTAL_CAPITAL * 0.0001:
         rows.append({
             "code": "-", "name": "현금", "sector": "-", "shares": None, "avg_price": None,
             "cost_basis": cash, "cur_price": None, "eval_value": cash, "ret_pct": None,
@@ -170,8 +194,9 @@ def compute_holdings_table(trades, latest_prices, prev_prices, name_map, sector_
 def build_trade_history(trades, name_map):
     """매매일지를 종목별 누적 보유수량/원가 추적해서 각 매매가 신규 편입/비중 확대/비중 축소/전량
     편출 중 어디에 해당하는지 자동으로 라벨링한 리스트로 변환(최신순). HTML 렌더링과 엑셀 저장이
-    공유. "편출"(전량 매도) 행에는 편입 시점부터 편출 시점까지의 누적 수익률(realized_ret_pct,
-    이동평균원가법 평균매수단가 대비 매도단가)도 같이 계산해서 남긴다."""
+    공유. "편출"(전량 매도/전량 상환) 행에는 편입 시점부터 편출 시점까지의 누적 수익률
+    (realized_ret_pct, 이동평균원가법 평균매수단가 대비 매도단가)도 같이 계산해서 남긴다.
+    SHORT/COVER(공매도)도 지원 - compute_holdings_table과 동일한 부호 규약(shares 음수=숏)."""
     pos = {}  # code -> {"shares": x, "cost": y} - compute_holdings_table과 동일한 방식
     history = []
     for _, row in trades.sort_values(["date", "code"]).iterrows():
@@ -180,12 +205,33 @@ def build_trade_history(trades, name_map):
         p = pos.setdefault(code, {"shares": 0.0, "cost": 0.0})
         prev_shares = p["shares"]
         realized_ret_pct = None
-        if row["action"] == "BUY":
+        action = row["action"]
+        if action == "BUY":
             p["shares"] += qty
             p["cost"] += row["amount"]
             label = "편입" if prev_shares <= 1e-6 else "비중 확대"
             color = "#ffa94d"
-        else:
+        elif action == "SHORT":
+            p["shares"] -= qty
+            p["cost"] -= row["amount"]
+            label = "편입(숏)" if prev_shares >= -1e-6 else "비중 확대(숏)"
+            color = "#ffa94d"
+        elif action == "COVER":
+            avg_cost_before = p["cost"] / p["shares"] if p["shares"] < -1e-6 else None
+            if p["shares"] < 0:
+                ratio = min(qty / abs(p["shares"]), 1.0)
+                p["cost"] *= (1 - ratio)
+                p["shares"] += qty
+            else:
+                p["shares"] += qty
+            if p["shares"] >= -1e-6:
+                label = "편출"
+                if avg_cost_before:
+                    realized_ret_pct = (1 - row["price"] / avg_cost_before) * 100  # 숏은 가격이 내려야 이익
+            else:
+                label = "비중 축소"
+            color = "#4dabf7"
+        else:  # SELL
             avg_cost_before = p["cost"] / p["shares"] if p["shares"] > 1e-6 else None
             if p["shares"] > 0:
                 ratio = min(qty / p["shares"], 1.0)
@@ -323,6 +369,103 @@ def compute_twr_index(trades, prices_wide, kospi, kosdaq):
         bm_kosdaq = [kosdaq.loc[d] / kosdaq_base * BASE_INDEX for d in dates_out]
 
     return dates_out, mp_index, bm_kospi, bm_kosdaq
+
+
+def compute_twr_index_ls(trades, prices_wide, bm_series):
+    """롱숏 포트폴리오 전용(2026-08-31, "코스닥 롱숏" 추가) - compute_twr_index와 원리는 같은
+    TWR 연쇄복리인데 두 가지가 다르다: (1) 벤치마크가 코스닥 하나뿐이라 단일 시리즈만 받는다,
+    (2) SHORT/COVER를 지원한다 - shares가 음수인 숏 포지션도 v_start/v_end 계산식
+    (cash + sum(shares*price))에 자연스럽게 녹아든다(공매도 대금은 SHORT 시점에 현금으로
+    잡히고, COVER 시점에 현금에서 빠져나가므로 - 롱 매수/매도의 정확히 반대 방향).
+    이 부호 규약 덕분에 v(t) = cash + 롱평가액 + 숏평가액(음수) 이 항상 TOTAL_CAPITAL 근처에서
+    움직이는 순수한 시장중립형 펀드의 NAV가 되고, 비율 기반 TWR 수익률 계산이 그대로 유효하다
+    (v_start/v_end가 0 근처로 안 가서 나눗셈이 안전함 - 롱 100%+숏 100% 구조라 항상 양수).
+    추가로 NET EXPOSURE(그날 종가 기준, 롱비중+숏비중)를 매일 계산해서 함께 반환한다."""
+    inception = trades["date"].min()
+    common_dates = set(prices_wide.index) & set(bm_series.index)
+    all_dates = sorted(common_dates)
+    all_dates = [d for d in all_dates if d >= inception]
+    if not all_dates:
+        return [], [], [], []
+
+    codes = sorted(trades["code"].unique())
+    shares = {c: 0.0 for c in codes}
+    cash = TOTAL_CAPITAL
+    trades_by_date = {d: g for d, g in trades.groupby("date")}
+
+    def apply_trade(row):
+        nonlocal cash
+        qty = row["amount"] / row["price"]
+        action = row["action"]
+        if action == "BUY":
+            shares[row["code"]] += qty
+            cash -= row["amount"]
+        elif action == "SELL":
+            shares[row["code"]] -= qty
+            cash += row["amount"]
+        elif action == "SHORT":
+            shares[row["code"]] -= qty
+            cash += row["amount"]
+        elif action == "COVER":
+            shares[row["code"]] += qty
+            cash -= row["amount"]
+
+    def exposure_and_value(date, cash_val):
+        exposure = 0.0
+        for c in codes:
+            px = prices_wide.at[date, c]
+            if not pd.isna(px) and shares[c] != 0:
+                exposure += shares[c] * px
+        return exposure, cash_val + exposure
+
+    mp_index = [float(BASE_INDEX)]
+    dates_out = [all_dates[0]]
+    net_exposure_out = []
+
+    prev_date = all_dates[0]
+    if prev_date in trades_by_date:
+        for _, row in trades_by_date[prev_date].iterrows():
+            apply_trade(row)
+    prev_cash = cash
+    exposure0, v0 = exposure_and_value(prev_date, prev_cash)
+    net_exposure_out.append(exposure0 / v0 * 100 if v0 else 0.0)
+
+    for d in all_dates[1:]:
+        _, v_start = exposure_and_value(prev_date, prev_cash)
+        _, v_end = exposure_and_value(d, prev_cash)
+        r = v_end / v_start - 1 if v_start > 0 else 0.0
+        mp_index.append(mp_index[-1] * (1 + r))
+        dates_out.append(d)
+
+        if d in trades_by_date:
+            for _, row in trades_by_date[d].iterrows():
+                apply_trade(row)
+        prev_date = d
+        prev_cash = cash
+
+        exposure_after, v_after = exposure_and_value(d, prev_cash)
+        net_exposure_out.append(exposure_after / v_after * 100 if v_after else 0.0)
+
+    bm_base = bm_series.loc[dates_out[0]]
+    bm_out = [bm_series.loc[d] / bm_base * BASE_INDEX for d in dates_out]
+
+    return dates_out, mp_index, bm_out, net_exposure_out
+
+
+def compute_mdd(index_series):
+    """지수 시계열의 전체 기간 최대낙폭(MDD, %) - 그동안의 최고점 대비 현재 저점까지 최대
+    하락폭. 항상 0 이하 값(하락이 없으면 0.0)."""
+    if not index_series:
+        return None
+    peak = index_series[0]
+    mdd = 0.0
+    for v in index_series:
+        if v > peak:
+            peak = v
+        dd = (v / peak - 1) * 100
+        if dd < mdd:
+            mdd = dd
+    return mdd
 
 
 def pct_return(level):
@@ -778,7 +921,355 @@ if (sessionStorage.getItem("mp_unlocked") === "1") {{
 """
 
 
+def main_long_short(portfolio, other_portfolios):
+    """롱숏 포트폴리오 전용 빌드 함수(2026-08-31, "코스닥 롱숏" 2종 추가하며 신설) - main()과
+    구조는 같은데 벤치마크가 코스닥 하나뿐이고, compute_twr_index_ls(SHORT/COVER 지원 +
+    NET EXPOSURE 계산)를 쓰고, MDD 배지가 추가된다는 점이 다르다. 기존 main()을 건드리면
+    트로이 MP/모멘텀 MP(듀얼 벤치마크, 롱온리)에 영향이 갈 수 있어서 별도 함수로 분리했다."""
+    trades_path = portfolio["trades_path"]
+    prices_path = portfolio["prices_path"]
+    out_path = portfolio["out_path"]
+    xlsx_path = portfolio["xlsx_path"]
+    name = portfolio["name"]
+
+    if not os.path.exists(trades_path):
+        print(f"[{name}] 매매일지 파일이 없습니다:", trades_path)
+        return
+    trades = load_trades(trades_path)
+
+    print(f"[{name}] 코스닥 지수 수집 중...")
+    kosdaq = fetch_index_history("KOSDAQ")
+
+    nav_html = render_nav_html(portfolio, other_portfolios)
+
+    if trades.empty:
+        render_empty_page(portfolio, nav_html)
+        print(f"[{name}] 아직 편입된 종목이 없습니다. 안내 페이지만 생성했습니다.")
+        return
+
+    name_map = dict(zip(trades["code"], trades["name"]))
+    sector_map = dict(zip(trades["code"], trades["sector"]))
+
+    if not os.path.exists(prices_path):
+        print(f"[{name}] 경고: 종목 가격 데이터가 없습니다. fetch_troy_mp_prices.py를 먼저 실행하세요.")
+        return
+    prices = pd.read_csv(prices_path, dtype={"code": str}, parse_dates=["date"])
+    prices["code"] = prices["code"].str.zfill(6)
+    prices_wide = prices.pivot_table(index="date", columns="code", values="close").ffill()
+
+    trades, _ = fill_missing_prices(trades, prices_wide, trades_path)
+
+    latest_prices = {}
+    prev_prices = {}
+    for code in trades["code"].unique():
+        if code in prices_wide.columns:
+            s = prices_wide[code].dropna()
+            if not s.empty:
+                latest_prices[code] = float(s.iloc[-1])
+            if len(s) >= 2:
+                prev_prices[code] = float(s.iloc[-2])
+
+    holdings, total_eval = compute_holdings_table(trades, latest_prices, prev_prices, name_map, sector_map, show_cash_row=False)
+    dates_out, mp_index, bm_kosdaq, net_exposure = compute_twr_index_ls(trades, prices_wide, kosdaq)
+
+    dates_json = json.dumps([d.strftime("%Y-%m-%d") for d in dates_out])
+    mp_json = json.dumps([round(v, 3) for v in mp_index])
+    bm_kosdaq_json = json.dumps([round(v, 3) for v in bm_kosdaq])
+    net_exposure_json = json.dumps([round(v, 2) for v in net_exposure])
+
+    mp_latest = mp_index[-1] if mp_index else float(BASE_INDEX)
+    bm_kosdaq_latest = bm_kosdaq[-1] if bm_kosdaq else float(BASE_INDEX)
+    net_exposure_latest = net_exposure[-1] if net_exposure else 0.0
+    mdd = compute_mdd(mp_index)
+
+    def fmt_neon(v, suffix):
+        if v is None:
+            return '<span style="color:#6b7280">N/A</span>'
+        color = "#39ff14" if v >= 0 else "#ff2ec4"
+        return f'<span style="color:{color}; text-shadow:0 0 6px {color}88;">{v:+.2f}{suffix}</span>'
+
+    def fmt_alpha(v):
+        return fmt_neon(v, "%p")
+
+    def fmt_return(v):
+        return fmt_neon(v, "%")
+
+    alpha_periods = {
+        "alpha_kosdaq_total": fmt_alpha(pct_return(mp_latest) - pct_return(bm_kosdaq_latest)),
+        "alpha_kosdaq_1d": fmt_alpha(compute_period_alpha(dates_out, mp_index, bm_kosdaq, prev_trading_day=True)),
+        "alpha_kosdaq_1w": fmt_alpha(compute_period_alpha(dates_out, mp_index, bm_kosdaq, days_back=7)),
+        "alpha_kosdaq_1m": fmt_alpha(compute_period_alpha(dates_out, mp_index, bm_kosdaq, days_back=30)),
+    }
+    own_periods = {
+        "own_total": fmt_return(pct_return(mp_latest)),
+        "own_1d": fmt_return(compute_period_return(dates_out, mp_index, prev_trading_day=True)),
+        "own_1w": fmt_return(compute_period_return(dates_out, mp_index, days_back=7)),
+        "own_1m": fmt_return(compute_period_return(dates_out, mp_index, days_back=30)),
+    }
+
+    ref_date = dates_out[-1] if dates_out else None
+    kosdaq_actual_latest = float(kosdaq.loc[ref_date]) if ref_date is not None and ref_date in kosdaq.index else None
+    kosdaq_actual_date = ref_date.strftime("%Y-%m-%d") if ref_date is not None else "N/A"
+    kosdaq_day_ret = (bm_kosdaq[-1] / bm_kosdaq[-2] - 1) * 100 if len(bm_kosdaq) >= 2 else None
+
+    holdings.append({
+        "code": "-", "name": "코스닥 지수(기준)", "sector": "-", "shares": None, "avg_price": None,
+        "cost_basis": None, "cur_price": kosdaq_actual_latest, "eval_value": None,
+        "ret_pct": pct_return(bm_kosdaq_latest),
+        "day_ret_pct": kosdaq_day_ret, "weight_pct": None,
+    })
+
+    rows_html = ""
+    for r in holdings:
+        ret = r["ret_pct"]
+        ret_str = "N/A" if ret is None else f"{ret:+.2f}%"
+        ret_color = "#adb5bd" if ret is None else ("#ff6b6b" if ret >= 0 else "#4dabf7")
+        day_ret = r.get("day_ret_pct")
+        day_ret_str = "N/A" if day_ret is None else f"{day_ret:+.2f}%"
+        day_ret_color = "#adb5bd" if day_ret is None else ("#ff6b6b" if day_ret >= 0 else "#4dabf7")
+        cur_price_str = f"{r['cur_price']:,.0f}" if r["cur_price"] else "N/A"
+        eval_value_str = f"{r['eval_value']:,.0f}" if r["eval_value"] else "N/A"
+        weight_str = f"{r['weight_pct']:.1f}%" if r["weight_pct"] is not None else "N/A"
+        avg_price_str = f"{r['avg_price']:,.0f}" if r["avg_price"] is not None else "-"
+        cost_basis_str = f"{r['cost_basis']:,.0f}" if r["cost_basis"] is not None else "-"
+        side_tag = ""
+        if r["shares"] is not None:
+            side_tag = ' <span style="color:#ff2ec4; font-size:11px;">[숏]</span>' if r["shares"] < 0 else ' <span style="color:#39ff14; font-size:11px;">[롱]</span>'
+        rows_html += f"""
+        <tr>
+          <td>{r['name']}{side_tag}</td>
+          <td>{r['code']}</td>
+          <td>{r['sector']}</td>
+          <td>{avg_price_str}</td>
+          <td>{cur_price_str}</td>
+          <td style="color:{day_ret_color}">{day_ret_str}</td>
+          <td style="color:{ret_color}">{ret_str}</td>
+          <td>{cost_basis_str}</td>
+          <td>{eval_value_str}</td>
+          <td>{weight_str}</td>
+        </tr>"""
+
+    history = build_trade_history(trades, name_map)
+    history_html = render_trade_history_html(history)
+    write_trade_history_xlsx(history, xlsx_path)
+    xlsx_name = os.path.basename(xlsx_path)
+
+    html = TEMPLATE_LS.format(
+        page_name=name,
+        nav_html=nav_html,
+        history_html=history_html,
+        xlsx_name=xlsx_name,
+        base_index=f"{BASE_INDEX:,}",
+        **alpha_periods,
+        **own_periods,
+        dates_json=dates_json,
+        mp_json=mp_json,
+        bm_kosdaq_json=bm_kosdaq_json,
+        net_exposure_json=net_exposure_json,
+        mp_latest=f"{mp_latest:,.2f}",
+        bm_kosdaq_latest=f"{bm_kosdaq_latest:,.2f}",
+        net_exposure_latest=f"{net_exposure_latest:+.1f}%",
+        mdd=f"{mdd:.2f}%" if mdd is not None else "N/A",
+        kosdaq_actual=f"{kosdaq_actual_latest:,.2f}" if kosdaq_actual_latest is not None else "N/A",
+        kosdaq_actual_date=kosdaq_actual_date,
+        inception=trades['date'].min().strftime('%Y-%m-%d'),
+        n_holdings=len(holdings),
+        total_eval=f"{total_eval:,.0f}",
+        rows_html=rows_html,
+        updated_at=datetime.now().strftime("%Y-%m-%d %H:%M"),
+    )
+    os.makedirs(DOCS_DIR, exist_ok=True)
+    with open(out_path, "w", encoding="utf-8") as f:
+        f.write(html)
+    print(f"[{name}] 저장 완료: {out_path} (보유 {len(holdings)}종목, MP지수 {mp_latest:.2f} vs 코스닥 {bm_kosdaq_latest:.2f}, NET EXPOSURE {net_exposure_latest:+.1f}%, MDD {mdd:.2f}%)")
+
+
+TEMPLATE_LS = """<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>{page_name} 트래커</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<style>
+  body {{ font-family: -apple-system, "Malgun Gothic", sans-serif; background:#0f1115; color:#e6e6e6; margin:0; padding:24px; }}
+  a.back {{ color:#4dabf7; font-size:13px; text-decoration:none; margin-right:12px; }}
+  h1 {{ font-size:20px; margin:8px 0 4px 0; }}
+  .updated {{ color:#9aa0a6; font-size:13px; margin-bottom:20px; }}
+  .mp-tabs {{ margin:14px 0 18px 0; }}
+  .mp-tabs a, .mp-tabs span {{ display:inline-block; margin-right:8px; padding:6px 14px; border-radius:8px; font-size:13px; text-decoration:none; }}
+  .mp-tabs a {{ color:#9aa0a6; background:#1a1d24; }}
+  .mp-tabs span.active {{ color:#0f1115; background:#4dabf7; font-weight:bold; }}
+  .badges {{ display:grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap:12px; margin-bottom:20px; max-width:820px; }}
+  .table-row {{ display:flex; gap:16px; flex-wrap:wrap; margin-bottom:24px; }}
+  table.alpha-table {{ max-width:600px; background:#1a1d24; border-radius:10px; margin-bottom:0; }}
+  table.alpha-table th, table.alpha-table td {{ border-bottom:none; padding:10px 14px; }}
+  table.alpha-table td:not(:first-child) {{ font-weight:bold; }}
+  .badge {{ background:#1a1d24; border-radius:10px; padding:14px 16px; }}
+  .badge .label {{ color:#9aa0a6; font-size:12px; }}
+  .badge .value {{ font-size:20px; font-weight:bold; margin-top:4px; }}
+  .badge.mp .value {{ color:#ff8787; }}
+  .badge.bm .value {{ color:#4dabf7; }}
+  .badge.exposure .value {{ color:#ffd43b; }}
+  .badge.mdd .value {{ color:#ff2ec4; }}
+  .chart-wrap {{ height:420px; position:relative; max-width:1100px; margin-bottom:28px; }}
+  table {{ border-collapse: collapse; width:100%; font-size:13px; }}
+  th, td {{ padding:8px 12px; text-align:right; border-bottom:1px solid #23262e; }}
+  th:first-child, td:first-child {{ text-align:left; }}
+  th:nth-child(2), td:nth-child(2) {{ text-align:left; color:#9aa0a6; }}
+  th {{ color:#9aa0a6; font-weight:normal; font-size:12px; }}
+  .main-row {{ display:flex; align-items:flex-start; gap:20px; flex-wrap:wrap; }}
+  .holdings-col {{ flex:1 1 700px; max-width:1000px; }}
+  .history-col {{ flex:0 0 420px; background:#1a1d24; border-radius:10px; padding:16px 18px; max-height:640px; overflow-y:auto; }}
+  .history-col h3 {{ font-size:13px; color:#c7cbd1; margin:0 0 10px 0; }}
+  .history-col a.dl {{ display:block; color:#4dabf7; font-size:12px; text-decoration:none; margin-bottom:12px; }}
+  .note {{ color:#9aa0a6; font-size:12px; line-height:1.7; max-width:900px; background:#1a1d24; border-radius:10px; padding:16px 18px; margin-top:24px; }}
+  .note b {{ color:#ffa94d; }}
+</style>
+</head>
+<body>
+  <div id="lock-screen" style="position:fixed;inset:0;background:#0f1115;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:1000;">
+    <div style="background:#1a1d24;border-radius:12px;padding:32px 36px;max-width:320px;width:90%;text-align:center;">
+      <div style="font-size:15px;color:#e6e6e6;margin-bottom:14px;">비밀번호를 입력하세요</div>
+      <input id="pw-input" type="password" style="width:100%;box-sizing:border-box;padding:10px 12px;border-radius:8px;border:1px solid #333;background:#0f1115;color:#e6e6e6;font-size:14px;" autofocus>
+      <div id="pw-error" style="color:#ff6b6b;font-size:12px;margin-top:8px;height:14px;"></div>
+      <button id="pw-submit" style="margin-top:12px;width:100%;padding:10px;border-radius:8px;border:none;background:#4dabf7;color:#0f1115;font-weight:bold;cursor:pointer;">확인</button>
+    </div>
+  </div>
+  <div id="page-content" style="display:none">
+  <a class="back" href="index.html">&larr; 홈</a>
+  <h1>{page_name} 트래커</h1>
+  {nav_html}
+  <div class="updated">최종 갱신: {updated_at} &middot; 편입 시작일 {inception} (={base_index} 기준) &middot; 보유 {n_holdings}종목 &middot; 평가금액 합계 {total_eval}원</div>
+
+  <div class="badges">
+    <div class="badge mp"><div class="label">{page_name} 지수</div><div class="value">{mp_latest}</div></div>
+    <div class="badge bm"><div class="label">코스닥(BM) 지수</div><div class="value">{bm_kosdaq_latest}</div></div>
+    <div class="badge exposure"><div class="label">NET EXPOSURE(롱비중+숏비중)</div><div class="value">{net_exposure_latest}</div></div>
+    <div class="badge mdd"><div class="label">MDD(전체기간 최대낙폭)</div><div class="value">{mdd}</div></div>
+  </div>
+
+  <div class="table-row">
+    <table class="alpha-table">
+      <thead><tr><th>포트폴리오 자체 수익률</th><th>총 누적(시작일~)</th><th>1일</th><th>1주일</th><th>1개월</th></tr></thead>
+      <tbody>
+        <tr><td>{page_name}</td><td>{own_total}</td><td>{own_1d}</td><td>{own_1w}</td><td>{own_1m}</td></tr>
+      </tbody>
+    </table>
+    <table class="alpha-table">
+      <thead><tr><th>구간별 초과성과</th><th>총 누적(시작일~)</th><th>1일</th><th>1주일</th><th>1개월</th></tr></thead>
+      <tbody>
+        <tr><td>vs 코스닥</td><td>{alpha_kosdaq_total}</td><td>{alpha_kosdaq_1d}</td><td>{alpha_kosdaq_1w}</td><td>{alpha_kosdaq_1m}</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="chart-wrap"><canvas id="navChart"></canvas></div>
+
+  <div class="main-row">
+    <div class="holdings-col">
+      <table>
+        <thead><tr>
+          <th>종목명</th><th>코드</th><th>섹터</th><th>평균매수(진입)단가</th><th>현재가</th><th>1일 수익률</th><th>누적 수익률</th><th>매입금액(잔액)</th><th>평가금액</th><th>비중</th>
+        </tr></thead>
+        <tbody>{rows_html}
+        </tbody>
+      </table>
+    </div>
+    <div class="history-col">
+      <h3>편입·편출 / 비중 조절 히스토리</h3>
+      <a class="dl" href="downloads/{xlsx_name}">&#128190; 엑셀 다운로드</a>
+      {history_html}
+    </div>
+  </div>
+
+  <div class="note">
+    <h3 style="font-size:13px; color:#c7cbd1; margin:0 0 8px 0;">산출 방법론</h3>
+    <b>포트폴리오 변경</b> — 매매일지에 행을 추가/수정하는 방식(action: BUY/SELL=롱 진입·청산,
+    SHORT/COVER=숏 진입·상환). 단가(price)를 비워두면 그날 네이버 종가로 자동 채워집니다.<br><br>
+    <b>비중·평가금액</b> — 숏 포지션은 비중/평가금액이 음수로 표시됩니다(공매도 익스포저).
+    종목명 옆 [롱]/[숏] 태그로 구분합니다. 평균매수(진입)단가·수익률은 숏의 경우 부호를 뒤집어
+    계산합니다(가격이 내려야 이익).<br><br>
+    <b>NET EXPOSURE</b> — 롱 비중 합 + 숏 비중 합(둘 다 이미 부호가 반영돼 있어 그냥 더하면 됨).
+    0%면 롱숏 익스포저가 정확히 상쇄된 시장중립 상태, +면 순매수(롱 과다), -면 순매도(숏 과다)
+    포지션임을 뜻합니다. 차트에 매일 값이 오른쪽 축(%)으로 같이 표시됩니다.<br><br>
+    <b>MDD</b> — 편입 시작일 이후 지금까지 지수가 직전 최고점 대비 가장 많이 빠졌던 낙폭(%).<br><br>
+    <b>지수 산출</b> — 일별 시간가중수익률(TWR) 연쇄복리(v = 현금 + 롱평가액 + 숏평가액). 그날의
+    매매는 그날 수익률에 영향을 주지 않고(매매는 종가 체결 가정, 다음날 비중부터 반영) 순수하게
+    전일 보유 바스켓(롱+숏+현금)의 가격변동만 반영합니다. MP·코스닥(BM) 모두 편입 첫날을
+    {base_index}로 리베이스합니다.
+  </div>
+
+  <div class="badges" style="margin-top:16px;">
+    <div class="badge bm"><div class="label">코스닥 실제 지수({kosdaq_actual_date})</div><div class="value">{kosdaq_actual}</div></div>
+  </div>
+  </div>
+
+<script>
+const dates = {dates_json};
+const mpIndex = {mp_json};
+const bmKosdaqIndex = {bm_kosdaq_json};
+const netExposure = {net_exposure_json};
+
+function initChart() {{
+  if (window.__navChartInited) return;
+  window.__navChartInited = true;
+  new Chart(document.getElementById('navChart').getContext('2d'), {{
+    type: 'line',
+    data: {{
+      labels: dates,
+      datasets: [
+        {{ label: '{page_name}', data: mpIndex, borderColor: '#ff8787', backgroundColor: 'transparent', tension: 0.1, pointRadius: 0, borderWidth: 2, yAxisID: 'y' }},
+        {{ label: '코스닥(BM)', data: bmKosdaqIndex, borderColor: '#4dabf7', backgroundColor: 'transparent', tension: 0.1, pointRadius: 0, borderWidth: 2, borderDash: [5,3], yAxisID: 'y' }},
+        {{ label: 'NET EXPOSURE(%, 우측축)', data: netExposure, borderColor: '#ffd43b', backgroundColor: 'transparent', tension: 0.1, pointRadius: 0, borderWidth: 1.5, borderDash: [2,2], yAxisID: 'y1' }},
+      ]
+    }},
+    options: {{
+      responsive: true, maintainAspectRatio: false,
+      plugins: {{ legend: {{ labels: {{ color: '#e6e6e6' }} }} }},
+      scales: {{
+        x: {{ ticks: {{ color: '#9aa0a6', maxTicksLimit: 12 }}, grid: {{ color: '#23262e' }} }},
+        y: {{ position: 'left', title: {{ display: true, text: '지수(편입일={base_index})', color: '#9aa0a6' }}, ticks: {{ color: '#9aa0a6' }}, grid: {{ color: '#23262e' }} }},
+        y1: {{ position: 'right', title: {{ display: true, text: 'NET EXPOSURE(%)', color: '#9aa0a6' }}, ticks: {{ color: '#9aa0a6' }}, grid: {{ display: false }} }},
+      }}
+    }}
+  }});
+}}
+
+const PW_HASH = "03f1a9ee7721268c34ba420e058dd33d487bec8379c9dea6a997b6968400a60e";
+async function sha256Hex(str) {{
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(str));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, "0")).join("");
+}}
+function unlockPage() {{
+  document.getElementById("lock-screen").style.display = "none";
+  document.getElementById("page-content").style.display = "block";
+  initChart();
+}}
+async function tryUnlock() {{
+  const val = document.getElementById("pw-input").value;
+  const hash = await sha256Hex(val);
+  if (hash === PW_HASH) {{
+    sessionStorage.setItem("mp_unlocked", "1");
+    unlockPage();
+  }} else {{
+    document.getElementById("pw-error").textContent = "비밀번호가 틀렸습니다";
+  }}
+}}
+document.getElementById("pw-submit").addEventListener("click", tryUnlock);
+document.getElementById("pw-input").addEventListener("keydown", e => {{ if (e.key === "Enter") tryUnlock(); }});
+if (sessionStorage.getItem("mp_unlocked") === "1") {{
+  unlockPage();
+}}
+</script>
+</body>
+</html>
+"""
+
+
 if __name__ == "__main__":
     for p in PORTFOLIOS:
         others = [o for o in PORTFOLIOS if o is not p]
         main(p, others)
+    for p in LONG_SHORT_PORTFOLIOS:
+        others = [o for o in LONG_SHORT_PORTFOLIOS if o is not p]
+        main_long_short(p, others)
