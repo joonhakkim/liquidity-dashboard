@@ -33,6 +33,14 @@ PORTFOLIOS = [
         "out_path": os.path.join(DOCS_DIR, "momentum_mp.html"),
         "xlsx_path": os.path.join(DOWNLOADS_DIR, "momentum_mp_history.xlsx"),
     },
+    {
+        "id": "mingu_mp",
+        "name": "민구MP",
+        "trades_path": os.path.join(DATA_DIR, "manual", "mingu_mp_trades.csv"),
+        "prices_path": os.path.join(DATA_DIR, "mingu_mp_prices.csv"),
+        "out_path": os.path.join(DOCS_DIR, "mingu_mp.html"),
+        "xlsx_path": os.path.join(DOWNLOADS_DIR, "mingu_mp_history.xlsx"),
+    },
 ]
 
 # 롱숏(공매도 포함) 포트폴리오 - 롱온리(PORTFOLIOS)와 계산 방식(TWR + SHORT/COVER + NET
