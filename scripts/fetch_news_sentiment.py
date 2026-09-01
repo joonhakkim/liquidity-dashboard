@@ -1,6 +1,13 @@
 """
-한국은행 ECOS 뉴스심리지수(521Y001, 일별 실험적 통계, ITEM_CODE=A001)를 가져와
+한국은행 ECOS 뉴스심리지수(523Y001, 일별 실험적 통계, ITEM_CODE=A001)를 가져와
 data/news_sentiment_raw.csv 로 저장한다.
+
+2026-09-01, 한은이 "언어모형(AI/자연어처리)을 활용한 신뉴스심리지수"로 산출체계를 전면
+개편해서 공표를 시작 - 기존에 쓰던 521Y001은 이날부로 API에서 완전히 사라졌고(과거
+날짜를 조회해도 데이터 없음 응답), 그 대체가 이 523Y001이다. 값 자체도 다르다(예:
+2026-08-30 기준 구 521Y001=107.38 vs 신 523Y001=100.15) - 같은 개념(뉴스 톤 심리지수)의
+후속 시리즈일 뿐 서로 다른 산출 방식이라 시계열이 그 시점에서 완전히 이어지지 않는다.
+column명(news_sentiment_index)은 build_dashboard.py 하위 호환을 위해 그대로 유지.
 
 일부러 ecos_raw.csv(월별 지표들)와 분리했다 - us_real_rate_10y(일별)를 fred_raw.csv의
 월별 지표들과 같이 병합했다가 YoY 계산이 깨졌던 전례가 있어서, 일별/월별 원본은 항상
@@ -26,7 +33,7 @@ BASE_URL = "https://ecos.bok.or.kr/api"
 DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data")
 OUT_PATH = os.path.join(DATA_DIR, "news_sentiment_raw.csv")
 
-STAT_CODE, ITEM_CODE = "521Y001", "A001"
+STAT_CODE, ITEM_CODE = "523Y001", "A001"
 START_DATE = "20050101"
 
 

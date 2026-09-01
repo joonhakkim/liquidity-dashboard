@@ -49,7 +49,7 @@ CORE_STEPS = [
     ("fetch_crack_spread.py", "정유화학 정제마진(3:2:1 크랙 스프레드) 수집(EIA API)"),
     ("build_crack_spread_page.py", "정유화학 정제마진 트래커 페이지 + 엑셀 다운로드 빌드"),
     ("fetch_investor_flow.py", "수급주체(data/manual/수급정리*.xlsm 병합, 코스피/코스닥 분류)"),
-    ("fetch_news_sentiment.py", "한국은행 뉴스심리지수(ECOS 521Y001, 일별) 수집"),
+    ("fetch_news_sentiment.py", "한국은행 신뉴스심리지수(ECOS 523Y001, 일별, 2026-09-01 산출체계 개편) 수집"),
     ("optimize_percentile_window.py", "통합차트 백분위 지표 최적 기간 재탐색(데이터 누적에 따라 자동 조정)"),
     ("build_dashboard.py", "유동성 대시보드 빌드"),
     ("fetch_naver_sector.py", "네이버 업종분류 수집(OP밴드/스크리닝 섹터 필터용, 종목코드 기준 전종목)"),
