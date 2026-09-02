@@ -235,6 +235,7 @@ def build_summary_row(code, data, sector_map, naver_sector_map):
         "hist_max_mult": round(sorted_mults[-1], 2),
         "percentile": round(percentile, 1),
         "n_obs": len(positive_mults),
+        "latest_mktcap": round(data["mktcap"][-1], 0) if data["mktcap"] else None,
     }
 
 
@@ -455,13 +456,15 @@ TEMPLATE = """<!doctype html>
         <option value="percentile_asc">과거 대비 저평가순(백분위 낮은순)</option>
         <option value="percentile_desc">과거 대비 고평가순(백분위 높은순)</option>
         <option value="min_gap_asc">최소 대비 근접순</option>
+        <option value="mktcap_desc">시가총액 큰순</option>
+        <option value="mktcap_asc">시가총액 작은순</option>
       </select>
     </label>
   </div>
 
   <table>
     <thead><tr>
-      <th>종목명</th><th>코드</th><th>섹터</th><th>최신배수</th><th>기간중 최소</th><th>기간중 최대</th><th>현재 백분위</th><th>최소 대비</th><th>기준일</th>
+      <th>종목명</th><th>코드</th><th>섹터</th><th>시가총액</th><th>최신배수</th><th>기간중 최소</th><th>기간중 최대</th><th>현재 백분위</th><th>최소 대비</th><th>기준일</th>
     </tr></thead>
     <tbody id="tbody"></tbody>
   </table>
@@ -505,6 +508,16 @@ function minGapPct(r) {{
   return r.latest_mult > 0 ? (r.latest_mult - r.hist_min_mult) / r.latest_mult * 100 : null;
 }}
 
+// 시가총액(원) -> "N조 M,MMM억원" 표시. 1조 미만이면 억원 단위만.
+function fmtMktcap(won) {{
+  if (won === null || won === undefined) return '-';
+  const eok = won / 1e8;
+  const jo = Math.floor(eok / 10000);
+  const rest = Math.round(eok - jo * 10000);
+  if (jo > 0) return `${{jo}}조 ${{rest.toLocaleString()}}억`;
+  return `${{Math.round(eok).toLocaleString()}}억`;
+}}
+
 function applyFilters() {{
   const search = document.getElementById('fSearch').value.trim().toLowerCase();
   const sector = document.getElementById('fSector').value;
@@ -528,12 +541,14 @@ function applyFilters() {{
     return true;
   }});
 
-  const [key, dir] = sort === 'min_gap_asc' ? [null, 1]
-    : sort.includes('percentile') ? ['percentile', sort.endsWith('asc') ? 1 : -1]
-    : ['latest_mult', sort.endsWith('asc') ? 1 : -1];
   if (sort === 'min_gap_asc') {{
     rows.sort((a, b) => (minGapPct(a) ?? Infinity) - (minGapPct(b) ?? Infinity));
+  }} else if (sort === 'mktcap_desc' || sort === 'mktcap_asc') {{
+    const dir = sort === 'mktcap_asc' ? 1 : -1;
+    rows.sort((a, b) => ((a.latest_mktcap ?? -Infinity) - (b.latest_mktcap ?? -Infinity)) * dir);
   }} else {{
+    const [key, dir] = sort.includes('percentile') ? ['percentile', sort.endsWith('asc') ? 1 : -1]
+      : ['latest_mult', sort.endsWith('asc') ? 1 : -1];
     rows.sort((a, b) => (a[key] - b[key]) * dir);
   }}
 
@@ -545,6 +560,7 @@ function applyFilters() {{
       <td>${{r.name}}</td>
       <td>${{r.code}}</td>
       <td>${{r.sector ?? '-'}}</td>
+      <td>${{fmtMktcap(r.latest_mktcap)}}</td>
       <td>${{r.latest_mult.toFixed(2)}}x</td>
       <td>${{r.hist_min_mult.toFixed(2)}}x</td>
       <td>${{r.hist_max_mult.toFixed(2)}}x</td>
