@@ -1303,7 +1303,6 @@ function initChart() {{
       datasets: [
         {{ label: '{page_name}', data: mpIndex, borderColor: '#ff8787', backgroundColor: 'transparent', tension: 0.1, pointRadius: 0, borderWidth: 2, yAxisID: 'y' }},
         {{ label: '코스닥(BM)', data: bmKosdaqIndex, borderColor: '#4dabf7', backgroundColor: 'transparent', tension: 0.1, pointRadius: 0, borderWidth: 2, borderDash: [5,3], yAxisID: 'y' }},
-        {{ label: 'NET EXPOSURE(%, 우측축)', data: netExposure, borderColor: '#ffd43b', backgroundColor: 'transparent', tension: 0.1, pointRadius: 0, borderWidth: 1.5, borderDash: [2,2], yAxisID: 'y1' }},
       ]
     }},
     options: {{
@@ -1312,7 +1311,6 @@ function initChart() {{
       scales: {{
         x: {{ ticks: {{ color: '#9aa0a6', maxTicksLimit: 12 }}, grid: {{ color: '#23262e' }} }},
         y: {{ position: 'left', title: {{ display: true, text: '지수(편입일={base_index})', color: '#9aa0a6' }}, ticks: {{ color: '#9aa0a6' }}, grid: {{ color: '#23262e' }} }},
-        y1: {{ position: 'right', title: {{ display: true, text: 'NET EXPOSURE(%)', color: '#9aa0a6' }}, ticks: {{ color: '#9aa0a6' }}, grid: {{ display: false }} }},
       }}
     }}
   }});
