@@ -666,7 +666,13 @@ def main(portfolio, other_portfolios):
     })
 
     rows_html = ""
+    stock_no = 0
     for r in holdings:
+        # 현금/벤치마크 참고행(shares=None)은 실제 보유 종목이 아니므로 번호를 매기지 않는다
+        # - 사용자가 "종목 개수를 빠르게 파악"하려는 목적이라 번호=실제 보유종목 카운트여야 함.
+        if r["shares"] is not None:
+            stock_no += 1
+        no_str = str(stock_no) if r["shares"] is not None else "-"
         ret = r["ret_pct"]
         ret_str = "N/A" if ret is None else f"{ret:+.2f}%"
         ret_color = "#adb5bd" if ret is None else ("#ff6b6b" if ret >= 0 else "#4dabf7")
@@ -680,6 +686,7 @@ def main(portfolio, other_portfolios):
         cost_basis_str = f"{r['cost_basis']:,.0f}" if r["cost_basis"] is not None else "-"
         rows_html += f"""
         <tr>
+          <td>{no_str}</td>
           <td>{r['name']}</td>
           <td>{r['code']}</td>
           <td>{r['sector']}</td>
@@ -869,7 +876,7 @@ TEMPLATE = """<!doctype html>
     <div class="holdings-col">
       <table>
         <thead><tr>
-          <th>종목명</th><th>코드</th><th>섹터</th><th>평균매수단가</th><th>현재가</th><th>1일 수익률</th><th>누적 수익률</th><th>매입금액(잔액)</th><th>평가금액</th><th>비중</th>
+          <th>#</th><th>종목명</th><th>코드</th><th>섹터</th><th>평균매수단가</th><th>현재가</th><th>1일 수익률</th><th>누적 수익률</th><th>매입금액(잔액)</th><th>평가금액</th><th>비중</th>
         </tr></thead>
         <tbody>{rows_html}
         </tbody>
@@ -1059,7 +1066,13 @@ def main_long_short(portfolio, other_portfolios):
     # 롱/숏 어느 쪽도 아니고, 별도로 작게 표시한다.
     def render_rows(rows):
         out = ""
+        stock_no = 0
         for r in rows:
+            # 롱/숏 표는 이 함수가 롱, 숏, 참고행(현금·코스닥 지수) 세 번 따로 불려서 표별로
+            # 1부터 번호를 매긴다 - 참고행(shares=None)은 실제 보유종목이 아니라 번호 없음.
+            if r["shares"] is not None:
+                stock_no += 1
+            no_str = str(stock_no) if r["shares"] is not None else "-"
             ret = r["ret_pct"]
             ret_str = "N/A" if ret is None else f"{ret:+.2f}%"
             ret_color = "#adb5bd" if ret is None else ("#ff6b6b" if ret >= 0 else "#4dabf7")
@@ -1073,6 +1086,7 @@ def main_long_short(portfolio, other_portfolios):
             cost_basis_str = f"{r['cost_basis']:,.0f}" if r["cost_basis"] is not None else "-"
             out += f"""
         <tr>
+          <td>{no_str}</td>
           <td>{r['name']}</td>
           <td>{r['code']}</td>
           <td>{r['sector']}</td>
@@ -1234,7 +1248,7 @@ TEMPLATE_LS = """<!doctype html>
       <h3 class="side-h long">롱 ({n_long}종목)</h3>
       <table>
         <thead><tr>
-          <th>종목명</th><th>코드</th><th>섹터</th><th>평균매수단가</th><th>현재가</th><th>1일 수익률</th><th>누적 수익률</th><th>매입금액(잔액)</th><th>평가금액</th><th>비중</th>
+          <th>#</th><th>종목명</th><th>코드</th><th>섹터</th><th>평균매수단가</th><th>현재가</th><th>1일 수익률</th><th>누적 수익률</th><th>매입금액(잔액)</th><th>평가금액</th><th>비중</th>
         </tr></thead>
         <tbody>{long_rows_html}
         </tbody>
@@ -1243,7 +1257,7 @@ TEMPLATE_LS = """<!doctype html>
       <h3 class="side-h short">숏 ({n_short}종목)</h3>
       <table>
         <thead><tr>
-          <th>종목명</th><th>코드</th><th>섹터</th><th>평균진입단가</th><th>현재가</th><th>1일 수익률</th><th>누적 수익률</th><th>상환금액(잔액)</th><th>평가금액</th><th>비중</th>
+          <th>#</th><th>종목명</th><th>코드</th><th>섹터</th><th>평균진입단가</th><th>현재가</th><th>1일 수익률</th><th>누적 수익률</th><th>상환금액(잔액)</th><th>평가금액</th><th>비중</th>
         </tr></thead>
         <tbody>{short_rows_html}
         </tbody>
