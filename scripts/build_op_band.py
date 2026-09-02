@@ -447,19 +447,21 @@ TEMPLATE = """<!doctype html>
     <label>최신배수 최소 <input type="number" id="fMultMin" step="0.1"></label>
     <label>최신배수 최대 <input type="number" id="fMultMax" step="0.1"></label>
     <label><input type="checkbox" id="fIncludeNeg"> 적자(마이너스 배수) 포함</label>
+    <label><input type="checkbox" id="fMinGap"> 최소 대비 근접(≤<input type="number" id="fMinGapPct" value="10" step="1" style="width:48px">%)만</label>
     <label>정렬
       <select id="fSort">
         <option value="latest_mult_asc">최신배수 낮은순</option>
         <option value="latest_mult_desc">최신배수 높은순</option>
         <option value="percentile_asc">과거 대비 저평가순(백분위 낮은순)</option>
         <option value="percentile_desc">과거 대비 고평가순(백분위 높은순)</option>
+        <option value="min_gap_asc">최소 대비 근접순</option>
       </select>
     </label>
   </div>
 
   <table>
     <thead><tr>
-      <th>종목명</th><th>코드</th><th>섹터</th><th>최신배수</th><th>기간중 최소</th><th>기간중 최대</th><th>현재 백분위</th><th>기준일</th>
+      <th>종목명</th><th>코드</th><th>섹터</th><th>최신배수</th><th>기간중 최소</th><th>기간중 최대</th><th>현재 백분위</th><th>최소 대비</th><th>기준일</th>
     </tr></thead>
     <tbody id="tbody"></tbody>
   </table>
@@ -497,6 +499,12 @@ function pctlClass(p) {{
   return '';
 }}
 
+// (최신배수 - 기간중 최소) / 최신배수 * 100 - 최신배수가 과거 최저치에 얼마나 근접했는지(%).
+// 0%에 가까울수록 역대 최저 배수 근처, 마이너스 최신배수는 의미가 없어 null 처리.
+function minGapPct(r) {{
+  return r.latest_mult > 0 ? (r.latest_mult - r.hist_min_mult) / r.latest_mult * 100 : null;
+}}
+
 function applyFilters() {{
   const search = document.getElementById('fSearch').value.trim().toLowerCase();
   const sector = document.getElementById('fSector').value;
@@ -505,20 +513,34 @@ function applyFilters() {{
   const sort = document.getElementById('fSort').value;
 
   const includeNeg = document.getElementById('fIncludeNeg').checked;
+  const minGapOn = document.getElementById('fMinGap').checked;
+  const minGapThreshold = parseFloat(document.getElementById('fMinGapPct').value);
   let rows = ROWS.filter(r => {{
     if (!includeNeg && r.latest_mult <= 0) return false;
     if (search && !r.name.toLowerCase().includes(search) && !r.code.toLowerCase().includes(search)) return false;
     if (sector && r.sector !== sector) return false;
     if (!isNaN(min) && r.latest_mult < min) return false;
     if (!isNaN(max) && r.latest_mult > max) return false;
+    if (minGapOn) {{
+      const g = minGapPct(r);
+      if (g === null || isNaN(minGapThreshold) || g > minGapThreshold) return false;
+    }}
     return true;
   }});
 
-  const [key, dir] = sort.includes('percentile') ? ['percentile', sort.endsWith('asc') ? 1 : -1] : ['latest_mult', sort.endsWith('asc') ? 1 : -1];
-  rows.sort((a, b) => (a[key] - b[key]) * dir);
+  const [key, dir] = sort === 'min_gap_asc' ? [null, 1]
+    : sort.includes('percentile') ? ['percentile', sort.endsWith('asc') ? 1 : -1]
+    : ['latest_mult', sort.endsWith('asc') ? 1 : -1];
+  if (sort === 'min_gap_asc') {{
+    rows.sort((a, b) => (minGapPct(a) ?? Infinity) - (minGapPct(b) ?? Infinity));
+  }} else {{
+    rows.sort((a, b) => (a[key] - b[key]) * dir);
+  }}
 
   const tbody = document.getElementById('tbody');
-  tbody.innerHTML = rows.map(r => `
+  tbody.innerHTML = rows.map(r => {{
+    const g = minGapPct(r);
+    return `
     <tr data-code="${{r.code}}">
       <td>${{r.name}}</td>
       <td>${{r.code}}</td>
@@ -527,9 +549,10 @@ function applyFilters() {{
       <td>${{r.hist_min_mult.toFixed(2)}}x</td>
       <td>${{r.hist_max_mult.toFixed(2)}}x</td>
       <td class="${{pctlClass(r.percentile)}}">${{r.percentile.toFixed(0)}}%ile</td>
+      <td>${{g === null ? '-' : g.toFixed(1) + '%'}}</td>
       <td>${{r.latest_date}}</td>
     </tr>
-  `).join('');
+  `;}}).join('');
   tbody.querySelectorAll('tr').forEach(tr => {{
     tr.addEventListener('click', () => openDetail(tr.dataset.code));
   }});
@@ -543,7 +566,7 @@ const sectorSelect = document.getElementById('fSector');
   sectorSelect.appendChild(opt);
 }});
 
-['fSearch', 'fSector', 'fMultMin', 'fMultMax', 'fSort', 'fIncludeNeg'].forEach(id => {{
+['fSearch', 'fSector', 'fMultMin', 'fMultMax', 'fSort', 'fIncludeNeg', 'fMinGap', 'fMinGapPct'].forEach(id => {{
   document.getElementById(id).addEventListener('input', applyFilters);
   document.getElementById(id).addEventListener('change', applyFilters);
 }});
