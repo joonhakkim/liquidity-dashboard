@@ -144,6 +144,11 @@ def process_sheet(ws):
         if mktcap_idx is None or (not quarter_idxs and nfy1_idx is None and nfy2_idx is None):
             continue
 
+        # 신형 파일은 NFY1/NFY2가 매일 갱신되는 연속값이라(분기합산과 다름) - 이 종목이 신형
+        # 경로로 처리됐는지 표시해서, main()에서 FnGuide override가 이 연속 추정치 변화 추이를
+        # 상수값으로 덮어써 지워버리지 않게 막는 데 쓴다(2026-09-03).
+        uses_direct_annual = not quarter_idxs and (nfy1_idx is not None or nfy2_idx is not None)
+
         name = row_names[start] if start < len(row_names) else code
 
         fy_blocks = {}
@@ -201,7 +206,8 @@ def process_sheet(ws):
             continue
 
         results[code] = {"name": name, "dates": series_dates, "mktcap": series_mktcap,
-                          "op": series_op, "mult": series_mult}
+                          "op": series_op, "mult": series_mult,
+                          "uses_direct_annual": uses_direct_annual}
     return results
 
 
@@ -348,8 +354,21 @@ def main():
     current_use_year = today.year if today.month <= 6 else today.year + 1
     if fnguide_map:
         print(f"FnGuide 보정 적용 중(현재 회계연도 FY{current_use_year}, {len(fnguide_map)}종목 커버)...")
+        skipped_has_live = 0
         for code in all_results:
-            all_results[code] = apply_year_override(code, all_results[code], fnguide_map, current_use_year)
+            data = all_results[code]
+            # 신형 파일(NFY1/NFY2 직접값)이 이미 현재 회계연도까지 매일 갱신되는 값을 주고
+            # 있으면 FnGuide 단일값으로 덮어쓰지 않는다 - 안 그러면 "이익 추정치가 상향/하향
+            # 되고 있는지" 보려고 해도 override 때문에 상수로 눌려버림(2026-09-03, 사용자가
+            # 삼성전자 FY2027 값이 7월 이후 계속 똑같이 나오는 걸 보고 지적해서 발견한 버그).
+            if data.get("uses_direct_annual") and data["dates"]:
+                last_date = datetime.strptime(data["dates"][-1], "%Y-%m-%d")
+                last_use_year = last_date.year if last_date.month <= 6 else last_date.year + 1
+                if last_use_year >= current_use_year:
+                    skipped_has_live += 1
+                    continue
+            all_results[code] = apply_year_override(code, data, fnguide_map, current_use_year)
+        print(f"  (신형 파일이 이미 현재 회계연도를 직접 커버해서 override 생략: {skipped_has_live}종목)")
     else:
         print("FnGuide 데이터 없음(fetch_op_band_consensus.py 미실행) - 엑셀 원본만 사용")
 
