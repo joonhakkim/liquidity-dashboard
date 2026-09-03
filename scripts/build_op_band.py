@@ -2,23 +2,29 @@
 OP밴드(영업이익 밴드) 트래커 - data/manual/*기업*밴드*.xlsx(데이터터미널 시가총액/영업이익
 컨센서스 export)를 읽어서 종목별 "영업이익 추정치 x N배" 밴드 차트 데이터를 만든다.
 
-워크북 구조(사용자 제공 스펙):
-- 시트 3개(구성 1/2/3) - 엑셀 컬럼 한계(16,384열) 때문에 전체 종목을 나눠 이어붙인 것
-- 8행=종목코드, 9행=종목명, 10행=item code, 11행=단위, 12행=Base Date(YYYYMM), 15행부터
+워크북 구조(사용자 제공 스펙) - 신형/구형 두 포맷을 자동 감지해서 둘 다 처리한다:
+- 구형("기업 밴드 찾기.xlsx", 시트 "구성 1/2/3" - 엑셀 컬럼 한계 16,384열 때문에 종목을 나눠
+  이어붙인 것): 종목 1개당 +0 시가총액(S102100) / +1 TTM(M121505.M) / +2~ 분기별 영업이익
+  추정치(E121500.M, 4개씩 묶여 회계연도 1개, Base Date=YYYYMM)
+- 신형("기업 밴드 찾기 2.xlsx"부터, 시트 "기업밴드" 단일 - 2026-09-03 도입, 시계열이
+  2021-12-30~로 더 길고 분기합산 없이 FnGuide가 이미 집계한 연간 직접추정치를 줌 - 분기합
+  대비 오차 ±1~3% 수준(2026-09-03 확인, 삼성전자 등 대형주도 이상치 아님으로 판단하고 그대로
+  사용): 종목 1개당 +0 시가총액(S102100) / +1 TTM(M121505.M) / +2 당해연도 추정(E121500.M,
+  Base Date="NFY1") / +3 차년도 추정(E121500.M, Base Date="NFY2")
+- 공통: 8행=종목코드, 9행=종목명, 10행=item code, 11행=단위, 12행=Base Date, 15행부터
   날짜별 데이터(A열=날짜)
-- 종목 1개당 컬럼블록: +0 시가총액(S102100, Local) / +1 TTM·연간추정(M121505.M, Local thou -
-  구성1·2는 라벨 NR.FQ1, 구성3은 NR.FY1이지만 item code로 찾으므로 라벨 차이는 무시해도 됨) /
-  +2~ 분기별 영업이익 추정치(E121500.M, Local thou, 4개씩 묶여 회계연도 1개)
 
 산출 로직:
 1) 코드가 연속되는 컬럼 구간을 자동 탐지해서 회사 블록으로 인식(블록 폭 하드코딩 안 함)
-2) item code로 역할 컬럼(시총/TTM/분기) 탐지
-3) 분기 컬럼을 4개씩 끊어서 회계연도(FY)로 그룹핑(Base Date의 연도 기준)
-4) 날짜별로 "6월 스위칭 룰"로 쓸 회계연도 결정(1~6월->해당연도, 7~12월->다음연도),
-   해당 FY의 분기 4개가 전부 있어야 합산해서 연간 영업이익으로 씀
-5) 위에서 못 구하면 TTM 컬럼값(1순위) -> 직전에 계산된 값 이어쓰기(2순위) -> 그래도 없으면 스킵
-6) 배수 = 시가총액 / (영업이익추정치 x 1000)  (영업이익은 천원 단위라 원 단위로 환산)
-7) "보기 좋은" 밴드 배수 자동 선정(1,2,5,10,15,20,25,30,50,100,200,250,500,1000 중에서
+2) item code + Base Date로 역할 컬럼(시총/TTM/분기 or NFY1·NFY2) 탐지 - 구형이면 분기 그룹핑,
+   신형이면 NFY1/NFY2 컬럼을 직접 사용
+3) 날짜별로 "6월 스위칭 룰"로 쓸 회계연도 결정(1~6월->해당연도, 7~12월->다음연도) - 구형은
+   해당 FY의 분기 4개가 전부 있어야 합산, 신형은 use_year가 그 날짜의 해(NFY1) 또는 다음 해
+   (NFY2)인지에 따라 해당 컬럼을 그대로 씀(신형 NFY1=그 날짜가 속한 연도, NFY2=다음 연도로
+   확인됨). 어느 포맷이든 "6월 기준으로 어느 연도를 쓸지"의 최종 결과는 동일하다(사용자 확인).
+4) 위에서 못 구하면 TTM 컬럼값(1순위) -> 직전에 계산된 값 이어쓰기(2순위) -> 그래도 없으면 스킵
+5) 배수 = 시가총액 / (영업이익추정치 x 1000)  (영업이익은 천원 단위라 원 단위로 환산)
+6) "보기 좋은" 밴드 배수 자동 선정(1,2,5,10,15,20,25,30,50,100,200,250,500,1000 중에서
    목표 라인수에 맞는 간격을 골라 균등 배치) - 밴드 선 자체는 화면(JS)에서 op(t) x 배수로 그린다
    (원본 시계열을 밴드 개수만큼 중복 저장할 필요가 없어서 종목별 JSON이 훨씬 가벼워진다)
 
@@ -49,7 +55,6 @@ SUMMARY_PATH = os.path.join(SCREEN_DIR, "op_band_summary.csv")
 PAGE_OUT_PATH = os.path.join(DOCS_DIR, "op_band.html")
 FNGUIDE_PATH = os.path.join(DATA_DIR, "op_band_fnguide.csv")
 
-SHEETS = ["구성 1", "구성 2", "구성 3"]
 MKTCAP_ITEM = "S102100"
 TTM_ITEM = "M121505.M"
 QUARTER_ITEM = "E121500.M"
@@ -115,18 +120,28 @@ def process_sheet(ws):
 
     results = {}
     for code, start, end in blocks:
-        mktcap_idx = ttm_idx = None
+        mktcap_idx = ttm_idx = nfy1_idx = nfy2_idx = None
         quarter_idxs = []
         for k in range(start, end):
             item = row_items[k]
+            base = row_basedate[k]
             if item == MKTCAP_ITEM:
                 mktcap_idx = k
             elif item == TTM_ITEM:
                 ttm_idx = k
             elif item == QUARTER_ITEM:
-                quarter_idxs.append(k)
+                # "기업 밴드 찾기 2" 신형식은 이 item code 컬럼이 분기(YYYYMM) 대신 NFY1/NFY2
+                # 라벨의 "연간 직접추정치" 컬럼 2개뿐이다(2026-09-03, 시계열이 더 길고 분기
+                # 합산 없이 바로 연간 추정치를 준다 - 사용자 확인: 분기합과 오차 ±1~3%
+                # 수준이라 대체 가능). 라벨로 신/구형식을 구분해서 같은 함수가 둘 다 처리한다.
+                if base == "NFY1":
+                    nfy1_idx = k
+                elif base == "NFY2":
+                    nfy2_idx = k
+                elif base is not None:
+                    quarter_idxs.append(k)
 
-        if mktcap_idx is None or not quarter_idxs:
+        if mktcap_idx is None or (not quarter_idxs and nfy1_idx is None and nfy2_idx is None):
             continue
 
         name = row_names[start] if start < len(row_names) else code
@@ -150,13 +165,23 @@ def process_sheet(ws):
             mktcap = row_vals[mktcap_idx]
             if mktcap is None:
                 continue
+            # 6월 스위칭 룰: 1~6월엔 그 해, 7~12월엔 다음 해 영업이익 추정치를 쓴다(신구 형식
+            # 공통 - 회계연도 표시 방식만 다를 뿐 어느 연도를 쓸지의 기준 자체는 동일해야 함,
+            # 2026-09-03 사용자 확인). 신형식은 NFY1=그 날짜가 속한 연도, NFY2=다음 연도라
+            # (2025-03/2026-08 시점 값으로 검증) use_year==d.year일 때 NFY1, use_year==d.year+1일
+            # 때 NFY2를 그대로 쓰면 6월 스위칭과 동일한 결과가 된다 - 별도 분기합산 불필요.
             use_year = d.year if d.month <= 6 else d.year + 1
             op = None
-            group = fy_blocks.get(use_year)
-            if group:
-                vals = [row_vals[gi] for gi in group]
-                if all(v is not None for v in vals):
-                    op = sum(vals)
+            if fy_blocks:
+                group = fy_blocks.get(use_year)
+                if group:
+                    vals = [row_vals[gi] for gi in group]
+                    if all(v is not None for v in vals):
+                        op = sum(vals)
+            elif use_year == d.year and nfy1_idx is not None:
+                op = row_vals[nfy1_idx]
+            elif use_year == d.year + 1 and nfy2_idx is not None:
+                op = row_vals[nfy2_idx]
             if op is None and ttm_idx is not None:
                 op = row_vals[ttm_idx]
             if op is None:
@@ -304,11 +329,11 @@ def main():
     print(f"워크북 로드 중: {wb_path}")
     wb = openpyxl.load_workbook(wb_path, read_only=True, data_only=True)
 
+    # 워크북의 시트를 전부 순회 - 구형(엑셀 컬럼 한계 때문에 "구성 1/2/3"로 나뉜 파일)/
+    # 신형("기업밴드" 단일 시트, 2026-09-03 "기업 밴드 찾기 2"부터) 둘 다 이름 하드코딩 없이
+    # 자동으로 처리된다.
     all_results = {}
-    for sn in SHEETS:
-        if sn not in wb.sheetnames:
-            print(f"경고: 시트 '{sn}' 없음, 건너뜀")
-            continue
+    for sn in wb.sheetnames:
         print(f"처리 중: {sn} ...")
         results = process_sheet(wb[sn])
         for code, data in results.items():
