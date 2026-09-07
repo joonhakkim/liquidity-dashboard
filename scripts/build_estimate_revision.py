@@ -163,6 +163,15 @@ def build_summary_row(code, data, sector_map, naver_sector_map):
     for key, back, _ in LOOKBACKS:
         row[f"fy1_{key}"] = pct_change(fy1_series, back)
         row[f"fy2_{key}"] = pct_change(fy2_series, back)
+
+    # FY1(당해) 대비 FY2(차년도) 성장률 - "추정치가 시간이 지나며 상향/하향됐는지"(위 컬럼들)와는
+    # 다른 지표로, "지금 시점에 내년이 올해보다 얼마나 더 좋아질 걸로 보는지"(2026-09-07 요청).
+    # 둘 중 하나라도 TTM 폴백값이면 순수 FY1/FY2 비교가 아니라는 걸 growth_mixed_ttm으로 표시.
+    if latest_fy1 not in (None, 0) and latest_fy2 is not None:
+        row["fy2_vs_fy1_growth"] = round((latest_fy2 / latest_fy1 - 1) * 100, 2)
+    else:
+        row["fy2_vs_fy1_growth"] = None
+    row["growth_mixed_ttm"] = fy1_source == "TTM" or fy2_source == "TTM"
     return row
 
 
@@ -200,7 +209,7 @@ TEMPLATE = """<!doctype html>
   <a class="back" href="index.html">&larr; 홈</a>
   <h1>이익추정치 상향 트래커</h1>
   <div class="updated">최종 갱신: {updated_at} &middot; 원본 파일 기준일 {src_mtime} &middot; {n_stocks}종목 &middot;
-    FY1=당해연도 추정치, FY2=차년도 추정치(둘 다 매일 갱신되는 컨센서스 값 그대로, 회계연도 스위칭 없음)</div>
+    당해({fy1_year}년)/차년({fy2_year}년) 영업이익 추정치 - 매일 갱신되는 컨센서스 값 그대로, 회계연도 스위칭 없음</div>
 
   <div class="filters">
     <label>검색 <input type="text" id="fSearch" placeholder="종목명/코드"></label>
@@ -214,10 +223,12 @@ TEMPLATE = """<!doctype html>
     </label>
     <label>정렬
       <select id="fSort">
-        <option value="fy1_desc">FY1 상향률 높은순</option>
-        <option value="fy2_desc">FY2 상향률 높은순</option>
-        <option value="fy1_asc">FY1 하향률 큰순</option>
-        <option value="fy2_asc">FY2 하향률 큰순</option>
+        <option value="fy1_desc">{fy1_year}년 상향률 높은순</option>
+        <option value="fy2_desc">{fy2_year}년 상향률 높은순</option>
+        <option value="fy1_asc">{fy1_year}년 하향률 큰순</option>
+        <option value="fy2_asc">{fy2_year}년 하향률 큰순</option>
+        <option value="growth_desc">{fy1_year}년→{fy2_year}년 성장률 높은순</option>
+        <option value="growth_asc">{fy1_year}년→{fy2_year}년 성장률 낮은순</option>
       </select>
     </label>
     <label>시가총액 최소(억원) <input type="number" id="fMktcapMin" step="100"></label>
@@ -227,15 +238,17 @@ TEMPLATE = """<!doctype html>
   <table>
     <thead><tr>
       <th>종목명</th><th>코드</th><th>섹터</th><th>시가총액</th>
-      <th>FY1 추정치</th><th data-sort="fy1">FY1 상향률</th>
-      <th>FY2 추정치</th><th data-sort="fy2">FY2 상향률</th>
+      <th>{fy1_year}년 추정치</th><th data-sort="fy1">{fy1_year}년 상향률</th>
+      <th>{fy2_year}년 추정치</th><th data-sort="fy2">{fy2_year}년 상향률</th>
+      <th>{fy1_year}년&rarr;{fy2_year}년 성장률</th>
       <th>기준일</th>
     </tr></thead>
     <tbody id="tbody"></tbody>
   </table>
   </div>
   <div class="hint">상향률 = (최신값 / N거래일 전 값 - 1) x 100. 데이터가 그만큼 안 쌓인 종목은 "-"로 표시됩니다.
-    <span class="ttm-tag">TTM</span> 표시는 해당 연도 컨센서스 자체가 없어서 최근 12개월 실적(TTM)으로 대신 비교했다는 뜻입니다.</div>
+    <span class="ttm-tag">TTM</span> 표시는 해당 연도 컨센서스 자체가 없어서 최근 12개월 실적(TTM)으로 대신 비교했다는 뜻입니다.
+    {fy1_year}년&rarr;{fy2_year}년 성장률은 "지금 시점 컨센서스로 내년이 올해보다 얼마나 좋아질 것으로 보는지"이고, 위 상향률(추정치가 최근 얼마나 바뀌었는지)과는 다른 지표입니다.</div>
 
 <script>
 const ROWS = {rows_json};
@@ -278,7 +291,7 @@ function applyFilters() {{
 
   const fy1key = 'fy1_' + period, fy2key = 'fy2_' + period;
   const [sortField, dir] = sort.split('_');
-  const sortKey = (sortField === 'fy1' ? fy1key : fy2key);
+  const sortKey = sortField === 'fy1' ? fy1key : sortField === 'fy2' ? fy2key : 'fy2_vs_fy1_growth';
   rows.sort((a, b) => {{
     const av = a[sortKey], bv = b[sortKey];
     if (av === null && bv === null) return 0;
@@ -298,6 +311,7 @@ function applyFilters() {{
       <td>${{fmtPct(r[fy1key])}}</td>
       <td>${{fmtOp(r.fy2, r.fy2_source)}}</td>
       <td>${{fmtPct(r[fy2key])}}</td>
+      <td>${{fmtPct(r.fy2_vs_fy1_growth)}}${{r.growth_mixed_ttm && r.fy2_vs_fy1_growth !== null ? ' <span class="ttm-tag">TTM포함</span>' : ''}}</td>
       <td>${{r.latest_date}}</td>
     </tr>
   `).join('');
@@ -361,11 +375,19 @@ def main():
     print(f"결과 {before}종목 중 최신 기준일({latest_overall}) 종목만 유지: {len(rows)}종목 "
           f"(커버리지 끊긴 {before - len(rows)}종목 제외)")
 
+    # NFY1은 "그 날짜가 속한 연도", NFY2는 "다음 연도"로 확인됨(2026-09-03) - 데이터의 실제
+    # 최신 기준일에서 연도를 뽑아온다(빌드 실행 시각이 아니라 데이터 기준일 기준이어야 연말/
+    # 연초 경계에서도 어긋나지 않음).
+    fy1_year = int(latest_overall[:4]) if latest_overall else datetime.now().year
+    fy2_year = fy1_year + 1
+
     src_mtime = datetime.fromtimestamp(os.path.getmtime(wb_path)).strftime("%Y-%m-%d %H:%M")
     html = TEMPLATE.format(
         updated_at=datetime.now().strftime("%Y-%m-%d %H:%M"),
         src_mtime=src_mtime,
         n_stocks=len(rows),
+        fy1_year=fy1_year,
+        fy2_year=fy2_year,
         rows_json=json.dumps(rows, ensure_ascii=False),
     )
     os.makedirs(DOCS_DIR, exist_ok=True)

@@ -483,8 +483,9 @@ TEMPLATE = """<!doctype html>
   .filters input[type="text"] {{ width:160px; }}
   .filters input[type="number"] {{ width:80px; }}
   .filters label {{ display:flex; align-items:center; gap:6px; }}
-  table {{ border-collapse: collapse; width:100%; max-width:1000px; font-size:13px; }}
-  th, td {{ padding:8px 12px; text-align:right; border-bottom:1px solid #23262e; }}
+  .table-wrap {{ overflow-x:auto; }}
+  table {{ border-collapse: collapse; width:100%; font-size:13px; }}
+  th, td {{ padding:8px 12px; text-align:right; border-bottom:1px solid #23262e; white-space:nowrap; }}
   th:first-child, td:first-child {{ text-align:left; }}
   th:nth-child(2), td:nth-child(2), th:nth-child(3), td:nth-child(3) {{ text-align:left; color:#9aa0a6; }}
   th {{ color:#9aa0a6; font-weight:normal; font-size:12px; cursor:pointer; user-select:none; }}
@@ -548,12 +549,14 @@ TEMPLATE = """<!doctype html>
     </label>
   </div>
 
+  <div class="table-wrap">
   <table>
     <thead><tr>
       <th>종목명</th><th>코드</th><th>섹터</th><th>시가총액</th><th>최신배수</th><th>기간중 최소</th><th>기간중 최대</th><th>현재 백분위</th><th>최소 대비</th><th>기준일</th>
     </tr></thead>
     <tbody id="tbody"></tbody>
   </table>
+  </div>
 
   <div class="overlay" id="overlay">
     <div class="detail-card">
