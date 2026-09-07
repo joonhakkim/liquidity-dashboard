@@ -180,6 +180,7 @@ TEMPLATE = """<!doctype html>
 <head>
 <meta charset="utf-8">
 <title>이익추정치 상향 트래커</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
   body {{ font-family: -apple-system, "Malgun Gothic", sans-serif; background:#0f1115; color:#e6e6e6; margin:0; padding:24px; }}
   a.back {{ color:#4dabf7; font-size:13px; text-decoration:none; }}
@@ -192,6 +193,9 @@ TEMPLATE = """<!doctype html>
     border-radius:6px; padding:5px 8px; font-size:13px; }}
   .filters input[type="text"] {{ width:110px; }}
   .filters input[type="number"] {{ width:80px; }}
+  .filters button {{ background:#4dabf7; border:none; color:#0f1115; font-weight:600;
+    border-radius:6px; padding:6px 12px; font-size:13px; cursor:pointer; }}
+  .filters button:hover {{ background:#74c0fc; }}
   table {{ width:100%; border-collapse:collapse; font-size:13px; }}
   th, td {{ padding:8px 10px; text-align:right; border-bottom:1px solid #23262e; white-space:nowrap; }}
   th:nth-child(1), td:nth-child(1), th:nth-child(2), td:nth-child(2), th:nth-child(3), td:nth-child(3) {{ text-align:left; }}
@@ -232,6 +236,9 @@ TEMPLATE = """<!doctype html>
       </select>
     </label>
     <label>시가총액 최소(억원) <input type="number" id="fMktcapMin" step="100"></label>
+    <label>다운로드 상위 <input type="number" id="fDownloadN" value="50" min="1" step="10" style="width:60px"> 위까지
+      <button id="downloadBtn" type="button">엑셀 다운로드</button>
+    </label>
   </div>
 
   <div class="table-wrap">
@@ -275,6 +282,9 @@ function fmtPct(v) {{
   return `<span class="${{cls}}">${{sign}}${{v.toFixed(1)}}%</span>`;
 }}
 
+let currentRows = [];   // applyFilters()가 마지막으로 그린 행 순서 그대로(현재 정렬/필터 반영) - 다운로드가 이걸 그대로 씀
+let currentFy1Key = 'fy1_1w', currentFy2Key = 'fy2_1w';
+
 function applyFilters() {{
   const search = document.getElementById('fSearch').value.trim().toLowerCase();
   const sector = document.getElementById('fSector').value;
@@ -300,6 +310,10 @@ function applyFilters() {{
     return (av - bv) * (dir === 'desc' ? -1 : 1);
   }});
 
+  currentRows = rows;
+  currentFy1Key = fy1key;
+  currentFy2Key = fy2key;
+
   const tbody = document.getElementById('tbody');
   tbody.innerHTML = rows.map(r => `
     <tr>
@@ -316,6 +330,35 @@ function applyFilters() {{
     </tr>
   `).join('');
 }}
+
+// 현재 화면에 나온(검색·섹터·시가총액 필터 + 정렬) 순서 그대로 상위 N개를 엑셀로 다운로드.
+// "다운로드"라는 버튼 클릭이 명시적 사용자 액션이라 브라우저가 막지 않는다.
+function downloadExcel() {{
+  const n = parseInt(document.getElementById('fDownloadN').value, 10) || currentRows.length;
+  const slice = currentRows.slice(0, n);
+  const fy1Label = "{fy1_year}년 추정치", fy2Label = "{fy2_year}년 추정치";
+  const data = slice.map((r, i) => ({{
+    "순위": i + 1,
+    "종목명": r.name,
+    "코드": r.code,
+    "섹터": r.sector ?? "",
+    "시가총액(억원)": r.mktcap !== null ? Math.round(r.mktcap / 1e8) : null,
+    // r.fy1/r.fy2 원본 단위는 천원(Local thou) - 억원 환산은 x1000(원 변환) / 1e8 = /1e5
+    [fy1Label + "(억원)"]: r.fy1 !== null ? Math.round(r.fy1 / 1e5) : null,
+    [fy1Label + " 소스"]: r.fy1_source,
+    ["선택기간 " + fy1Label.replace("추정치","") + "상향률(%)"]: r[currentFy1Key],
+    [fy2Label + "(억원)"]: r.fy2 !== null ? Math.round(r.fy2 / 1e5) : null,
+    [fy2Label + " 소스"]: r.fy2_source,
+    ["선택기간 " + fy2Label.replace("추정치","") + "상향률(%)"]: r[currentFy2Key],
+    "{fy1_year}년→{fy2_year}년 성장률(%)": r.fy2_vs_fy1_growth,
+    "기준일": r.latest_date,
+  }}));
+  const ws = XLSX.utils.json_to_sheet(data);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "이익추정치상향");
+  XLSX.writeFile(wb, `이익추정치상향_상위${{n}}_{fy1_year}_{fy2_year}.xlsx`);
+}}
+document.getElementById('downloadBtn').addEventListener('click', downloadExcel);
 
 const sectorSelect = document.getElementById('fSector');
 [...new Set(ROWS.map(r => r.sector).filter(Boolean))].sort().forEach(s => {{
