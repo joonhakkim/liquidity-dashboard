@@ -58,21 +58,18 @@ CORE_STEPS = [
     ("build_home.py", "홈페이지 빌드"),
 ]
 
-# 느린 단계 - DART 스크리닝은 종목이 577개라 API 레이트리밋(하루 13000회)에 걸리면 다음날로
-# 이어서 처리되고, 전체가 끝나기까지 1시간을 넘기는 날도 있다. CORE_STEPS 배포 이후에 실행한다.
+# 느린 단계 - CORE_STEPS 배포 이후에 실행한다.
+# 2026-09-07: 주식 스크리닝 페이지는 거의 안 쓰여서 데이터 수집(DART 잠정실적/분기·PBR/PER
+# 밴드·컨센서스 매칭·이슈)을 중단하기로 함 - 페이지 자체와 이미 쌓인 데이터는 그대로 두고
+# 갱신만 멈춘다(build_screening_page.py도 갱신 대상이 없어져서 같이 뺌). 다시 켜고 싶으면
+# 아래 6줄(screen_op_growth.py ~ build_screening_page.py)만 복원하면 된다.
 SLOW_STEPS = [
-    ("screen_op_growth.py", "주식 스크리닝: 전체 상장사 목록 + 영업이익 컨센서스 매칭"),
-    ("fetch_dart_quarterly.py", "주식 스크리닝: DART 분기별 매출/영업이익"),
-    ("fetch_dart_preliminary.py", "주식 스크리닝: DART 잠정실적(2분기 YoY 우선 소스)"),
-    ("fetch_valuation_bands.py", "주식 스크리닝: PER/PBR 밴드"),
-    ("fetch_stock_issues.py", "주식 스크리닝: 시총상위50 관련 이슈·뉴스(DART 공시 + 네이버 종목뉴스)"),
-    ("build_screening_page.py", "주식 스크리닝 페이지 빌드"),
     ("fetch_kospi_per_tracker.py", "코스피 선행 PER 트래커: 시총상위50 컨센서스 PER 집계(하루 1행 누적)"),
     ("fetch_kosdaq_per_tracker.py", "코스닥 선행 PER 트래커: 시총상위50 컨센서스 PER 집계(하루 1행 누적)"),
     ("build_per_tracker_page.py", "코스피·코스닥 선행 PER 트래커 페이지 빌드"),
     ("fetch_op_band_consensus.py", "OP밴드: 전종목 FnGuide 컨센서스 교차검증 수집(종목당 API 호출, 느림)"),
     ("build_op_band.py", "OP밴드 트래커 재빌드(FnGuide 교차검증 반영)"),
-    ("build_home.py", "홈페이지 빌드(스크리닝/PER 트래커 최신 링크 반영용으로 한 번 더)"),
+    ("build_home.py", "홈페이지 빌드(PER 트래커 최신 링크 반영용으로 한 번 더)"),
 ]
 
 # KRX 재시도 단계 - CORE_STEPS(아침 7시반) 시점엔 KRX가 당일 데이터를 아직 안 줬을 수 있는데,
