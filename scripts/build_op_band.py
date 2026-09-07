@@ -257,13 +257,20 @@ def build_summary_row(code, data, sector_map, naver_sector_map):
     percentile = below / len(sorted_mults) * 100
     bare_code = code.lstrip("A")
     sector = naver_sector_map.get(bare_code) or sector_map.get(data["name"])
+    # 기간중 최소/최대가 "언제"였는지도 같이 보여달라는 요청(2026-09-07) - 흑자 구간(양수 배수)
+    # 중 최소/최대값과 같은 날짜를 찾는다(동률이면 먼저 나온 날짜).
+    positive_pairs = [(d, m) for d, m in zip(data["dates"], data["mult"]) if m is not None and m > 0]
+    hist_min_date = next(d for d, m in positive_pairs if m == sorted_mults[0])
+    hist_max_date = next(d for d, m in positive_pairs if m == sorted_mults[-1])
     return {
         "code": code, "name": data["name"],
         "sector": sector,
         "latest_date": data["dates"][-1],
         "latest_mult": round(latest_mult, 2),
         "hist_min_mult": round(sorted_mults[0], 2),
+        "hist_min_date": hist_min_date,
         "hist_max_mult": round(sorted_mults[-1], 2),
+        "hist_max_date": hist_max_date,
         "percentile": round(percentile, 1),
         "n_obs": len(positive_mults),
         "latest_mktcap": round(data["mktcap"][-1], 0) if data["mktcap"] else None,
@@ -452,6 +459,7 @@ TEMPLATE = """<!doctype html>
   tr:hover {{ background:#1a1d24; }}
   .pctl-low {{ color:#4dabf7; font-weight:bold; }}
   .pctl-high {{ color:#ff6b6b; }}
+  .hist-date {{ color:#6b7280; font-size:11px; }}
   .overlay {{ display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:10; align-items:flex-start; justify-content:center; padding:40px 20px; overflow-y:auto; }}
   .overlay.open {{ display:flex; }}
   .detail-card {{ background:#14161c; border:1px solid #23262e; border-radius:14px; padding:24px; max-width:900px; width:100%; }}
@@ -606,8 +614,8 @@ function applyFilters() {{
       <td>${{r.sector ?? '-'}}</td>
       <td>${{fmtMktcap(r.latest_mktcap)}}</td>
       <td>${{r.latest_mult.toFixed(2)}}x</td>
-      <td>${{r.hist_min_mult.toFixed(2)}}x</td>
-      <td>${{r.hist_max_mult.toFixed(2)}}x</td>
+      <td>${{r.hist_min_mult.toFixed(2)}}x<br><span class="hist-date">${{r.hist_min_date}}</span></td>
+      <td>${{r.hist_max_mult.toFixed(2)}}x<br><span class="hist-date">${{r.hist_max_date}}</span></td>
       <td class="${{pctlClass(r.percentile)}}">${{r.percentile.toFixed(0)}}%ile</td>
       <td>${{g === null ? '-' : g.toFixed(1) + '%'}}</td>
       <td>${{r.latest_date}}</td>
