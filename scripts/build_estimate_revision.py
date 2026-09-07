@@ -64,12 +64,14 @@ def process_sheet(ws):
 
     results = {}
     for code, start, end in blocks:
-        mktcap_idx = nfy1_idx = nfy2_idx = None
+        mktcap_idx = ttm_idx = nfy1_idx = nfy2_idx = None
         for k in range(start, end):
             item = row_items[k]
             base = row_basedate[k]
             if item == MKTCAP_ITEM:
                 mktcap_idx = k
+            elif item == TTM_ITEM:
+                ttm_idx = k
             elif item == QUARTER_ITEM:
                 if base == "NFY1":
                     nfy1_idx = k
@@ -81,24 +83,26 @@ def process_sheet(ws):
             continue
 
         name = row_names[start] if start < len(row_names) else code
-        series_dates, series_mktcap, series_fy1, series_fy2 = [], [], [], []
+        series_dates, series_mktcap, series_fy1, series_fy2, series_ttm = [], [], [], [], []
         for row_vals, d in zip(data_rows, dates):
             mktcap = row_vals[mktcap_idx]
             if mktcap is None:
                 continue
             fy1 = row_vals[nfy1_idx] if nfy1_idx is not None else None
             fy2 = row_vals[nfy2_idx] if nfy2_idx is not None else None
-            if fy1 is None and fy2 is None:
+            ttm = row_vals[ttm_idx] if ttm_idx is not None else None
+            if fy1 is None and fy2 is None and ttm is None:
                 continue
             series_dates.append(d.strftime("%Y-%m-%d"))
             series_mktcap.append(mktcap)
             series_fy1.append(fy1)
             series_fy2.append(fy2)
+            series_ttm.append(ttm)
 
         if not series_dates:
             continue
         results[code] = {"name": name, "dates": series_dates, "mktcap": series_mktcap,
-                          "fy1": series_fy1, "fy2": series_fy2}
+                          "fy1": series_fy1, "fy2": series_fy2, "ttm": series_ttm}
     return results
 
 
@@ -118,9 +122,30 @@ def build_summary_row(code, data, sector_map, naver_sector_map):
     dates = data["dates"]
     fy1 = data["fy1"]
     fy2 = data["fy2"]
+    ttm = data["ttm"]
     mktcap = data["mktcap"]
+
+    # FY2(차년도, 27년) 컨센서스 자체가 없는 종목이 많다("27년은 없는거니까") - 그런 종목은
+    # TTM(최근 12개월 실적)을 대신 비교 대상으로 쓴다(2026-09-07 사용자 요청). FY1도 같은
+    # 논리로 폴백하되, 실제로 FY1이 비는 경우는 드물다. 폴백 여부는 fy1_source/fy2_source에
+    # "FY"/"TTM"으로 남겨서 화면에 표시("TTM 비교"라고 티 나게) - 어느 걸로 비교했는지 숨기지
+    # 않는다.
     latest_fy1 = fy1[-1]
+    fy1_source = "FY"
+    fy1_series = fy1
+    if latest_fy1 is None:
+        latest_fy1 = ttm[-1]
+        fy1_source = "TTM"
+        fy1_series = ttm
+
     latest_fy2 = fy2[-1]
+    fy2_source = "FY"
+    fy2_series = fy2
+    if latest_fy2 is None:
+        latest_fy2 = ttm[-1]
+        fy2_source = "TTM"
+        fy2_series = ttm
+
     if latest_fy1 is None and latest_fy2 is None:
         return None
 
@@ -133,10 +158,11 @@ def build_summary_row(code, data, sector_map, naver_sector_map):
         "mktcap": round(mktcap[-1], 0) if mktcap[-1] is not None else None,
         "fy1": round(latest_fy1, 0) if latest_fy1 is not None else None,
         "fy2": round(latest_fy2, 0) if latest_fy2 is not None else None,
+        "fy1_source": fy1_source, "fy2_source": fy2_source,
     }
     for key, back, _ in LOOKBACKS:
-        row[f"fy1_{key}"] = pct_change(fy1, back)
-        row[f"fy2_{key}"] = pct_change(fy2, back)
+        row[f"fy1_{key}"] = pct_change(fy1_series, back)
+        row[f"fy2_{key}"] = pct_change(fy2_series, back)
     return row
 
 
@@ -165,6 +191,7 @@ TEMPLATE = """<!doctype html>
   tbody tr:hover {{ background:#1a1d24; cursor:pointer; }}
   .up {{ color:#ff6b6b; }}
   .down {{ color:#4dabf7; }}
+  .ttm-tag {{ color:#6b7280; font-size:10px; border:1px solid #23262e; border-radius:4px; padding:1px 4px; }}
   .table-wrap {{ overflow-x:auto; border:1px solid #23262e; border-radius:10px; }}
   .hint {{ color:#6b7280; font-size:12px; margin:10px 0 0 0; }}
 </style>
@@ -207,7 +234,8 @@ TEMPLATE = """<!doctype html>
     <tbody id="tbody"></tbody>
   </table>
   </div>
-  <div class="hint">상향률 = (최신값 / N거래일 전 값 - 1) x 100. 데이터가 그만큼 안 쌓인 종목은 "-"로 표시됩니다.</div>
+  <div class="hint">상향률 = (최신값 / N거래일 전 값 - 1) x 100. 데이터가 그만큼 안 쌓인 종목은 "-"로 표시됩니다.
+    <span class="ttm-tag">TTM</span> 표시는 해당 연도 컨센서스 자체가 없어서 최근 12개월 실적(TTM)으로 대신 비교했다는 뜻입니다.</div>
 
 <script>
 const ROWS = {rows_json};
@@ -220,9 +248,12 @@ function fmtMktcap(won) {{
   if (jo > 0) return `${{jo}}조 ${{rest.toLocaleString()}}억`;
   return `${{Math.round(eok).toLocaleString()}}억`;
 }}
-function fmtOp(v) {{
+function fmtOp(v, source) {{
   if (v === null || v === undefined) return '-';
-  return fmtMktcap(v * 1000); // 원본 단위: 천원 -> 억 표기 재사용 위해 x1000
+  const txt = fmtMktcap(v * 1000); // 원본 단위: 천원 -> 억 표기 재사용 위해 x1000
+  // FY 추정치 자체가 없어서 TTM(최근 12개월 실적)으로 대신 비교한 경우 표시(2026-09-07) -
+  // 어떤 기준으로 비교했는지 안 가리고 그대로 보여준다.
+  return source === 'TTM' ? `${{txt}} <span class="ttm-tag">TTM</span>` : txt;
 }}
 function fmtPct(v) {{
   if (v === null || v === undefined) return '-';
@@ -263,9 +294,9 @@ function applyFilters() {{
       <td>${{r.code}}</td>
       <td>${{r.sector ?? '-'}}</td>
       <td>${{fmtMktcap(r.mktcap)}}</td>
-      <td>${{fmtOp(r.fy1)}}</td>
+      <td>${{fmtOp(r.fy1, r.fy1_source)}}</td>
       <td>${{fmtPct(r[fy1key])}}</td>
-      <td>${{fmtOp(r.fy2)}}</td>
+      <td>${{fmtOp(r.fy2, r.fy2_source)}}</td>
       <td>${{fmtPct(r[fy2key])}}</td>
       <td>${{r.latest_date}}</td>
     </tr>
@@ -321,7 +352,14 @@ def main():
         if row is not None:
             rows.append(row)
 
-    print(f"결과 {len(rows)}종목")
+    # 커버리지가 끊긴(최신값이 오래된) 종목은 뺀다 - 예전 값끼리 비교하면 "몇 년 전 대비
+    # +5000%" 같은 의미 없는 상향률이 나온다(2026-09-07 확인). 전체에서 가장 최근 기준일을
+    # 가진 종목들만 남긴다 - 매일 갱신되는 파일이라 살아있는 커버리지는 다 같은 날짜여야 함.
+    latest_overall = max((r["latest_date"] for r in rows), default=None)
+    before = len(rows)
+    rows = [r for r in rows if r["latest_date"] == latest_overall]
+    print(f"결과 {before}종목 중 최신 기준일({latest_overall}) 종목만 유지: {len(rows)}종목 "
+          f"(커버리지 끊긴 {before - len(rows)}종목 제외)")
 
     src_mtime = datetime.fromtimestamp(os.path.getmtime(wb_path)).strftime("%Y-%m-%d %H:%M")
     html = TEMPLATE.format(
