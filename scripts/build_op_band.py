@@ -44,7 +44,6 @@ from datetime import datetime
 import openpyxl
 import pandas as pd
 
-from build_screening_page import load_sector_map
 
 DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data")
 MANUAL_DIR = os.path.join(DATA_DIR, "manual")
@@ -66,6 +65,41 @@ DATA_START_ROW = 15
 
 NICE_STEPS = [1, 2, 5, 10, 15, 20, 25, 30, 50, 100, 200, 250, 500, 1000]
 TARGET_BAND_LINES = 6
+
+
+def find_sector_curation_workbook():
+    """"섹터별 구성 종목" 큐레이션이 담긴 "*데이터 모음*.xlsm" 파일 경로.
+    2026-09-07, 주식 스크리닝 페이지를 삭제하면서 build_screening_page.py에 있던
+    find_workbook()/load_sector_map()을 여기로 그대로 옮겨왔다(OP밴드가 섹터 폴백으로 계속
+    씀) - 아래 find_workbook()(기업 밴드 찾기 엑셀 찾는 함수)과 이름이 겹쳐서 구분함."""
+    candidates = glob.glob(os.path.join(MANUAL_DIR, "*데이터 모음*.xls*"))
+    candidates = [c for c in candidates if not os.path.basename(c).startswith("~$")]
+    return max(candidates, key=os.path.getmtime) if candidates else None
+
+
+def load_sector_map():
+    """"*데이터 모음*.xlsm"의 "섹터별 구성 종목" 시트 -> {종목명: 섹터}. 팀이 관리하는
+    테마성 큐레이션이라 913개 종목만 커버 - load_naver_sector_map()(코드 기준, 거의 전종목
+    커버)이 1순위고 여기는 그걸로 못 찾은 종목만 보충하는 폴백."""
+    path = find_sector_curation_workbook()
+    if not path:
+        return {}
+    wb = openpyxl.load_workbook(path, read_only=True, data_only=True, keep_vba=False)
+    if "섹터별 구성 종목" not in wb.sheetnames:
+        return {}
+    ws = wb["섹터별 구성 종목"]
+    rows = list(ws.iter_rows(values_only=True))
+    header_idx = next(i for i, r in enumerate(rows) if r[0] == "섹터")
+    sectors = rows[header_idx]
+    mapping = {}
+    for r in rows[header_idx + 1:]:
+        for col, sector in enumerate(sectors):
+            if col == 0 or not sector:
+                continue
+            name = r[col] if col < len(r) else None
+            if name and name not in mapping:
+                mapping[name] = sector
+    return mapping
 
 
 def find_workbook():
@@ -390,8 +424,8 @@ def main():
     os.makedirs(SCREEN_DIR, exist_ok=True)
 
     # 섹터: 1순위는 네이버 업종분류(fetch_naver_sector.py, 종목코드 기준, 상장사 대부분 커버),
-    # 2순위는 주식 스크리닝 페이지가 쓰는 "*데이터 모음*.xlsm"의 "섹터별 구성 종목" 시트(팀이
-    # 관리하는 테마성 큐레이션, 종목명 기준, 913종목만 커버) - 네이버 쪽에 없는 종목만 보충.
+    # 2순위는 "*데이터 모음*.xlsm"의 "섹터별 구성 종목" 시트(팀이 관리하는 테마성 큐레이션,
+    # 종목명 기준, 913종목만 커버) - 네이버 쪽에 없는 종목만 보충.
     naver_sector_map = load_naver_sector_map()
     sector_map = load_sector_map()
     print(f"네이버 업종 매핑 {len(naver_sector_map)}종목, 큐레이션 섹터 매핑 {len(sector_map)}종목 로드됨")

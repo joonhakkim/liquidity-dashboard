@@ -1,7 +1,6 @@
 """
 docs/index.html(홈/랜딩 페이지)을 만든다. GitHub Pages는 docs/index.html을 루트로 서빙하므로
-이 파일이 실제 홈페이지가 되고, 유동성 대시보드(liquidity.html)와 주식 스크리닝(screening.html)은
-여기서 링크로 들어간다.
+이 파일이 실제 홈페이지가 되고, 유동성 대시보드(liquidity.html) 등은 여기서 링크로 들어간다.
 """
 import os
 from datetime import datetime
@@ -18,9 +17,7 @@ SECTIONS = [
         ("bollinger_breakout.html", "&#128300;", "볼린저밴드 돌파 종목수",
          "코스피·코스닥 전종목 20일 볼린저밴드 상단 돌파 종목수(막대) + 5/10/20일·12주선, 지수와 비교."),
     ]),
-    ("밸류에이션 · 스크리닝", [
-        ("screening.html", "&#128202;", "주식 스크리닝",
-         "상장사 전체 대상 실적 트래킹 - 영업이익 증가율/PER 밴드 위치로 직접 필터링, 분기 실적·PER/PBR 밴드 확인."),
+    ("밸류에이션", [
         ("op_band.html", "&#128200;", "OP밴드 트래커",
          "전종목 시가총액 대비 영업이익 추정치 배수 밴드 - 최신 배수/과거 대비 백분위로 저평가 종목 필터링."),
         ("per_tracker.html", "&#128201;", "코스피 선행 PER 트래커",

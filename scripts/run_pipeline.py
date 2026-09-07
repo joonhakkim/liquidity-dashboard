@@ -59,10 +59,11 @@ CORE_STEPS = [
 ]
 
 # 느린 단계 - CORE_STEPS 배포 이후에 실행한다.
-# 2026-09-07: 주식 스크리닝 페이지는 거의 안 쓰여서 데이터 수집(DART 잠정실적/분기·PBR/PER
-# 밴드·컨센서스 매칭·이슈)을 중단하기로 함 - 페이지 자체와 이미 쌓인 데이터는 그대로 두고
-# 갱신만 멈춘다(build_screening_page.py도 갱신 대상이 없어져서 같이 뺌). 다시 켜고 싶으면
-# 아래 6줄(screen_op_growth.py ~ build_screening_page.py)만 복원하면 된다.
+# 2026-09-07: 주식 스크리닝 페이지는 거의 안 쓰여서 완전히 삭제함(페이지/데이터/스크립트
+# 전부 - screen_op_growth.py, fetch_dart_quarterly.py, fetch_dart_preliminary.py,
+# fetch_valuation_bands.py, fetch_stock_issues.py, build_screening_page.py, dart_client.py,
+# 그 위에서만 쓰이던 수주잔고(order backlog) 관련 스크립트·Windows 예약작업까지). 되돌리려면
+# git log에서 이 커밋 이전 버전의 해당 파일들을 복구해야 함(주석 몇 줄로 복원 안 됨).
 SLOW_STEPS = [
     ("fetch_kospi_per_tracker.py", "코스피 선행 PER 트래커: 시총상위50 컨센서스 PER 집계(하루 1행 누적)"),
     ("fetch_kosdaq_per_tracker.py", "코스닥 선행 PER 트래커: 시총상위50 컨센서스 PER 집계(하루 1행 누적)"),
