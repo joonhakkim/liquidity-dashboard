@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>인플레이션 나우캐스트 트래커</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<style>
+  body { font-family: -apple-system, "Malgun Gothic", sans-serif; background:#0f1115; color:#e6e6e6; margin:0; padding:24px; }
+  a.back { color:#4dabf7; font-size:13px; text-decoration:none; margin-right:12px; }
+  h1 { font-size:20px; margin:8px 0 4px 0; }
+  .updated { color:#9aa0a6; font-size:13px; margin-bottom:20px; }
+  .badges { display:grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap:12px; margin-bottom:20px; max-width:900px; }
+  .badge { background:#1a1d24; border-radius:10px; padding:14px 16px; }
+  .badge .label { color:#9aa0a6; font-size:12px; }
+  .badge .value { font-size:22px; font-weight:bold; margin-top:4px; color:#63e6be; }
+  .badge .sub { font-size:12px; font-weight:normal; color:#9aa0a6; }
+  .badge .submom { color:#6b7280; font-size:11px; margin-top:2px; }
+  .dl { display:inline-block; background:#1a1d24; border:1px solid #23262e; border-radius:8px; padding:10px 16px;
+    color:#4dabf7; text-decoration:none; font-size:13px; margin-bottom:24px; }
+  .dl:hover { border-color:#4dabf7; }
+  .chart-wrap { height:400px; position:relative; max-width:1000px; margin-bottom:24px; }
+  .note { color:#9aa0a6; font-size:12px; line-height:1.7; max-width:900px; background:#1a1d24; border-radius:10px; padding:16px 18px; margin-top:8px; }
+  .note b { color:#ffa94d; }
+</style>
+</head>
+<body>
+  <a class="back" href="index.html">&larr; 홈</a>
+  <h1>인플레이션 나우캐스트 트래커</h1>
+  <div class="updated">최종 갱신: 2026-09-08 19:53 &middot; 원본 기준(Updated) 09/04 &middot; 대상월 September 2026 &middot; 누적 2행</div>
+
+  <div class="badges"><div class="badge"><div class="label">CPI</div>
+              <div class="value">3.43%<span class="sub"> YoY</span></div>
+              <div class="submom">MoM 0.38%</div></div><div class="badge"><div class="label">Core CPI</div>
+              <div class="value">2.32%<span class="sub"> YoY</span></div>
+              <div class="submom">MoM 0.19%</div></div><div class="badge"><div class="label">PCE</div>
+              <div class="value">3.91%<span class="sub"> YoY</span></div>
+              <div class="submom">MoM 0.38%</div></div><div class="badge"><div class="label">Core PCE</div>
+              <div class="value">3.49%<span class="sub"> YoY</span></div>
+              <div class="submom">MoM 0.28%</div></div></div>
+
+  <a class="dl" href="downloads/inflation_nowcast.xlsx">&#128190; 엑셀 다운로드 (전체 히스토리)</a>
+
+  <div class="chart-wrap"><canvas id="nowcastChart"></canvas></div>
+  <div class="updated" style="margin-top:-12px;">위 차트: September 2026 대상 YoY 나우캐스트가 매 영업일 갱신되며 어떻게 바뀌어왔는지(전월 August 2026 실적 확정 전까지 계속 수렴)</div>
+
+  <div class="note">
+    <b>정의</b> — 클리블랜드 연은 Inflation Nowcasting 모델이 매 영업일(미국 동부시간 오전 10시경) 갱신하는 CPI/근원CPI/PCE/근원PCE의
+    당월·전월 전년동월비(YoY)·전월비(MoM) 예측치입니다. BLS(CPI)·BEA(PCE) 공식 실적치가 발표되기 전까지 유가 등 고빈도 데이터로
+    미리 추정하는 "나우캐스트(nowcast)" 모델입니다.<br><br>
+    <b>소스</b> — <a href="https://www.clevelandfed.org/indicators-and-data/inflation-nowcasting" style="color:#4dabf7;" target="_blank">clevelandfed.org 공식 페이지</a>를 매일 스크래핑.
+    공식 다운로드 API가 없어 페이지 표를 직접 파싱합니다 - 페이지 구조가 바뀌면 갱신이 멈출 수 있습니다.<br><br>
+    <b>한계</b> — 어디까지나 모델 추정치이지 확정 실적이 아닙니다. 대상월의 실제 BLS/BEA 발표가 나오면 그 뒤로는 나우캐스트 대신 실적치를 봐야 합니다.
+  </div>
+
+<script>
+const hd = ["2026-09-08"];
+const hs = {"cpi": [3.43], "core_cpi": [2.32], "pce": [3.91], "core_pce": [3.49]};
+new Chart(document.getElementById('nowcastChart').getContext('2d'), {
+  type: 'line',
+  data: {
+    labels: hd,
+    datasets: [
+      { label: 'CPI YoY(%)', data: hs.cpi, borderColor: '#4dabf7', backgroundColor: 'transparent', tension: 0.1, pointRadius: 2, borderWidth: 1.8 },
+      { label: 'Core CPI YoY(%)', data: hs.core_cpi, borderColor: '#ffa94d', backgroundColor: 'transparent', tension: 0.1, pointRadius: 2, borderWidth: 1.8 },
+      { label: 'PCE YoY(%)', data: hs.pce, borderColor: '#ff8787', backgroundColor: 'transparent', tension: 0.1, pointRadius: 2, borderWidth: 1.8 },
+      { label: 'Core PCE YoY(%)', data: hs.core_pce, borderColor: '#63e6be', backgroundColor: 'transparent', tension: 0.1, pointRadius: 2, borderWidth: 2.2 },
+    ]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { labels: { color: '#e6e6e6' } } },
+    scales: {
+      x: { ticks: { color: '#9aa0a6' }, grid: { color: '#23262e' } },
+      y: { title: { display: true, text: '%', color: '#9aa0a6' }, ticks: { color: '#9aa0a6' }, grid: { color: '#23262e' } },
+    }
+  }
+});
+</script>
+</body>
+</html>
