@@ -48,6 +48,11 @@ FRED_SERIES = [
     ("us_core_pce_index", "PCEPILFE", "2000-01-01"),  # 근원 PCE 물가지수(식품·에너지 제외, 월별, 지수레벨) - YoY는 build 단계에서 계산
     ("us_unemployment_rate", "UNRATE", "2000-01-01"),  # 실업률(월별, %)
     ("us_natural_unemployment_rate", "NROU", "2000-01-01"),  # CBO 장기 자연실업률(분기별, %) - 오쿤법칙으로 산출갭 근사에 사용
+    # --- 인플레이션 나우캐스트 트래커의 "실적치" 비교용(2026-09-08 추가) - 전부 지수레벨,
+    # YoY/MoM은 build_inflation_nowcast.py에서 계산(나우캐스트와 같은 방식으로 맞추기 위함) ---
+    ("us_cpi_index", "CPIAUCSL", "2000-01-01"),  # CPI(전체, 계절조정, 월별 지수레벨)
+    ("us_core_cpi_index", "CPILFESL", "2000-01-01"),  # 근원 CPI(식품·에너지 제외, 계절조정, 월별 지수레벨)
+    ("us_pce_index", "PCEPI", "2000-01-01"),  # PCE(전체, 월별 지수레벨) - us_core_pce_index(PCEPILFE)는 근원판, 위에 이미 있음
 ]
 
 

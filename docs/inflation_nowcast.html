@@ -9,16 +9,21 @@
   a.back { color:#4dabf7; font-size:13px; text-decoration:none; margin-right:12px; }
   h1 { font-size:20px; margin:8px 0 4px 0; }
   .updated { color:#9aa0a6; font-size:13px; margin-bottom:20px; }
-  .badges { display:grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap:12px; margin-bottom:20px; max-width:900px; }
+  .badges { display:grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap:12px; margin-bottom:20px; max-width:1000px; }
   .badge { background:#1a1d24; border-radius:10px; padding:14px 16px; }
-  .badge .label { color:#9aa0a6; font-size:12px; }
-  .badge .value { font-size:22px; font-weight:bold; margin-top:4px; color:#63e6be; }
-  .badge .sub { font-size:12px; font-weight:normal; color:#9aa0a6; }
-  .badge .submom { color:#6b7280; font-size:11px; margin-top:2px; }
+  .badge .label { color:#e6e6e6; font-size:13px; font-weight:bold; margin-bottom:8px; }
+  .badge .row { display:flex; align-items:baseline; gap:6px; margin-top:4px; }
+  .badge .tag { font-size:10px; padding:2px 6px; border-radius:4px; }
+  .badge .tag.nc { background:#2a3a4a; color:#63e6be; }
+  .badge .tag.ac { background:#3a2a1a; color:#ffa94d; }
+  .badge .value { font-size:16px; font-weight:bold; color:#63e6be; }
+  .badge .value.ac { color:#ffa94d; }
+  .badge .sub { font-size:11px; color:#9aa0a6; }
+  .section-title { font-size:14px; color:#4dabf7; margin:28px 0 8px 0; }
   .dl { display:inline-block; background:#1a1d24; border:1px solid #23262e; border-radius:8px; padding:10px 16px;
     color:#4dabf7; text-decoration:none; font-size:13px; margin-bottom:24px; }
   .dl:hover { border-color:#4dabf7; }
-  .chart-wrap { height:400px; position:relative; max-width:1000px; margin-bottom:24px; }
+  .chart-wrap { height:420px; position:relative; max-width:1050px; margin-bottom:16px; }
   .note { color:#9aa0a6; font-size:12px; line-height:1.7; max-width:900px; background:#1a1d24; border-radius:10px; padding:16px 18px; margin-top:8px; }
   .note b { color:#ffa94d; }
 </style>
@@ -26,44 +31,75 @@
 <body>
   <a class="back" href="index.html">&larr; 홈</a>
   <h1>인플레이션 나우캐스트 트래커</h1>
-  <div class="updated">최종 갱신: 2026-09-08 19:53 &middot; 원본 기준(Updated) 09/04 &middot; 대상월 September 2026 &middot; 누적 2행</div>
+  <div class="updated">최종 갱신: 2026-09-08 20:07 &middot; 나우캐스트 원본기준 09/04(대상월 September 2026) &middot; 실적치 최신 2026-07 &middot; 나우캐스트 누적 2행</div>
 
   <div class="badges"><div class="badge"><div class="label">CPI</div>
-              <div class="value">3.43%<span class="sub"> YoY</span></div>
-              <div class="submom">MoM 0.38%</div></div><div class="badge"><div class="label">Core CPI</div>
-              <div class="value">2.32%<span class="sub"> YoY</span></div>
-              <div class="submom">MoM 0.19%</div></div><div class="badge"><div class="label">PCE</div>
-              <div class="value">3.91%<span class="sub"> YoY</span></div>
-              <div class="submom">MoM 0.38%</div></div><div class="badge"><div class="label">Core PCE</div>
-              <div class="value">3.49%<span class="sub"> YoY</span></div>
-              <div class="submom">MoM 0.28%</div></div></div>
+              <div class="row"><span class="tag nc">나우캐스트</span><span class="value">3.43%</span><span class="sub">YoY (MoM 0.38%)</span></div>
+              <div class="row"><span class="tag ac">실적치</span><span class="value ac">3.54%</span><span class="sub">YoY (MoM 0.07%)</span></div>
+              </div><div class="badge"><div class="label">Core CPI</div>
+              <div class="row"><span class="tag nc">나우캐스트</span><span class="value">2.32%</span><span class="sub">YoY (MoM 0.19%)</span></div>
+              <div class="row"><span class="tag ac">실적치</span><span class="value ac">2.79%</span><span class="sub">YoY (MoM 0.22%)</span></div>
+              </div><div class="badge"><div class="label">PCE</div>
+              <div class="row"><span class="tag nc">나우캐스트</span><span class="value">3.91%</span><span class="sub">YoY (MoM 0.38%)</span></div>
+              <div class="row"><span class="tag ac">실적치</span><span class="value ac">3.70%</span><span class="sub">YoY (MoM 0.16%)</span></div>
+              </div><div class="badge"><div class="label">Core PCE</div>
+              <div class="row"><span class="tag nc">나우캐스트</span><span class="value">3.49%</span><span class="sub">YoY (MoM 0.28%)</span></div>
+              <div class="row"><span class="tag ac">실적치</span><span class="value ac">3.34%</span><span class="sub">YoY (MoM 0.25%)</span></div>
+              </div></div>
 
-  <a class="dl" href="downloads/inflation_nowcast.xlsx">&#128190; 엑셀 다운로드 (전체 히스토리)</a>
+  <a class="dl" href="downloads/inflation_nowcast.xlsx">&#128190; 엑셀 다운로드 (나우캐스트 일별 + 실적치 2000년~)</a>
 
+  <div class="section-title">실적치 YoY 추이 (FRED, 2015년~ - 엑셀에서 2000년~ 전체 확인 가능)</div>
+  <div class="chart-wrap"><canvas id="actualChart"></canvas></div>
+
+  <div class="section-title">나우캐스트 YoY 추이 (매일 누적 - September 2026 등 대상월이 바뀌면 이어서 표시)</div>
   <div class="chart-wrap"><canvas id="nowcastChart"></canvas></div>
-  <div class="updated" style="margin-top:-12px;">위 차트: September 2026 대상 YoY 나우캐스트가 매 영업일 갱신되며 어떻게 바뀌어왔는지(전월 August 2026 실적 확정 전까지 계속 수렴)</div>
 
   <div class="note">
-    <b>정의</b> — 클리블랜드 연은 Inflation Nowcasting 모델이 매 영업일(미국 동부시간 오전 10시경) 갱신하는 CPI/근원CPI/PCE/근원PCE의
-    당월·전월 전년동월비(YoY)·전월비(MoM) 예측치입니다. BLS(CPI)·BEA(PCE) 공식 실적치가 발표되기 전까지 유가 등 고빈도 데이터로
-    미리 추정하는 "나우캐스트(nowcast)" 모델입니다.<br><br>
-    <b>소스</b> — <a href="https://www.clevelandfed.org/indicators-and-data/inflation-nowcasting" style="color:#4dabf7;" target="_blank">clevelandfed.org 공식 페이지</a>를 매일 스크래핑.
-    공식 다운로드 API가 없어 페이지 표를 직접 파싱합니다 - 페이지 구조가 바뀌면 갱신이 멈출 수 있습니다.<br><br>
-    <b>한계</b> — 어디까지나 모델 추정치이지 확정 실적이 아닙니다. 대상월의 실제 BLS/BEA 발표가 나오면 그 뒤로는 나우캐스트 대신 실적치를 봐야 합니다.
+    <b>나우캐스트</b> — 클리블랜드 연은 Inflation Nowcasting 모델이 매 영업일(미국 동부시간 오전 10시경) 갱신하는 예측치.
+    BLS(CPI)·BEA(PCE) 공식 실적치가 발표되기 전까지 유가 등 고빈도 데이터로 미리 추정합니다.
+    <a href="https://www.clevelandfed.org/indicators-and-data/inflation-nowcasting" style="color:#4dabf7;" target="_blank">공식 페이지</a>에
+    과거 나우캐스트 아카이브가 없어서(확인함, 2026-09-08) 이 트래커가 매일 스크래핑해서 쌓는 히스토리가 유일한 소스입니다 - 시작일 이전 과거값은 존재하지 않습니다.<br><br>
+    <b>실적치</b> — BLS/BEA가 실제 발표한 확정치. FRED 공식 API로 CPI(CPIAUCSL)/근원CPI(CPILFESL)/PCE(PCEPI)/근원PCE(PCEPILFE) 지수레벨을 받아
+    전년동월비(YoY)·전월비(MoM)를 직접 계산 - 2000년부터 있습니다(엑셀 다운로드에서 전체 확인).<br><br>
+    <b>한계</b> — 나우캐스트는 모델 추정치로 확정 실적과 다를 수 있고, 실적치는 발표 후 개정(revision)될 수 있어 지금 보이는 값이 그 당시 첫 발표치와 다를 수 있습니다.
   </div>
 
 <script>
-const hd = ["2026-09-08"];
-const hs = {"cpi": [3.43], "core_cpi": [2.32], "pce": [3.91], "core_pce": [3.49]};
+const ad = ["2015-01-01", "2015-02-01", "2015-03-01", "2015-04-01", "2015-05-01", "2015-06-01", "2015-07-01", "2015-08-01", "2015-09-01", "2015-10-01", "2015-11-01", "2015-12-01", "2016-01-01", "2016-02-01", "2016-03-01", "2016-04-01", "2016-05-01", "2016-06-01", "2016-07-01", "2016-08-01", "2016-09-01", "2016-10-01", "2016-11-01", "2016-12-01", "2017-01-01", "2017-02-01", "2017-03-01", "2017-04-01", "2017-05-01", "2017-06-01", "2017-07-01", "2017-08-01", "2017-09-01", "2017-10-01", "2017-11-01", "2017-12-01", "2018-01-01", "2018-02-01", "2018-03-01", "2018-04-01", "2018-05-01", "2018-06-01", "2018-07-01", "2018-08-01", "2018-09-01", "2018-10-01", "2018-11-01", "2018-12-01", "2019-01-01", "2019-02-01", "2019-03-01", "2019-04-01", "2019-05-01", "2019-06-01", "2019-07-01", "2019-08-01", "2019-09-01", "2019-10-01", "2019-11-01", "2019-12-01", "2020-01-01", "2020-02-01", "2020-03-01", "2020-04-01", "2020-05-01", "2020-06-01", "2020-07-01", "2020-08-01", "2020-09-01", "2020-10-01", "2020-11-01", "2020-12-01", "2021-01-01", "2021-02-01", "2021-03-01", "2021-04-01", "2021-05-01", "2021-06-01", "2021-07-01", "2021-08-01", "2021-09-01", "2021-10-01", "2021-11-01", "2021-12-01", "2022-01-01", "2022-02-01", "2022-03-01", "2022-04-01", "2022-05-01", "2022-06-01", "2022-07-01", "2022-08-01", "2022-09-01", "2022-10-01", "2022-11-01", "2022-12-01", "2023-01-01", "2023-02-01", "2023-03-01", "2023-04-01", "2023-05-01", "2023-06-01", "2023-07-01", "2023-08-01", "2023-09-01", "2023-10-01", "2023-11-01", "2023-12-01", "2024-01-01", "2024-02-01", "2024-03-01", "2024-04-01", "2024-05-01", "2024-06-01", "2024-07-01", "2024-08-01", "2024-09-01", "2024-10-01", "2024-11-01", "2024-12-01", "2025-01-01", "2025-02-01", "2025-03-01", "2025-04-01", "2025-05-01", "2025-06-01", "2025-07-01", "2025-08-01", "2025-09-01", "2025-10-01", "2025-11-01", "2025-12-01", "2026-01-01", "2026-02-01", "2026-03-01", "2026-04-01", "2026-05-01", "2026-06-01", "2026-07-01"];
+const as = {"cpi": [-0.23, -0.087, -0.022, -0.104, 0.035, 0.18, 0.226, 0.241, 0.009, 0.128, 0.436, 0.639, 1.238, 0.847, 0.892, 1.173, 1.078, 1.079, 0.868, 1.055, 1.549, 1.686, 1.684, 2.051, 2.51, 2.81, 2.441, 2.176, 1.856, 1.641, 1.725, 1.928, 2.181, 2.021, 2.172, 2.13, 2.151, 2.263, 2.331, 2.471, 2.782, 2.808, 2.854, 2.643, 2.332, 2.492, 2.147, 2.002, 1.488, 1.519, 1.883, 2.001, 1.796, 1.671, 1.826, 1.738, 1.684, 1.734, 2.092, 2.32, 2.6, 2.341, 1.494, 0.313, 0.198, 0.717, 0.997, 1.281, 1.391, 1.23, 1.176, 1.32, 1.374, 1.67, 2.668, 4.133, 4.918, 5.296, 5.245, 5.152, 5.351, 6.235, 6.902, 7.174, 7.559, 7.937, 8.572, 8.232, 8.538, 8.979, 8.463, 8.223, 8.192, 7.759, 7.123, 6.405, 6.327, 5.958, 4.918, 4.95, 4.132, 3.071, 3.288, 3.723, 3.687, 3.251, 3.133, 3.316, 3.088, 3.157, 3.487, 3.361, 3.244, 2.97, 2.941, 2.607, 2.426, 2.579, 2.719, 2.871, 2.991, 2.802, 2.382, 2.325, 2.377, 2.68, 2.743, 2.939, 3.023, null, 2.988, 3.002, 2.829, 2.665, 3.32, 3.947, 4.27, 3.727, 3.54], "core_cpi": [1.632, 1.688, 1.745, 1.803, 1.751, 1.777, 1.835, 1.851, 1.897, 1.914, 1.997, 2.072, 2.145, 2.223, 2.142, 2.157, 2.255, 2.262, 2.17, 2.309, 2.271, 2.205, 2.145, 2.197, 2.25, 2.235, 2.046, 1.897, 1.737, 1.699, 1.677, 1.655, 1.595, 1.76, 1.738, 1.77, 1.891, 1.878, 2.123, 2.151, 2.273, 2.246, 2.268, 2.121, 2.198, 2.126, 2.215, 2.249, 2.179, 2.141, 2.067, 2.091, 1.972, 2.075, 2.166, 2.321, 2.33, 2.338, 2.355, 2.291, 2.282, 2.368, 2.098, 1.431, 1.218, 1.184, 1.561, 1.722, 1.719, 1.636, 1.669, 1.624, 1.376, 1.28, 1.649, 2.978, 3.788, 4.439, 4.211, 3.94, 4.003, 4.59, 4.973, 5.489, 6.054, 6.455, 6.482, 6.159, 6.025, 5.906, 5.9, 6.286, 6.624, 6.295, 5.97, 5.686, 5.54, 5.498, 5.567, 5.514, 5.338, 4.854, 4.701, 4.399, 4.129, 4.027, 4.018, 3.915, 3.858, 3.762, 3.816, 3.626, 3.394, 3.265, 3.23, 3.285, 3.282, 3.299, 3.286, 3.213, 3.283, 3.138, 2.809, 2.776, 2.766, 2.911, 3.054, 3.112, 3.02, null, 2.894, 2.838, 2.949, 2.734, 2.673, 2.988, 2.957, 2.806, 2.787], "pce": [0.041, 0.171, 0.199, 0.11, 0.185, 0.27, 0.22, 0.239, 0.066, 0.095, 0.254, 0.346, 0.871, 0.64, 0.686, 0.926, 0.849, 0.83, 0.755, 0.888, 1.22, 1.427, 1.397, 1.657, 2.005, 2.197, 1.906, 1.767, 1.558, 1.466, 1.486, 1.572, 1.757, 1.682, 1.794, 1.766, 1.758, 1.838, 1.998, 2.047, 2.266, 2.268, 2.339, 2.18, 2.01, 2.053, 1.942, 1.865, 1.432, 1.4, 1.522, 1.566, 1.466, 1.426, 1.454, 1.43, 1.284, 1.289, 1.358, 1.564, 1.794, 1.689, 1.166, 0.462, 0.49, 0.76, 0.923, 1.158, 1.276, 1.187, 1.186, 1.335, 1.586, 1.843, 2.669, 3.64, 4.072, 4.306, 4.473, 4.581, 4.737, 5.336, 5.93, 6.142, 6.272, 6.546, 6.926, 6.685, 6.795, 7.243, 6.75, 6.64, 6.668, 6.462, 6.03, 5.52, 5.508, 5.198, 4.428, 4.476, 4.003, 3.285, 3.409, 3.432, 3.449, 3.023, 2.765, 2.767, 2.699, 2.705, 2.928, 2.826, 2.662, 2.548, 2.594, 2.413, 2.261, 2.478, 2.588, 2.728, 2.607, 2.71, 2.359, 2.277, 2.458, 2.594, 2.606, 2.748, 2.787, 2.713, 2.82, 2.878, 2.875, 2.873, 3.543, 3.802, 4.111, 3.717, 3.701], "core_pce": [1.21, 1.277, 1.281, 1.294, 1.247, 1.254, 1.179, 1.221, 1.232, 1.178, 1.197, 1.192, 1.406, 1.466, 1.457, 1.52, 1.569, 1.552, 1.599, 1.697, 1.685, 1.782, 1.719, 1.77, 1.863, 1.867, 1.679, 1.637, 1.546, 1.576, 1.503, 1.434, 1.423, 1.541, 1.545, 1.577, 1.632, 1.644, 1.909, 1.884, 1.981, 1.936, 1.996, 1.896, 1.96, 1.871, 2.01, 2.038, 1.844, 1.744, 1.616, 1.637, 1.563, 1.657, 1.639, 1.746, 1.632, 1.624, 1.498, 1.545, 1.591, 1.698, 1.527, 0.995, 0.997, 0.97, 1.214, 1.393, 1.48, 1.422, 1.454, 1.509, 1.697, 1.709, 2.199, 3.131, 3.541, 3.862, 3.927, 3.958, 4.014, 4.437, 4.891, 5.215, 5.358, 5.603, 5.593, 5.345, 5.184, 5.316, 5.107, 5.362, 5.606, 5.46, 5.208, 4.967, 4.938, 4.856, 4.783, 4.79, 4.732, 4.384, 4.299, 3.828, 3.688, 3.474, 3.291, 3.112, 3.159, 3.059, 3.122, 3.007, 2.771, 2.753, 2.806, 2.873, 2.839, 2.987, 2.981, 2.989, 2.78, 2.969, 2.67, 2.615, 2.784, 2.807, 2.863, 2.912, 2.825, 2.755, 2.829, 2.971, 3.105, 3.049, 3.254, 3.33, 3.464, 3.344, 3.344]};
+new Chart(document.getElementById('actualChart').getContext('2d'), {
+  type: 'line',
+  data: {
+    labels: ad,
+    datasets: [
+      { label: 'CPI YoY 실적(%)', data: as.cpi, borderColor: '#4dabf7', backgroundColor: 'transparent', tension: 0.1, pointRadius: 0, borderWidth: 1.6 },
+      { label: 'Core CPI YoY 실적(%)', data: as.core_cpi, borderColor: '#ffa94d', backgroundColor: 'transparent', tension: 0.1, pointRadius: 0, borderWidth: 1.6 },
+      { label: 'PCE YoY 실적(%)', data: as.pce, borderColor: '#ff8787', backgroundColor: 'transparent', tension: 0.1, pointRadius: 0, borderWidth: 1.6 },
+      { label: 'Core PCE YoY 실적(%)', data: as.core_pce, borderColor: '#63e6be', backgroundColor: 'transparent', tension: 0.1, pointRadius: 0, borderWidth: 2.0 },
+    ]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { labels: { color: '#e6e6e6' } } },
+    scales: {
+      x: { ticks: { color: '#9aa0a6', maxTicksLimit: 14 }, grid: { color: '#23262e' } },
+      y: { title: { display: true, text: '%', color: '#9aa0a6' }, ticks: { color: '#9aa0a6' }, grid: { color: '#23262e' } },
+    }
+  }
+});
+
+const nd = ["2026-09-08", "2026-09-08"];
+const ns = {"cpi": [3.38, 3.43], "core_cpi": [2.38, 2.32], "pce": [3.8, 3.91], "core_pce": [3.4, 3.49]};
 new Chart(document.getElementById('nowcastChart').getContext('2d'), {
   type: 'line',
   data: {
-    labels: hd,
+    labels: nd,
     datasets: [
-      { label: 'CPI YoY(%)', data: hs.cpi, borderColor: '#4dabf7', backgroundColor: 'transparent', tension: 0.1, pointRadius: 2, borderWidth: 1.8 },
-      { label: 'Core CPI YoY(%)', data: hs.core_cpi, borderColor: '#ffa94d', backgroundColor: 'transparent', tension: 0.1, pointRadius: 2, borderWidth: 1.8 },
-      { label: 'PCE YoY(%)', data: hs.pce, borderColor: '#ff8787', backgroundColor: 'transparent', tension: 0.1, pointRadius: 2, borderWidth: 1.8 },
-      { label: 'Core PCE YoY(%)', data: hs.core_pce, borderColor: '#63e6be', backgroundColor: 'transparent', tension: 0.1, pointRadius: 2, borderWidth: 2.2 },
+      { label: 'CPI YoY 나우캐스트(%)', data: ns.cpi, borderColor: '#4dabf7', backgroundColor: 'transparent', tension: 0.1, pointRadius: 2, borderWidth: 1.6, borderDash: [4,3] },
+      { label: 'Core CPI YoY 나우캐스트(%)', data: ns.core_cpi, borderColor: '#ffa94d', backgroundColor: 'transparent', tension: 0.1, pointRadius: 2, borderWidth: 1.6, borderDash: [4,3] },
+      { label: 'PCE YoY 나우캐스트(%)', data: ns.pce, borderColor: '#ff8787', backgroundColor: 'transparent', tension: 0.1, pointRadius: 2, borderWidth: 1.6, borderDash: [4,3] },
+      { label: 'Core PCE YoY 나우캐스트(%)', data: ns.core_pce, borderColor: '#63e6be', backgroundColor: 'transparent', tension: 0.1, pointRadius: 2, borderWidth: 2.0, borderDash: [4,3] },
     ]
   },
   options: {
