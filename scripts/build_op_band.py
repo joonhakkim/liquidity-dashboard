@@ -22,7 +22,10 @@ OP밴드(영업이익 밴드) 트래커 - data/manual/*기업*밴드*.xlsx(데�
    해당 FY의 분기 4개가 전부 있어야 합산, 신형은 use_year가 그 날짜의 해(NFY1) 또는 다음 해
    (NFY2)인지에 따라 해당 컬럼을 그대로 씀(신형 NFY1=그 날짜가 속한 연도, NFY2=다음 연도로
    확인됨). 어느 포맷이든 "6월 기준으로 어느 연도를 쓸지"의 최종 결과는 동일하다(사용자 확인).
-4) 위에서 못 구하면 TTM 컬럼값(1순위) -> 직전에 계산된 값 이어쓰기(2순위) -> 그래도 없으면 스킵
+4) 실적 반영 우선순위(2026-09-08 사용자 확인): 목표 회계연도 추정치(1순위) -> 없으면 스위칭
+   반대편 연도 추정치로 대체(2순위, 예: 26년 7월1일 스위칭 시점엔 27년 추정치가 없을 때 26년
+   추정치로 대체) -> 그것도 없으면 TTM 컬럼값(3순위) -> 직전에 계산된 값 이어쓰기(4순위) ->
+   그래도 없으면 스킵
 5) 배수 = 시가총액 / (영업이익추정치 x 1000)  (영업이익은 천원 단위라 원 단위로 환산)
 6) "보기 좋은" 밴드 배수 자동 선정(1,2,5,10,15,20,25,30,50,100,200,250,500,1000 중에서
    목표 라인수에 맞는 간격을 골라 균등 배치) - 밴드 선 자체는 화면(JS)에서 op(t) x 배수로 그린다
@@ -217,10 +220,28 @@ def process_sheet(ws):
                     vals = [row_vals[gi] for gi in group]
                     if all(v is not None for v in vals):
                         op = sum(vals)
-            elif use_year == d.year and nfy1_idx is not None:
-                op = row_vals[nfy1_idx]
-            elif use_year == d.year + 1 and nfy2_idx is not None:
-                op = row_vals[nfy2_idx]
+                if op is None:
+                    # 실적 반영 우선순위(2026-09-08 사용자 확인): 목표 회계연도(use_year)
+                    # 추정치가 없으면 스위칭 반대편 연도(직전 회계연도) 추정치로 대체하고,
+                    # 그것도 없으면 아래에서 TTM으로 대체한다. 예) 26년 7월1일 스위칭 시점엔
+                    # 27년 추정치가 1순위, 없으면 26년 추정치, 그마저 없으면 TTM.
+                    prev_group = fy_blocks.get(use_year - 1)
+                    if prev_group:
+                        vals = [row_vals[gi] for gi in prev_group]
+                        if all(v is not None for v in vals):
+                            op = sum(vals)
+            else:
+                if use_year == d.year and nfy1_idx is not None:
+                    op = row_vals[nfy1_idx]
+                elif use_year == d.year + 1 and nfy2_idx is not None:
+                    op = row_vals[nfy2_idx]
+                if op is None:
+                    # 위와 동일한 원칙 - 목표 연도(NFY1/NFY2) 추정치가 없으면 반대편 연도
+                    # 추정치로 우선 대체하고, TTM은 그 다음 순위로 미룬다.
+                    if use_year == d.year and nfy2_idx is not None:
+                        op = row_vals[nfy2_idx]
+                    elif use_year == d.year + 1 and nfy1_idx is not None:
+                        op = row_vals[nfy1_idx]
             if op is None and ttm_idx is not None:
                 op = row_vals[ttm_idx]
             if op is None:
