@@ -43,6 +43,11 @@ FRED_SERIES = [
     ("us_mmf_total", "MMMFFAQ027S", "2000-01-01"),  # 미국 MMF(머니마켓펀드) 총자산(연준 Flow of Funds, 분기별, 백만달러).
     # 원래 주간 시리즈(WRMFSL 개인+WIMFSL 기관)를 쓰려 했으나 둘 다 2021-02-01 이후로 발표가
     # 끊겨서(연준이 H.6 발표 개편) 지금도 계속 갱신되는 분기별 시리즈로 대체.
+    # --- 테일러 준칙 트래커용(2026-09-08 추가, build_taylor_rule.py에서 사용) ---
+    ("us_fed_funds_rate", "FEDFUNDS", "2000-01-01"),  # 연준 실효 기준금리(월별, %)
+    ("us_core_pce_index", "PCEPILFE", "2000-01-01"),  # 근원 PCE 물가지수(식품·에너지 제외, 월별, 지수레벨) - YoY는 build 단계에서 계산
+    ("us_unemployment_rate", "UNRATE", "2000-01-01"),  # 실업률(월별, %)
+    ("us_natural_unemployment_rate", "NROU", "2000-01-01"),  # CBO 장기 자연실업률(분기별, %) - 오쿤법칙으로 산출갭 근사에 사용
 ]
 
 
