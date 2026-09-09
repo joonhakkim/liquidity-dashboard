@@ -70,7 +70,11 @@ def load_trades(trades_path):
     trades["action"] = trades["action"].str.upper().str.strip()
     if "sector" not in trades.columns:
         trades["sector"] = None
-    return trades.sort_values("date").reset_index(drop=True)
+    # kind="stable": 기본 quicksort는 날짜가 같은 행끼리 순서를 보장 안 해서, 같은 날 같은
+    # 종목에 COVER 다음 BUY처럼(숏 청산 후 롱 신규진입) 순서가 중요한 매매가 뒤바뀔 수 있다
+    # (2026-09-09, 코스닥 롱숏 리밸런싱 중 에스피지 COVER+BUY 순서가 뒤집혀서 원가가 음수0으로
+    # 붕괴돼 ZeroDivisionError 발생 - 파일에 적힌 순서(의도한 순서)를 그대로 지키도록 고정).
+    return trades.sort_values("date", kind="stable").reset_index(drop=True)
 
 
 def fill_missing_prices(trades, prices_wide, trades_path):
@@ -224,7 +228,7 @@ def build_trade_history(trades, name_map):
     SHORT/COVER(공매도)도 지원 - compute_holdings_table과 동일한 부호 규약(shares 음수=숏)."""
     pos = {}  # code -> {"shares": x, "cost": y} - compute_holdings_table과 동일한 방식
     history = []
-    for _, row in trades.sort_values(["date", "code"]).iterrows():
+    for _, row in trades.sort_values(["date", "code"], kind="stable").iterrows():
         code = row["code"]
         qty = row["amount"] / row["price"]
         p = pos.setdefault(code, {"shares": 0.0, "cost": 0.0})
