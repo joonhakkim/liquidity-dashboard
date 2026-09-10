@@ -273,11 +273,13 @@ def pick_band_multiples(mults):
     end = math.ceil(max(positive)) + 1
     threshold = end / TARGET_BAND_LINES
     step = next((s for s in NICE_STEPS if s >= threshold), NICE_STEPS[-1])
-    multiples = []
-    v = step
-    while v <= end:
-        multiples.append(v)
-        v += step
+    # 배수가 비정상적으로 큰 종목(영업이익 추정치가 0 근처를 지나가면 배수가 수억 배까지
+    # 튄다)에서 while 루프가 폭주해 MemoryError가 나는 걸 막는다(2026-09-10, OP밴드 v2
+    # 보간 분모에서 FY1 적자 + FY2 흑자가 섞여 0을 통과하며 발견). 정상 종목은 밴드선이
+    # 수십 개를 넘지 않으므로 이 상한이 기존 결과를 바꾸지 않는다.
+    MAX_LINES = 200
+    n = min(int(end // step), MAX_LINES)
+    multiples = [step * (i + 1) for i in range(n)]
     return multiples or [step]
 
 
