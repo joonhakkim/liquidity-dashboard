@@ -45,22 +45,16 @@ PORTFOLIOS = [
 
 # 롱숏(공매도 포함) 포트폴리오 - 롱온리(PORTFOLIOS)와 계산 방식(TWR + SHORT/COVER + NET
 # EXPOSURE + MDD, 벤치마크는 코스닥 하나뿐)이 달라서 build_troy_mp_page.py의 main_long_short()가
-# 따로 처리한다(2026-08-31, "코스닥 롱숏" 2종 추가).
+# 따로 처리한다(2026-08-31, "코스닥 롱숏" 2종 추가 -> 2026-09-10, "코스닥 롱숏(개별종목)"은
+# 삭제하고 "코스닥 롱숏(지수)"만 남김. 개별종목의 과거 이력은 data/manual/archive_20260910/에
+# 백업 보존).
 # 주의(2026-09-01): 롱/숏 목표비중 합이 정확히 100%인 경우, 종목별 정수 주식수를 "반올림"으로
 # 잡으면 몇몇 종목이 위로 반올림되면서 총합이 10억원(TOTAL_CAPITAL)을 살짝 넘어갈 수 있다
-# (사용자가 "롱 다 더하니 10억 넘는다"고 지적해서 발견). 그래서 이 두 포트폴리오는 반올림이 아니라
+# (사용자가 "롱 다 더하니 10억 넘는다"고 지적해서 발견). 그래서 이 포트폴리오는 반올림이 아니라
 # "내림"(shares = floor(target/price))으로 잡아서 각 종목 매입금액이 목표치를 절대 넘지 않게
 # 하고, 합계도 항상 10억원 이하가 되도록 한다. 목표비중 합이 100% 미만인 트로이/모멘텀/민구
 # MP는 애초에 여유(현금)가 있어서 이 문제가 없다.
 LONG_SHORT_PORTFOLIOS = [
-    {
-        "id": "kosdaq_long_short",
-        "name": "코스닥 롱숏(개별종목)",
-        "trades_path": os.path.join(DATA_DIR, "manual", "kosdaq_long_short_trades.csv"),
-        "prices_path": os.path.join(DATA_DIR, "kosdaq_long_short_prices.csv"),
-        "out_path": os.path.join(DOCS_DIR, "kosdaq_long_short.html"),
-        "xlsx_path": os.path.join(DOWNLOADS_DIR, "kosdaq_long_short_history.xlsx"),
-    },
     {
         "id": "kosdaq_long_short_index",
         "name": "코스닥 롱숏(지수)",
@@ -77,5 +71,5 @@ LONG_SHORT_PORTFOLIOS = [
 # 마지막에 두고 싶다는 요청(2026-09-01)이 있어서 PORTFOLIOS 뒤에 그냥 이어붙이지 않고 직접 나열.
 _BY_ID = {p["id"]: p for p in PORTFOLIOS + LONG_SHORT_PORTFOLIOS}
 ALL_PORTFOLIOS = [_BY_ID[i] for i in [
-    "troy_mp", "momentum_mp", "kosdaq_long_short", "kosdaq_long_short_index", "mingu_mp",
+    "troy_mp", "momentum_mp", "kosdaq_long_short_index", "mingu_mp",
 ]]
