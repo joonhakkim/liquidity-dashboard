@@ -50,9 +50,15 @@ def determine_date_range():
     today = datetime.today()
     existing = pd.read_csv(OUT_PATH, parse_dates=["date"]) if os.path.exists(OUT_PATH) else None
     if existing is not None and len(existing) > 0:
-        last_date = existing["date"].max()
-        start = (last_date + timedelta(days=1)).date()
-        print(f"기존 데이터 발견: 마지막 저장일 {last_date.date()} 다음날부터 증분 수집")
+        # 컬럼마다 소스 지연이 달라서(예: 네이버 폴백으로 kospi_close는 당일 채워지지만
+        # KRX Open API 시가총액은 며칠 늦게 들어옴) 단순히 date.max() 다음날부터 받으면
+        # 뒤늦게 들어오는 컬럼의 공백이 영영 안 메워진다. 살아있는 각 컬럼의
+        # "마지막 유효값 날짜" 중 가장 이른 날 다음부터 다시 받는다. (중복은 keep=last로 정리)
+        live_cols = [c for c in ("kospi_close", "kospi_trading_value", "kospi_market_cap")
+                     if c in existing.columns and existing[c].notna().any()]
+        last_valid = min(existing.loc[existing[c].notna(), "date"].max() for c in live_cols)
+        start = (last_valid + timedelta(days=1)).date()
+        print(f"기존 데이터 발견: 살아있는 컬럼 중 가장 이른 마지막 유효일 {last_valid.date()} 다음날부터 증분 수집")
     else:
         start = (today - timedelta(days=365 * BACKFILL_YEARS)).date()
         print(f"기존 데이터 없음: 최근 {BACKFILL_YEARS}년 백필")
@@ -226,8 +232,11 @@ def main():
 
     if existing is not None:
         if got_new_data:
-            merged = pd.concat([existing, merged], ignore_index=True)
-            merged = merged.drop_duplicates(subset="date", keep="last").sort_values("date")
+            # 새로 받은 값이 우선하되, 새 값이 NaN인 칸은 기존 값을 보존한다
+            # (재수집 구간에서 어떤 컬럼만 응답이 비었을 때 기존 유효값을 지우지 않도록).
+            new_idx = merged.set_index("date")
+            old_idx = existing.set_index("date")
+            merged = new_idx.combine_first(old_idx).reset_index().sort_values("date")
         else:
             merged = existing
 
