@@ -304,17 +304,28 @@ def build_summary_row(code, data, sector_map, naver_sector_map):
     if not mults:
         return None
     latest_mult = mults[-1]
-    positive_mults = [m for m in mults if m > 0]
-    if not positive_mults:
+
+    # 기간중 최소/최대/백분위 계산 시 2026년 7월은 제외한다(2026-09-10 사용자 요청 -
+    # "7월에 비이상적인 하락이 많아서 기간중 최소가 왜곡된다"). 흑자(양수 배수) 구간만
+    # 쓰는 건 기존과 동일. 단, 7월을 빼면 남는 흑자 구간이 아예 없어지는 종목(7월에만
+    # 데이터가 있는 신규 상장 등)은 왜곡 여부와 무관하게 값을 지어낼 수 없으니, 그런
+    # 경우에만 7월 포함으로 되돌린다.
+    EXCLUDE_PREFIX = "2026-07"
+    pairs_ex_july = [(d, m) for d, m in zip(data["dates"], data["mult"])
+                     if m is not None and m > 0 and not d.startswith(EXCLUDE_PREFIX)]
+    positive_pairs = pairs_ex_july or [
+        (d, m) for d, m in zip(data["dates"], data["mult"]) if m is not None and m > 0
+    ]
+    if not positive_pairs:
         return None
+    positive_mults = [m for _d, m in positive_pairs]
     sorted_mults = sorted(positive_mults)
     below = sum(1 for m in sorted_mults if m <= latest_mult)
     percentile = below / len(sorted_mults) * 100
     bare_code = code.lstrip("A")
     sector = naver_sector_map.get(bare_code) or sector_map.get(data["name"])
-    # 기간중 최소/최대가 "언제"였는지도 같이 보여달라는 요청(2026-09-07) - 흑자 구간(양수 배수)
-    # 중 최소/최대값과 같은 날짜를 찾는다(동률이면 먼저 나온 날짜).
-    positive_pairs = [(d, m) for d, m in zip(data["dates"], data["mult"]) if m is not None and m > 0]
+    # 기간중 최소/최대가 "언제"였는지도 같이 보여달라는 요청(2026-09-07) - 위에서 걸러낸
+    # (7월 제외) 흑자 구간 중 최소/최대값과 같은 날짜를 찾는다(동률이면 먼저 나온 날짜).
     hist_min_date = next(d for d, m in positive_pairs if m == sorted_mults[0])
     hist_max_date = next(d for d, m in positive_pairs if m == sorted_mults[-1])
     return {
@@ -548,7 +559,7 @@ TEMPLATE = """<!doctype html>
 <body>
   <a class="back" href="index.html">&larr; 홈</a>
   <h1>OP밴드 트래커</h1>
-  <div class="updated">최종 갱신: {updated_at} &middot; 원본 파일 기준일 {src_mtime} &middot; {n_stocks}종목 &middot; 배수 = 시가총액 / 연간 영업이익 추정치(6월 기준 회계연도 스위칭)</div>
+  <div class="updated">최종 갱신: {updated_at} &middot; 원본 파일 기준일 {src_mtime} &middot; {n_stocks}종목 &middot; 배수 = 시가총액 / 연간 영업이익 추정치(6월 기준 회계연도 스위칭) &middot; 기간중 최소/최대/백분위는 2026년 7월(비이상적 급락 구간) 제외</div>
 
   <div class="filters">
     <label>검색 <input type="text" id="fSearch" placeholder="종목명/코드"></label>
