@@ -40,8 +40,11 @@ SUMMARY_PATH = os.path.join(SCREEN_DIR, "op_band_v2_summary.csv")
 PAGE_OUT_PATH = os.path.join(DOCS_DIR, "op_band_v2.html")
 DETAIL_OUT_DIR = os.path.join(DOCS_DIR, "op_band_v2_data")
 
-BOTTOM_WINDOW_YEARS = 3   # 바텀 계산에 쓰는 최근 기간
+# 바텀 계산에 쓰는 최근 기간 - 화면에서 골라볼 수 있게 여러 개 다 계산해둔다.
+# 2015년까지 시계열이 늘어나면서(2026-09-10) 5년/전체 구간도 의미가 생겼다.
+BOTTOM_WINDOWS = [("3y", 3, "3년"), ("5y", 5, "5년"), ("all", None, "전체")]
 PERCENTILES = [10, 15, 20]
+MIN_OBS = 60   # 이보다 표본이 적은 구간은 값을 안 낸다(신규상장 등)
 
 
 def forward_weight(date):
@@ -143,7 +146,7 @@ def percentile(sorted_vals, pct):
     return sorted_vals[lo] * (hi - k) + sorted_vals[hi] * (k - lo)
 
 
-def build_row(code, data, sector_map, naver_sector_map, cutoff_date):
+def build_row(code, data, sector_map, naver_sector_map, latest_overall):
     pairs = [(d, m) for d, m in zip(data["dates"], data["mult"]) if m is not None and m > 0]
     if not pairs:
         return None
@@ -151,31 +154,34 @@ def build_row(code, data, sector_map, naver_sector_map, cutoff_date):
     if latest_mult is None:
         return None
 
-    recent = [m for d, m in pairs if d >= cutoff_date]
-    used_window = f"최근{BOTTOM_WINDOW_YEARS}년"
-    if len(recent) < 60:   # 최근 구간 표본이 너무 적으면(신규상장 등) 전체 기간으로
-        recent = [m for _d, m in pairs]
-        used_window = "전체기간"
-    if not recent:
-        return None
-    srt = sorted(recent)
-
     row = {
         "code": code, "name": data["name"],
         "sector": naver_sector_map.get(code.lstrip("A")) or sector_map.get(data["name"]),
         "latest_date": latest_date,
         "latest_mult": round(latest_mult, 2),
-        "window": used_window,
-        "n_obs": len(recent),
-        "min_mult": round(srt[0], 2),
+        "min_mult": round(min(m for _d, m in pairs), 2),
         "latest_mktcap": round(data["mktcap"][-1], 0) if data.get("mktcap") else None,
     }
-    for p in PERCENTILES:
-        b = percentile(srt, p)
-        row[f"bottom_p{p}"] = round(b, 2)
-        # 바텀 대비 현재 배수가 몇 % 위인가(마이너스면 바텀 아래로 내려간 것)
-        row[f"gap_p{p}"] = round((latest_mult - b) / b * 100, 1) if b and b > 0 else None
-    return row
+    any_window = False
+    for key, years, _label in BOTTOM_WINDOWS:
+        if years is None:
+            vals = [m for _d, m in pairs]
+        else:
+            cut = (pd.Timestamp(latest_overall) - pd.DateOffset(years=years)).strftime("%Y-%m-%d")
+            vals = [m for d, m in pairs if d >= cut]
+        row[f"n_{key}"] = len(vals)
+        if len(vals) < MIN_OBS:
+            for p in PERCENTILES:
+                row[f"b_{key}_p{p}"] = None
+                row[f"gap_{key}_p{p}"] = None
+            continue
+        any_window = True
+        srt = sorted(vals)
+        for p in PERCENTILES:
+            b = percentile(srt, p)
+            row[f"b_{key}_p{p}"] = round(b, 2)
+            row[f"gap_{key}_p{p}"] = round((latest_mult - b) / b * 100, 1) if b and b > 0 else None
+    return row if any_window else None
 
 
 def main():
@@ -198,13 +204,13 @@ def main():
     sector_map = load_sector_map()
 
     latest_overall = max(d["dates"][-1] for d in all_results.values())
-    cutoff = (pd.Timestamp(latest_overall) - pd.DateOffset(years=BOTTOM_WINDOW_YEARS)).strftime("%Y-%m-%d")
-    print(f"바텀 계산 구간: {cutoff} ~ {latest_overall}")
+    earliest = min(d["dates"][0] for d in all_results.values())
+    print(f"시계열 전체 구간: {earliest} ~ {latest_overall}")
 
     os.makedirs(DETAIL_OUT_DIR, exist_ok=True)
     rows = []
     for code, data in all_results.items():
-        r = build_row(code, data, sector_map, naver_sector_map, cutoff)
+        r = build_row(code, data, sector_map, naver_sector_map, latest_overall)
         if not r:
             continue
         rows.append(r)
@@ -212,13 +218,20 @@ def main():
         # 용량 절약: (1) mult는 mktcap/op로 브라우저에서 계산 가능하므로 저장하지 않고,
         # (2) 금액은 원 대신 억원 단위로 반올림해서 자릿수를 줄인다(2,300여 종목 x 매일
         # 재생성이라 원 단위 16자리를 그대로 쓰면 저장소가 빠르게 불어남).
+        # 상세 차트용 데이터. 2015년까지 늘어나면서 종목당 2,800여일이라 그대로 저장하면
+        # 저장소가 매일 수십 MB씩 불어난다(2,400여 종목 x 매일 재생성). 최근 1년은 일별,
+        # 그 이전은 주별(5거래일마다)로 다운샘플링 - 밴드 차트는 추세만 보면 되므로 옛날
+        # 구간 일별 해상도는 불필요하다. 바텀 퍼센타일은 위에서 전체 히스토리로 이미 계산됨.
+        one_year_ago = (pd.Timestamp(data["dates"][-1]) - pd.DateOffset(years=1)).strftime("%Y-%m-%d")
+        keep_idx = [i for i, dt in enumerate(data["dates"])
+                    if dt >= one_year_ago or i % 5 == 0 or i == len(data["dates"]) - 1]
         detail = {
             "code": code, "name": data["name"],
-            "dates": data["dates"],
-            "mktcapEok": [round(v / 1e8, 2) for v in data["mktcap"]],
-            "opEok": [round(v / 1e8, 2) for v in data["op"]],
+            "dates": [data["dates"][i] for i in keep_idx],
+            "mktcapEok": [round(data["mktcap"][i] / 1e8, 2) for i in keep_idx],
+            "opEok": [round(data["op"][i] / 1e8, 2) for i in keep_idx],
             "bandMultiples": pick_band_multiples(data["mult"]),
-            "bottoms": {f"p{p}": r[f"bottom_p{p}"] for p in PERCENTILES},
+            "bottoms": {f"{key}_p{p}": r.get(f"b_{key}_p{p}") for key, *_ in BOTTOM_WINDOWS for p in PERCENTILES},
         }
         with open(os.path.join(DETAIL_OUT_DIR, f"{code}.json"), "w", encoding="utf-8") as f:
             json.dump(detail, f, ensure_ascii=False)
@@ -233,8 +246,7 @@ def main():
         updated_at=datetime.now().strftime("%Y-%m-%d %H:%M"),
         n_stocks=len(rows),
         latest_date=latest_overall,
-        window_years=BOTTOM_WINDOW_YEARS,
-        cutoff=cutoff,
+        earliest=earliest,
         rows_json=json.dumps(rows, ensure_ascii=False),
     )
     os.makedirs(DOCS_DIR, exist_ok=True)
@@ -290,7 +302,7 @@ TEMPLATE = """<!doctype html>
   <a class="back" href="index.html">&larr; 홈</a>
   <a class="back" href="op_band.html">기존 OP밴드 &rarr;</a>
   <h1>OP밴드 v2 <span style="font-size:13px;color:#ffa94d">(시험 버전)</span></h1>
-  <div class="updated">최종 갱신: {updated_at} &middot; {n_stocks}종목 &middot; 기준일 {latest_date} &middot; 바텀 산출구간 {cutoff} ~ {latest_date}({window_years}년)</div>
+  <div class="updated">최종 갱신: {updated_at} &middot; {n_stocks}종목 &middot; 기준일 {latest_date} &middot; 시계열 {earliest} ~ {latest_date}</div>
 
   <div class="exp">
     <b>기존과 뭐가 다른가</b><br>
@@ -298,14 +310,22 @@ TEMPLATE = """<!doctype html>
     기존 6월 스위칭은 7/1에 분모가 한꺼번에 바뀌면서 배수가 계단으로 급락했고(실측: 6/30→7/1 중앙값 −7.3%),
     그래서 역대 최저가 죄다 7월에 찍혔습니다. 보간하면 분모가 매일 조금씩 굴러가서 절벽이 사라지고,
     "OP가 늘어서 배수가 낮아지는" 흐름이 특정 하루에 몰리지 않습니다.<br>
-    ② <b>바텀 = 단일 최저값이 아니라 최근 {window_years}년 하위 퍼센타일</b>(10/15/20 선택).
-    하루짜리 이상치에 최저값이 좌우되지 않고, 실제로 여러 번 눌렸던 구간의 평균적 하단이 잡힙니다.<br>
+    ② <b>바텀 = 단일 최저값이 아니라 하위 퍼센타일</b>(구간 3년/5년/전체 &times; 10/15/20% 선택).
+    하루짜리 이상치에 최저값이 좌우되지 않고, 실제로 여러 번 눌렸던 구간의 평균적 하단이 잡힙니다.
+    (2015년~ 시계열이라 5년/전체 구간도 의미가 있지만, 저금리 시절(~2021)이 섞이면 바텀이 높게 잡힐 수 있으니 참고.)<br>
     ③ <b>정렬 기준 = 바텀 대비 %</b>. 0%에 가까울수록(또는 마이너스면 바텀 아래로) 바텀권입니다.
+    턴어라운드 초기(OP가 0 근처에서 막 올라온) 종목은 바텀 대비 −90% 같은 극단값이 나오는데,
+    이건 밸류에이션 바텀과 성격이 다르니 "바텀대비 하한"(예: −50)으로 걸러낼 수 있습니다.
   </div>
 
   <div class="filters">
     <label>검색 <input type="text" id="fSearch" placeholder="종목명/코드"></label>
     <label>섹터 <select id="fSector"><option value="">전체</option></select></label>
+    <label>바텀 구간 <select id="fWin">
+      <option value="3y" selected>최근 3년</option>
+      <option value="5y">최근 5년</option>
+      <option value="all">전체(2015~)</option>
+    </select></label>
     <label>바텀 기준 <select id="fPct">
       <option value="10">하위 10%</option>
       <option value="15" selected>하위 15%</option>
@@ -316,6 +336,7 @@ TEMPLATE = """<!doctype html>
     <label>현재배수 최대 <input type="number" id="fMultMax" step="0.5"></label>
     <label><input type="checkbox" id="fIncludeNeg"> 적자(마이너스 배수) 포함</label>
     <label>시총 최소(억) <input type="number" id="fMktcapMin" step="100"></label>
+    <label>바텀대비 하한 <input type="number" id="fGapLo" placeholder="예 -50"></label>
     <label>정렬 <select id="fSort">
       <option value="gap_asc">바텀 대비 근접순</option>
       <option value="mult_asc">현재배수 낮은순</option>
@@ -368,22 +389,27 @@ function fmtMktcap(v) {{
 function applyFilters() {{
   const q = document.getElementById('fSearch').value.trim().toLowerCase();
   const sec = selSector.value;
+  const win = document.getElementById('fWin').value;
   const pct = document.getElementById('fPct').value;
   const gapMax = parseFloat(document.getElementById('fGap').value);
+  const gapLo = parseFloat(document.getElementById('fGapLo').value);
   const multMin = parseFloat(document.getElementById('fMultMin').value);
   const multMax = parseFloat(document.getElementById('fMultMax').value);
   const mktcapMin = parseFloat(document.getElementById('fMktcapMin').value);
   const sort = document.getElementById('fSort').value;
   const includeNeg = document.getElementById('fIncludeNeg').checked;
-  const bKey = 'bottom_p' + pct, gKey = 'gap_p' + pct;
+  const bKey = 'b_' + win + '_p' + pct, gKey = 'gap_' + win + '_p' + pct, nKey = 'n_' + win;
+  const winLabel = {{'3y':'3년','5y':'5년','all':'전체'}}[win];
 
   let rows = ROWS.filter(r => {{
     // 적자(현재 배수 마이너스)는 배수 자체가 의미 없어서 기본 제외 - 바텀 대비 %가
     // -5만% 같은 무의미한 값으로 정렬 상단을 채워버림
     if (!includeNeg && r.latest_mult <= 0) return false;
+    if (r[bKey] == null) return false;  // 이 구간에 표본이 부족한 종목
     if (q && !(r.name.toLowerCase().includes(q) || r.code.toLowerCase().includes(q))) return false;
     if (sec && r.sector !== sec) return false;
     if (!isNaN(gapMax) && (r[gKey] == null || r[gKey] > gapMax)) return false;
+    if (!isNaN(gapLo) && (r[gKey] == null || r[gKey] < gapLo)) return false;
     if (!isNaN(multMin) && r.latest_mult < multMin) return false;
     if (!isNaN(multMax) && r.latest_mult > multMax) return false;
     if (!isNaN(mktcapMin) && (r.latest_mktcap == null || r.latest_mktcap / 1e8 < mktcapMin)) return false;
@@ -405,17 +431,21 @@ function applyFilters() {{
       <td>${{r[bKey].toFixed(2)}}x</td>
       <td class="${{gapClass(r[gKey])}}">${{r[gKey] == null ? '-' : r[gKey].toFixed(1) + '%'}}</td>
       <td class="sub">${{r.min_mult.toFixed(2)}}x</td>
-      <td class="sub">${{r.n_obs}}일<br>${{r.window}}</td>
+      <td class="sub">${{r[nKey]}}일<br>${{winLabel}}</td>
       <td class="sub">${{r.latest_date}}</td>
     </tr>`).join('');
   document.querySelectorAll('#tbody tr').forEach(tr =>
     tr.addEventListener('click', () => openDetail(tr.dataset.code)));
 }}
 
-['fSearch','fSector','fPct','fGap','fMultMin','fMultMax','fMktcapMin','fSort','fIncludeNeg'].forEach(id => {{
+['fSearch','fSector','fWin','fPct','fGap','fGapLo','fMultMin','fMultMax','fMktcapMin','fSort','fIncludeNeg'].forEach(id => {{
   document.getElementById(id).addEventListener('input', applyFilters);
   document.getElementById(id).addEventListener('change', applyFilters);
 }});
+// 바텀 구간/퍼센타일을 바꾸면 열려있는 차트의 바텀선도 같이 갱신
+['fWin','fPct'].forEach(id => document.getElementById(id).addEventListener('change', () => {{
+  if (currentDetail && document.getElementById('overlay').classList.contains('open')) renderChart(currentBands());
+}}));
 
 // ---------- 밴드 차트(모달) ----------
 const NICE_STEPS = [1, 2, 5, 10, 15, 20, 25, 30, 50, 100, 200, 250, 500, 1000];
@@ -449,17 +479,24 @@ function renderChart(bandMultiples) {{
   // 저장 용량 때문에 JSON엔 억원 단위 시총/OP만 있고 배수는 없다 - 여기서 나눠서 쓴다.
   const dates = d.dates.slice(s), op = d.opEok.slice(s), mktcap = d.mktcapEok.slice(s);
 
-  document.getElementById('detailSub').textContent =
-    `밴드선: ${{bandMultiples.map(m => m + 'x').join(', ')}}  ·  바텀(하위15%) ${{d.bottoms.p15}}x`;
+  // 목록에서 고른 바텀 구간/퍼센타일을 차트에도 그대로 반영
+  const win = document.getElementById('fWin').value;
+  const pct = document.getElementById('fPct').value;
+  const winLabel = {{'3y':'3년','5y':'5년','all':'전체'}}[win];
+  const bottom = d.bottoms[win + '_p' + pct];
+
+  document.getElementById('detailSub').textContent = bottom == null
+    ? `밴드선: ${{bandMultiples.map(m => m + 'x').join(', ')}}  ·  (이 구간 표본 부족)`
+    : `밴드선: ${{bandMultiples.map(m => m + 'x').join(', ')}}  ·  바텀(${{winLabel}} 하위${{pct}}%) ${{bottom}}x`;
 
   const datasets = bandMultiples.map((m, i) => ({{
     label: `${{m}}x`, data: op.map(v => v * m),
     borderColor: `hsl(${{200 + i * 30}}, 60%, 55%)`, backgroundColor: 'transparent',
     borderWidth: 1, borderDash: [4, 3], pointRadius: 0, tension: 0,
   }}));
-  // 바텀(하위15%) 라인 - 이 페이지의 핵심 기준선이라 점선 말고 굵게 표시
-  datasets.push({{
-    label: `바텀 ${{d.bottoms.p15}}x`, data: op.map(v => v * d.bottoms.p15),
+  // 바텀 라인 - 이 페이지의 핵심 기준선이라 점선 말고 굵게 표시
+  if (bottom != null) datasets.push({{
+    label: `바텀 ${{bottom}}x`, data: op.map(v => v * bottom),
     borderColor: '#ff2ec4', backgroundColor: 'transparent',
     borderWidth: 2, pointRadius: 0, tension: 0,
   }});
@@ -474,7 +511,7 @@ function renderChart(bandMultiples) {{
   // 그만큼 비싼 배수라는 뜻. (기존 v1은 시총의 4.5배로 잡아서, OP가 출렁이는 종목은
   // 시총선이 바닥에 눌려 안 보였다.) 필요하면 "세로축 최대" 입력으로 직접 덮어쓴다.
   const vals = mktcap.filter(v => v != null);
-  const bottomVals = op.map(v => v * d.bottoms.p15).filter(v => v != null && v > 0);
+  const bottomVals = bottom != null ? op.map(v => v * bottom).filter(v => v != null && v > 0) : [];
   const yOverrideTxt = document.getElementById('yAxisMax').value.trim();
   const yOverride = yOverrideTxt ? parseFloat(yOverrideTxt) : null;
   const autoMax = Math.max(vals.length ? Math.max(...vals) : 0,
