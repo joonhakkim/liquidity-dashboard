@@ -31,6 +31,7 @@ from build_op_band import (
     MKTCAP_ITEM, TTM_ITEM, QUARTER_ITEM,
     HEADER_CODE_ROW, HEADER_NAME_ROW, HEADER_ITEM_ROW, HEADER_BASEDATE_ROW, DATA_START_ROW,
     find_workbook, detect_blocks, load_naver_sector_map, load_sector_map, pick_band_multiples,
+    load_fnguide_map, load_manual_overrides, apply_year_override,
 )
 
 DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data")
@@ -95,12 +96,14 @@ def process_sheet_v2(ws):
         name = row_names[start] if start < len(row_names) else code
         series_dates, series_mult, series_op, series_mktcap = [], [], [], []
         prev_op = None
+        latest_has_estimate = False
         for row_vals, d in zip(data_rows, dates):
             mktcap = row_vals[mktcap_idx]
             if mktcap is None:
                 continue
             fy1 = row_vals[nfy1_idx] if nfy1_idx is not None else None
             fy2 = row_vals[nfy2_idx] if nfy2_idx is not None else None
+            is_estimate = fy1 is not None or fy2 is not None
             w = forward_weight(d)
             if fy1 is not None and fy2 is not None:
                 if (fy1 > 0) != (fy2 > 0):
@@ -123,6 +126,7 @@ def process_sheet_v2(ws):
             if op is None or op == 0:
                 continue
             prev_op = op
+            latest_has_estimate = is_estimate
             op_won = op * 1000
             series_dates.append(d.strftime("%Y-%m-%d"))
             series_op.append(round(op_won, 0))
@@ -131,7 +135,8 @@ def process_sheet_v2(ws):
 
         if series_dates:
             results[code] = {"name": name, "dates": series_dates, "mult": series_mult,
-                              "op": series_op, "mktcap": series_mktcap}
+                              "op": series_op, "mktcap": series_mktcap,
+                              "latest_has_estimate": latest_has_estimate}
     return results
 
 
@@ -199,6 +204,34 @@ def main():
         for code, data in res.items():
             all_results.setdefault(code, data)
         print(f"  {len(res)}개 종목(12개월 선행 보간)")
+
+    # FnGuide(Naver WiseReport) 컨센서스 교차검증 보정 - 기존 OP밴드(v1)에만 있던 걸
+    # 2026-09-14 v2에도 포팅. 애널리스트 추정치가 아예 없어서 TTM/직전값으로 때워지고 있던
+    # 종목만(latest_has_estimate=False) 골라서, data/manual/*기업*밴드*.xlsx엔 없어도
+    # 네이버(FnGuide 소스)에 있는 컨센서스로 "현재" 값을 보정한다. 이미 살아있는 추정치가
+    # 있는 종목은 건드리지 않는다(v1과 동일 원칙, build_op_band.py 참고).
+    fnguide_map = load_fnguide_map()
+    today = datetime.today()
+    current_use_year = today.year if today.month <= 6 else today.year + 1
+    if fnguide_map:
+        print(f"FnGuide 보정 적용 중(현재 회계연도 FY{current_use_year}, {len(fnguide_map)}종목 커버)...")
+        skipped_has_live = 0
+        for code in all_results:
+            data = all_results[code]
+            if data.get("latest_has_estimate"):
+                skipped_has_live += 1
+                continue
+            all_results[code] = apply_year_override(code, data, fnguide_map, current_use_year)
+        print(f"  (이미 실제 추정치가 살아있어 override 생략: {skipped_has_live}종목)")
+    else:
+        print("FnGuide 데이터 없음(fetch_op_band_consensus.py 미실행) - 원본만 사용")
+
+    manual_map = load_manual_overrides()
+    if manual_map:
+        print(f"수동 지정값 적용 중({len(manual_map)}종목, FnGuide보다 우선)...")
+        for code in manual_map:
+            if code in all_results:
+                all_results[code] = apply_year_override(code, all_results[code], manual_map, current_use_year)
 
     naver_sector_map = load_naver_sector_map()
     sector_map = load_sector_map()

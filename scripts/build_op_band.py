@@ -203,6 +203,7 @@ def process_sheet(ws):
 
         series_dates, series_mktcap, series_op, series_mult = [], [], [], []
         prev_op = None
+        latest_has_estimate = False
         for row_vals, d in zip(data_rows, dates):
             mktcap = row_vals[mktcap_idx]
             if mktcap is None:
@@ -214,12 +215,16 @@ def process_sheet(ws):
             # 때 NFY2를 그대로 쓰면 6월 스위칭과 동일한 결과가 된다 - 별도 분기합산 불필요.
             use_year = d.year if d.month <= 6 else d.year + 1
             op = None
+            is_estimate = False  # 이 날짜의 op가 실제 애널리스트 추정치(목표/반대편 연도)에서
+            # 나왔는지 표시 - TTM/직전값 이어쓰기와 구분해서 FnGuide override 적용 여부를
+            # 정확히 판단하는 데 쓴다(아래 apply_year_override 호출부 참고).
             if fy_blocks:
                 group = fy_blocks.get(use_year)
                 if group:
                     vals = [row_vals[gi] for gi in group]
                     if all(v is not None for v in vals):
                         op = sum(vals)
+                        is_estimate = True
                 if op is None:
                     # 실적 반영 우선순위(2026-09-08 사용자 확인): 목표 회계연도(use_year)
                     # 추정치가 없으면 스위칭 반대편 연도(직전 회계연도) 추정치로 대체하고,
@@ -230,11 +235,14 @@ def process_sheet(ws):
                         vals = [row_vals[gi] for gi in prev_group]
                         if all(v is not None for v in vals):
                             op = sum(vals)
+                            is_estimate = True
             else:
                 if use_year == d.year and nfy1_idx is not None:
                     op = row_vals[nfy1_idx]
                 elif use_year == d.year + 1 and nfy2_idx is not None:
                     op = row_vals[nfy2_idx]
+                if op is not None:
+                    is_estimate = True
                 if op is None:
                     # 위와 동일한 원칙 - 목표 연도(NFY1/NFY2) 추정치가 없으면 반대편 연도
                     # 추정치로 우선 대체하고, TTM은 그 다음 순위로 미룬다.
@@ -242,6 +250,8 @@ def process_sheet(ws):
                         op = row_vals[nfy2_idx]
                     elif use_year == d.year + 1 and nfy1_idx is not None:
                         op = row_vals[nfy1_idx]
+                    if op is not None:
+                        is_estimate = True
             if op is None and ttm_idx is not None:
                 op = row_vals[ttm_idx]
             if op is None:
@@ -249,6 +259,7 @@ def process_sheet(ws):
             if op is None or op == 0:
                 continue
             prev_op = op
+            latest_has_estimate = is_estimate
 
             op_won = op * 1000  # 천원 -> 원
             mult = mktcap / op_won
@@ -262,7 +273,8 @@ def process_sheet(ws):
 
         results[code] = {"name": name, "dates": series_dates, "mktcap": series_mktcap,
                           "op": series_op, "mult": series_mult,
-                          "uses_direct_annual": uses_direct_annual}
+                          "uses_direct_annual": uses_direct_annual,
+                          "latest_has_estimate": latest_has_estimate}
     return results
 
 
@@ -432,18 +444,20 @@ def main():
         skipped_has_live = 0
         for code in all_results:
             data = all_results[code]
-            # 신형 파일(NFY1/NFY2 직접값)이 이미 현재 회계연도까지 매일 갱신되는 값을 주고
-            # 있으면 FnGuide 단일값으로 덮어쓰지 않는다 - 안 그러면 "이익 추정치가 상향/하향
-            # 되고 있는지" 보려고 해도 override 때문에 상수로 눌려버림(2026-09-03, 사용자가
-            # 삼성전자 FY2027 값이 7월 이후 계속 똑같이 나오는 걸 보고 지적해서 발견한 버그).
-            if data.get("uses_direct_annual") and data["dates"]:
-                last_date = datetime.strptime(data["dates"][-1], "%Y-%m-%d")
-                last_use_year = last_date.year if last_date.month <= 6 else last_date.year + 1
-                if last_use_year >= current_use_year:
-                    skipped_has_live += 1
-                    continue
+            # 애널리스트 추정치(목표/반대편 연도)가 이미 살아있으면 FnGuide 단일값으로
+            # 덮어쓰지 않는다 - 안 그러면 "이익 추정치가 상향/하향되고 있는지" 보려고 해도
+            # override 때문에 상수로 눌려버림(2026-09-03, 삼성전자 FY2027 값이 7월 이후
+            # 계속 똑같이 나오는 걸 보고 발견한 버그).
+            # 주의(2026-09-14 수정): 예전엔 "마지막 날짜가 현재 회계연도에 속하는지"로
+            # 판단했는데, series_dates가 TTM/직전값 이어쓰기로도 오늘까지 채워지기 때문에
+            # 이 조건이 사실상 항상 참이 되어 override가 2538종목 전부에서 한 번도 실행된
+            # 적이 없었다(로그로 확인). 마지막 값이 실제 추정치에서 왔는지(latest_has_estimate)
+            # 를 직접 봐야 "TTM으로 때워지고 있던" 종목만 정확히 골라 override할 수 있다.
+            if data.get("latest_has_estimate"):
+                skipped_has_live += 1
+                continue
             all_results[code] = apply_year_override(code, data, fnguide_map, current_use_year)
-        print(f"  (신형 파일이 이미 현재 회계연도를 직접 커버해서 override 생략: {skipped_has_live}종목)")
+        print(f"  (이미 실제 추정치가 살아있어 override 생략: {skipped_has_live}종목)")
     else:
         print("FnGuide 데이터 없음(fetch_op_band_consensus.py 미실행) - 엑셀 원본만 사용")
 

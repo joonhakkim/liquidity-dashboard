@@ -28,7 +28,7 @@ import pandas as pd
 from build_op_band import (
     MKTCAP_ITEM, TTM_ITEM, QUARTER_ITEM, HEADER_CODE_ROW, HEADER_NAME_ROW,
     HEADER_ITEM_ROW, HEADER_BASEDATE_ROW, DATA_START_ROW,
-    find_workbook, detect_blocks, load_naver_sector_map, load_sector_map,
+    find_workbook, detect_blocks, load_naver_sector_map, load_sector_map, load_fnguide_map,
 )
 
 DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data")
@@ -118,21 +118,32 @@ def pct_change(series, back):
     return round((latest / past - 1) * 100, 2)
 
 
-def build_summary_row(code, data, sector_map, naver_sector_map):
+def build_summary_row(code, data, sector_map, naver_sector_map, fnguide_map=None):
     dates = data["dates"]
     fy1 = data["fy1"]
     fy2 = data["fy2"]
     ttm = data["ttm"]
     mktcap = data["mktcap"]
 
-    # FY2(차년도, 27년) 컨센서스 자체가 없는 종목이 많다("27년은 없는거니까") - 그런 종목은
-    # TTM(최근 12개월 실적)을 대신 비교 대상으로 쓴다(2026-09-07 사용자 요청). FY1도 같은
-    # 논리로 폴백하되, 실제로 FY1이 비는 경우는 드물다. 폴백 여부는 fy1_source/fy2_source에
-    # "FY"/"TTM"으로 남겨서 화면에 표시("TTM 비교"라고 티 나게) - 어느 걸로 비교했는지 숨기지
-    # 않는다.
+    # NFY1은 "그 날짜가 속한 연도", NFY2는 "다음 연도" 컨센서스다(build_op_band.py 확인 내용과
+    # 동일). 최신 행 기준이면 각각 올해/내년.
+    today = datetime.today()
+    this_year, next_year = today.year, today.year + 1
+    fng = (fnguide_map or {}).get(code, {})
+
+    # FY2(차년도, 27년) 컨센서스 자체가 없는 종목이 많다("27년은 없는거니까") - 엑셀에 없어도
+    # 네이버(FnGuide 소스) 컨센서스가 있으면 그걸로 먼저 보정하고(2026-09-14 추가), 그것도
+    # 없으면 TTM(최근 12개월 실적)을 대신 비교 대상으로 쓴다(2026-09-07 사용자 요청). FY1도
+    # 같은 논리로 폴백하되, 실제로 FY1이 비는 경우는 드물다. 폴백 여부는 fy1_source/fy2_source에
+    # "FY"/"FnGuide"/"TTM"으로 남겨서 화면에 표시 - 어느 걸로 비교했는지 숨기지 않는다.
+    # (FnGuide는 "오늘 시점" 값만 있어서 과거 시계열은 못 채우므로 fy1_series/fy2_series는
+    # 그대로 두고 latest 값만 교체 - 1일/1주/1개월 변화율은 원래도 결측이라 계산 결과는 그대로.)
     latest_fy1 = fy1[-1]
     fy1_source = "FY"
     fy1_series = fy1
+    if latest_fy1 is None and this_year in fng:
+        latest_fy1 = fng[this_year] / 1000  # load_fnguide_map은 원 단위 -> 천원으로 환산(fy는 천원)
+        fy1_source = "FnGuide"
     if latest_fy1 is None:
         latest_fy1 = ttm[-1]
         fy1_source = "TTM"
@@ -141,6 +152,9 @@ def build_summary_row(code, data, sector_map, naver_sector_map):
     latest_fy2 = fy2[-1]
     fy2_source = "FY"
     fy2_series = fy2
+    if latest_fy2 is None and next_year in fng:
+        latest_fy2 = fng[next_year] / 1000
+        fy2_source = "FnGuide"
     if latest_fy2 is None:
         latest_fy2 = ttm[-1]
         fy2_source = "TTM"
@@ -171,7 +185,7 @@ def build_summary_row(code, data, sector_map, naver_sector_map):
         row["fy2_vs_fy1_growth"] = round((latest_fy2 / latest_fy1 - 1) * 100, 2)
     else:
         row["fy2_vs_fy1_growth"] = None
-    row["growth_mixed_ttm"] = fy1_source == "TTM" or fy2_source == "TTM"
+    row["growth_mixed_ttm"] = fy1_source != "FY" or fy2_source != "FY"
     return row
 
 
@@ -271,9 +285,12 @@ function fmtMktcap(won) {{
 function fmtOp(v, source) {{
   if (v === null || v === undefined) return '-';
   const txt = fmtMktcap(v * 1000); // 원본 단위: 천원 -> 억 표기 재사용 위해 x1000
-  // FY 추정치 자체가 없어서 TTM(최근 12개월 실적)으로 대신 비교한 경우 표시(2026-09-07) -
-  // 어떤 기준으로 비교했는지 안 가리고 그대로 보여준다.
-  return source === 'TTM' ? `${{txt}} <span class="ttm-tag">TTM</span>` : txt;
+  // FY 추정치 자체가 없어서 TTM(최근 12개월 실적)이나 FnGuide 교차검증값으로 대신 비교한
+  // 경우 표시(2026-09-07 TTM, 2026-09-14 FnGuide) - 어떤 기준으로 비교했는지 안 가리고
+  // 그대로 보여준다.
+  if (source === 'TTM') return `${{txt}} <span class="ttm-tag">TTM</span>`;
+  if (source === 'FnGuide') return `${{txt}} <span class="ttm-tag">FnGuide</span>`;
+  return txt;
 }}
 function fmtPct(v) {{
   if (v === null || v === undefined) return '-';
@@ -403,9 +420,15 @@ def main():
     sector_map = load_sector_map()
     print(f"네이버 업종 매핑 {len(naver_sector_map)}종목, 큐레이션 섹터 매핑 {len(sector_map)}종목 로드됨")
 
+    # FnGuide(Naver WiseReport) 컨센서스 교차검증 - 엑셀에 FY1/FY2가 아예 없는 종목을
+    # TTM으로 바로 넘기기 전에 먼저 시도한다(2026-09-14, OP밴드 v1에 있던 걸 포팅).
+    fnguide_map = load_fnguide_map()
+    print(f"FnGuide 보정 데이터 {len(fnguide_map)}종목 로드됨" if fnguide_map
+          else "FnGuide 데이터 없음(fetch_op_band_consensus.py 미실행) - TTM 폴백만 사용")
+
     rows = []
     for code, data in all_results.items():
-        row = build_summary_row(code, data, sector_map, naver_sector_map)
+        row = build_summary_row(code, data, sector_map, naver_sector_map, fnguide_map)
         if row is not None:
             rows.append(row)
 
