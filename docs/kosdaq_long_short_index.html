@@ -15,7 +15,7 @@
   .mp-tabs span.active { color:#0f1115; background:#4dabf7; font-weight:bold; }
   .badges { display:grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap:12px; margin-bottom:20px; max-width:820px; }
   .table-row { display:flex; gap:16px; flex-wrap:wrap; margin-bottom:24px; }
-  table.alpha-table { max-width:600px; background:#1a1d24; border-radius:10px; margin-bottom:0; }
+  table.alpha-table { max-width:760px; background:#1a1d24; border-radius:10px; margin-bottom:0; }
   table.alpha-table th, table.alpha-table td { border-bottom:none; padding:10px 14px; }
   table.alpha-table td:not(:first-child) { font-weight:bold; }
   .badge { background:#1a1d24; border-radius:10px; padding:14px 16px; }
@@ -25,6 +25,7 @@
   .badge.bm .value { color:#4dabf7; }
   .badge.exposure .value { color:#ffd43b; }
   .badge.mdd .value { color:#ff2ec4; }
+  .badge.risk .value { color:#9775fa; }
   .chart-wrap { height:420px; position:relative; max-width:1100px; margin-bottom:28px; }
   .chart-range-buttons { display:flex; gap:6px; margin-bottom:10px; }
   .chart-range-buttons button { background:#1a1d24; border:1px solid #23262e; color:#9aa0a6;
@@ -61,7 +62,7 @@
   <a class="back" href="index.html">&larr; 홈</a>
   <h1>코스닥 롱숏(지수) 트래커</h1>
   <div class="mp-tabs"><a class="mp-tab" href="troy_mp.html">트로이 MP</a><a class="mp-tab" href="momentum_mp.html">모멘텀 MP</a><span class="mp-tab active">코스닥 롱숏(지수)</span><a class="mp-tab" href="mingu_mp.html">민구MP</a></div>
-  <div class="updated">최종 갱신: 2026-09-15 09:21 &middot; 편입 시작일 2026-09-09 (=10,000 기준) &middot; 보유 23종목 &middot; 평가금액 합계 997,087,400원</div>
+  <div class="updated">최종 갱신: 2026-09-15 09:42 &middot; 편입 시작일 2026-09-09 (=10,000 기준) &middot; 보유 23종목 &middot; 평가금액 합계 997,087,400원</div>
 
   <div class="badges">
     <div class="badge mp"><div class="label">코스닥 롱숏(지수) 지수</div><div class="value">9,970.87</div></div>
@@ -69,18 +70,22 @@
     <div class="badge exposure"><div class="label">NET EXPOSURE(롱비중+숏비중)</div><div class="value">-4.5%</div></div>
     <div class="badge mdd"><div class="label">MDD(전체기간 최대낙폭)</div><div class="value">-1.02%</div></div>
   </div>
+  <div class="badges" style="margin-top:10px;">
+    <div class="badge risk"><div class="label">연율화 표준편차</div><div class="value">18.34%</div></div>
+    <div class="badge risk"><div class="label">소르티노비율</div><div class="value">-2.28</div></div>
+  </div>
 
   <div class="table-row">
     <table class="alpha-table">
-      <thead><tr><th>포트폴리오 자체 수익률</th><th>총 누적(시작일~)</th><th>1일</th><th>1주일</th><th>1개월</th></tr></thead>
+      <thead><tr><th>포트폴리오 자체 수익률</th><th>총 누적(시작일~)</th><th>1일</th><th>1주일</th><th>1개월</th><th>6개월</th><th>1년</th></tr></thead>
       <tbody>
-        <tr><td>코스닥 롱숏(지수)</td><td><span style="color:#ff2ec4; text-shadow:0 0 6px #ff2ec488;">-0.29%</span></td><td><span style="color:#ff2ec4; text-shadow:0 0 6px #ff2ec488;">-0.45%</span></td><td><span style="color:#6b7280">N/A</span></td><td><span style="color:#6b7280">N/A</span></td></tr>
+        <tr><td>코스닥 롱숏(지수)</td><td><span style="color:#ff2ec4; text-shadow:0 0 6px #ff2ec488;">-0.29%</span></td><td><span style="color:#ff2ec4; text-shadow:0 0 6px #ff2ec488;">-0.45%</span></td><td><span style="color:#6b7280">N/A</span></td><td><span style="color:#6b7280">N/A</span></td><td><span style="color:#6b7280">N/A</span></td><td><span style="color:#6b7280">N/A</span></td></tr>
       </tbody>
     </table>
     <table class="alpha-table">
-      <thead><tr><th>구간별 초과성과</th><th>총 누적(시작일~)</th><th>1일</th><th>1주일</th><th>1개월</th></tr></thead>
+      <thead><tr><th>구간별 초과성과</th><th>총 누적(시작일~)</th><th>1일</th><th>1주일</th><th>1개월</th><th>6개월</th><th>1년</th></tr></thead>
       <tbody>
-        <tr><td>vs 코스닥</td><td><span style="color:#39ff14; text-shadow:0 0 6px #39ff1488;">+2.55%p</span></td><td><span style="color:#39ff14; text-shadow:0 0 6px #39ff1488;">+1.23%p</span></td><td><span style="color:#6b7280">N/A</span></td><td><span style="color:#6b7280">N/A</span></td></tr>
+        <tr><td>vs 코스닥</td><td><span style="color:#39ff14; text-shadow:0 0 6px #39ff1488;">+2.55%p</span></td><td><span style="color:#39ff14; text-shadow:0 0 6px #39ff1488;">+1.23%p</span></td><td><span style="color:#6b7280">N/A</span></td><td><span style="color:#6b7280">N/A</span></td><td><span style="color:#6b7280">N/A</span></td><td><span style="color:#6b7280">N/A</span></td></tr>
       </tbody>
     </table>
   </div>
@@ -705,11 +710,11 @@
 const dates = ["2026-09-09", "2026-09-10", "2026-09-11", "2026-09-14"];
 const mpIndex = [10000.0, 9897.533, 10016.279, 9970.874];
 const bmKosdaqIndex = [10000.0, 10078.88, 9882.823, 9716.03];
-const netExposure = [-0.13, 2.2, -0.24, -4.45];
 
 // 기간별 차트 보기(2026-09-15 추가, 롱온리 템플릿과 동일 로직) - 시작이후가 아닌 구간을 고르면
 // 그 구간 첫날을 100으로 리베이스해서 MP vs BM 상대 성과를 바로 비교할 수 있게 한다.
-// NET EXPOSURE(%)는 지수가 아니라 원래도 %라 리베이스하지 않고 오른쪽 축에 그대로 그린다.
+// NET EXPOSURE는 위 배지(badge)로 최신값만 보여주고 차트에서는 뺐다(2026-09-15 사용자 요청 -
+// MP·BM 지수 두 선만 비교하는 게 더 깔끔하다는 판단).
 const RANGE_LABELS = [['1w','1주'],['1m','1개월'],['3m','3개월'],['6m','6개월'],['1y','1년'],['all','시작이후']];
 const RANGE_DAYS = { '1w':7, '1m':30, '3m':90, '6m':180, '1y':365, 'all':null };
 let navChart = null;
@@ -741,7 +746,6 @@ function renderChart(range) {
       datasets: [
         { label: '코스닥 롱숏(지수)', data: rebase(mpIndex, idx0, doRebase), borderColor: '#ff8787', backgroundColor: 'transparent', tension: 0.1, pointRadius: 0, borderWidth: 2, yAxisID: 'y' },
         { label: '코스닥(BM)', data: rebase(bmKosdaqIndex, idx0, doRebase), borderColor: '#4dabf7', backgroundColor: 'transparent', tension: 0.1, pointRadius: 0, borderWidth: 2, borderDash: [5,3], yAxisID: 'y' },
-        { label: 'NET EXPOSURE(%)', data: netExposure.slice(idx0), borderColor: '#ffa94d', backgroundColor: 'transparent', tension: 0.1, pointRadius: 0, borderWidth: 1.5, borderDash: [1,2], yAxisID: 'y1' },
       ]
     },
     options: {
@@ -750,7 +754,6 @@ function renderChart(range) {
       scales: {
         x: { ticks: { color: '#9aa0a6', maxTicksLimit: 12 }, grid: { color: '#23262e' } },
         y: { position: 'left', title: { display: true, text: yTitle, color: '#9aa0a6' }, ticks: { color: '#9aa0a6' }, grid: { color: '#23262e' } },
-        y1: { position: 'right', title: { display: true, text: 'NET EXPOSURE(%)', color: '#9aa0a6' }, ticks: { color: '#9aa0a6' }, grid: { display: false } },
       }
     }
   });

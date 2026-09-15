@@ -593,6 +593,66 @@ def pct_return(level):
     return (level / BASE_INDEX - 1) * 100 if level is not None else None
 
 
+TRADING_DAYS_PER_YEAR = 252
+
+
+def _daily_returns(index_series):
+    return [index_series[i] / index_series[i - 1] - 1
+            for i in range(1, len(index_series)) if index_series[i - 1]]
+
+
+def compute_annualized_stdev(index_series):
+    """일별 지수 시계열 -> 일간수익률의 표본표준편차(ddof=1)를 연율화(%)한 값.
+    변동성(위험) 자체를 보는 가장 기본적인 지표(2026-09-15 사용자 요청)."""
+    rets = _daily_returns(index_series)
+    if len(rets) < 2:
+        return None
+    mean = sum(rets) / len(rets)
+    var = sum((r - mean) ** 2 for r in rets) / (len(rets) - 1)
+    return (var ** 0.5) * (TRADING_DAYS_PER_YEAR ** 0.5) * 100
+
+
+def compute_information_ratio(mp_series, bm_series):
+    """정보비율(IR) = 연율화 초과수익 / 연율화 트래킹에러. 롱온리 MP용(2026-09-15 사용자
+    요청) - 액티브 운용(벤치마크 대비 초과성과) 평가에 샤프비율보다 실무적으로 더 자주 쓰인다.
+    매일의 (MP수익률-BM수익률) 초과수익 시계열의 평균/표준편차 비율에 연율화 계수(sqrt(252))만
+    곱하면 되므로("연율화평균/연율화표준편차" = "일평균/일표준편차 x sqrt(252)") 따로
+    "연율화 초과수익률"을 구해서 나눌 필요 없이 이렇게 계산한다."""
+    n = min(len(mp_series), len(bm_series))
+    if n < 3:
+        return None
+    mp_rets = _daily_returns(mp_series[:n])
+    bm_rets = _daily_returns(bm_series[:n])
+    excess = [m - b for m, b in zip(mp_rets, bm_rets)]
+    if len(excess) < 2:
+        return None
+    mean = sum(excess) / len(excess)
+    var = sum((e - mean) ** 2 for e in excess) / (len(excess) - 1)
+    te = var ** 0.5
+    if te == 0:
+        return None
+    return (mean / te) * (TRADING_DAYS_PER_YEAR ** 0.5)
+
+
+def compute_sortino_ratio(index_series, mar=0.0):
+    """소르티노비율 = 연율화 평균수익률 / 연율화 하방편차(downside deviation). 롱숏 MP용
+    (2026-09-15 사용자 요청) - 숏 포지션 때문에 상승장에서 일부러 변동성이 낮게 나오는 구조라
+    표준편차/샤프비율만 보면 위험이 과대평가될 수 있는데, 소르티노는 "손실 방향" 변동성만
+    분모로 써서 이 왜곡을 피한다. 무위험수익률/최소수용수익률(MAR)은 별도 데이터가 없어
+    0으로 둔다(표준적인 단순화). 하방편차는 관례대로 "손실난 날짜 수"가 아니라 "전체 날짜 수"로
+    나눈다(가끔만 손실나는 자산의 하방위험을 과대평가하지 않기 위함)."""
+    rets = _daily_returns(index_series)
+    if len(rets) < 2:
+        return None
+    mean = sum(rets) / len(rets)
+    shortfalls = [min(0.0, r - mar) for r in rets]
+    downside_var = sum(s ** 2 for s in shortfalls) / len(shortfalls)
+    downside_dev = downside_var ** 0.5
+    if downside_dev == 0:
+        return None
+    return (mean / downside_dev) * (TRADING_DAYS_PER_YEAR ** 0.5)
+
+
 def _period_start_idx(dates_out, days_back=None, prev_trading_day=False):
     """최근 N일(달력 기준) 또는 직전 거래일에 해당하는 dates_out 인덱스를 찾는다.
     데이터가 그 기간만큼 아직 안 쌓였으면 None."""
@@ -684,8 +744,10 @@ def main(portfolio, other_portfolios):
         _bm_df = pd.read_csv(MARKET_SECTOR_WEIGHTS_PATH)
         if len(_bm_df):
             benchmark_asof = _bm_df["asof_date"].iloc[0]
-    sector_ow_uw_rows = compute_sector_ow_uw(holdings, naver_sector_map, benchmark_weights, benchmark_key="combined")
-    sector_ow_uw_html = render_sector_ow_uw_table(sector_ow_uw_rows, "코스피+코스닥 전체", benchmark_asof)
+    # 2026-09-15 사용자 요청: 트로이/모멘텀/민구MP는 코스피+코스닥 전체 대신 코스피 비중만
+    # 사용(종목 상당수가 코스피 대형주라 코스피 벤치마크가 더 실무적으로 익숙한 비교 기준).
+    sector_ow_uw_rows = compute_sector_ow_uw(holdings, naver_sector_map, benchmark_weights, benchmark_key="kospi")
+    sector_ow_uw_html = render_sector_ow_uw_table(sector_ow_uw_rows, "코스피", benchmark_asof)
 
     dates_json = json.dumps([d.strftime("%Y-%m-%d") for d in dates_out])
     mp_json = json.dumps([round(v, 3) for v in mp_index])
@@ -696,6 +758,9 @@ def main(portfolio, other_portfolios):
     bm_kospi_latest = bm_kospi[-1] if bm_kospi else float(BASE_INDEX)
     bm_kosdaq_latest = bm_kosdaq[-1] if bm_kosdaq else float(BASE_INDEX)
     mdd = compute_mdd(mp_index)
+    stdev_annualized = compute_annualized_stdev(mp_index)
+    ir_kospi = compute_information_ratio(mp_index, bm_kospi)
+    ir_kosdaq = compute_information_ratio(mp_index, bm_kosdaq)
 
     def fmt_neon(v, suffix):
         """초과성과/자체 수익률 표 칸에 야광(neon) 색으로 강조해서 표시 - 양수는 네온 그린, 음수는 네온 핑크."""
@@ -719,14 +784,21 @@ def main(portfolio, other_portfolios):
             compute_period_alpha(dates_out, mp_index, bm_series, days_back=7))
         alpha_periods[f"alpha_{bm_name}_1m"] = fmt_alpha(
             compute_period_alpha(dates_out, mp_index, bm_series, days_back=30))
+        alpha_periods[f"alpha_{bm_name}_6m"] = fmt_alpha(
+            compute_period_alpha(dates_out, mp_index, bm_series, days_back=180))
+        alpha_periods[f"alpha_{bm_name}_1y"] = fmt_alpha(
+            compute_period_alpha(dates_out, mp_index, bm_series, days_back=365))
 
     # 포트폴리오 자체의 구간별 수익률(벤치마크 대비 초과성과가 아니라 순수 자체 수익률) -
-    # 초과성과 표 옆에 나란히 보여주기 위함.
+    # 초과성과 표 옆에 나란히 보여주기 위함. 6개월/1년은 2026-09-15 추가(편입 초기라 아직
+    # 그만큼 데이터가 없는 MP는 compute_period_return이 그냥 None -> N/A로 자연히 처리됨).
     own_periods = {
         "own_total": fmt_return(pct_return(mp_latest)),
         "own_1d": fmt_return(compute_period_return(dates_out, mp_index, prev_trading_day=True)),
         "own_1w": fmt_return(compute_period_return(dates_out, mp_index, days_back=7)),
         "own_1m": fmt_return(compute_period_return(dates_out, mp_index, days_back=30)),
+        "own_6m": fmt_return(compute_period_return(dates_out, mp_index, days_back=180)),
+        "own_1y": fmt_return(compute_period_return(dates_out, mp_index, days_back=365)),
     }
 
     # 리베이스된 BM지수 말고 실제 지수 값(포인트)도 참고용으로 하단에 표시한다. 코스닥은
@@ -817,6 +889,9 @@ def main(portfolio, other_portfolios):
         bm_kospi_latest=f"{bm_kospi_latest:,.2f}",
         bm_kosdaq_latest=f"{bm_kosdaq_latest:,.2f}",
         mdd=f"{mdd:.2f}%" if mdd is not None else "N/A",
+        stdev_annualized=f"{stdev_annualized:.2f}%" if stdev_annualized is not None else "N/A",
+        ir_kospi=f"{ir_kospi:+.2f}" if ir_kospi is not None else "N/A",
+        ir_kosdaq=f"{ir_kosdaq:+.2f}" if ir_kosdaq is not None else "N/A",
         kospi_actual=f"{kospi_actual_latest:,.2f}" if kospi_actual_latest is not None else "N/A",
         kospi_actual_date=kospi_actual_date,
         kosdaq_actual=f"{kosdaq_actual_latest:,.2f}" if kosdaq_actual_latest is not None else "N/A",
@@ -904,7 +979,7 @@ TEMPLATE = """<!doctype html>
   .mp-tabs span.active {{ color:#0f1115; background:#4dabf7; font-weight:bold; }}
   .badges {{ display:grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap:12px; margin-bottom:20px; max-width:820px; }}
   .table-row {{ display:flex; gap:16px; flex-wrap:wrap; margin-bottom:24px; }}
-  table.alpha-table {{ max-width:600px; background:#1a1d24; border-radius:10px; margin-bottom:0; }}
+  table.alpha-table {{ max-width:760px; background:#1a1d24; border-radius:10px; margin-bottom:0; }}
   table.alpha-table th, table.alpha-table td {{ border-bottom:none; padding:10px 14px; }}
   table.alpha-table td:not(:first-child) {{ font-weight:bold; }}
   .badge {{ background:#1a1d24; border-radius:10px; padding:14px 16px; }}
@@ -914,6 +989,7 @@ TEMPLATE = """<!doctype html>
   .badge.bm .value {{ color:#4dabf7; }}
   .badge.alpha .value {{ color:#63e6be; }}
   .badge.mdd .value {{ color:#ff2ec4; }}
+  .badge.risk .value {{ color:#9775fa; }}
   .chart-wrap {{ height:420px; position:relative; max-width:1100px; margin-bottom:28px; }}
   .chart-range-buttons {{ display:flex; gap:6px; margin-bottom:10px; }}
   .chart-range-buttons button {{ background:#1a1d24; border:1px solid #23262e; color:#9aa0a6;
@@ -955,19 +1031,24 @@ TEMPLATE = """<!doctype html>
     <div class="badge bm"><div class="label">코스닥(BM) 지수</div><div class="value">{bm_kosdaq_latest}</div></div>
     <div class="badge mdd"><div class="label">MDD(전체기간 최대낙폭)</div><div class="value">{mdd}</div></div>
   </div>
+  <div class="badges" style="margin-top:10px;">
+    <div class="badge risk"><div class="label">연율화 표준편차</div><div class="value">{stdev_annualized}</div></div>
+    <div class="badge risk"><div class="label">정보비율(IR) vs 코스피</div><div class="value">{ir_kospi}</div></div>
+    <div class="badge risk"><div class="label">정보비율(IR) vs 코스닥</div><div class="value">{ir_kosdaq}</div></div>
+  </div>
 
   <div class="table-row">
     <table class="alpha-table">
-      <thead><tr><th>포트폴리오 자체 수익률</th><th>총 누적(시작일~)</th><th>1일</th><th>1주일</th><th>1개월</th></tr></thead>
+      <thead><tr><th>포트폴리오 자체 수익률</th><th>총 누적(시작일~)</th><th>1일</th><th>1주일</th><th>1개월</th><th>6개월</th><th>1년</th></tr></thead>
       <tbody>
-        <tr><td>{page_name}</td><td>{own_total}</td><td>{own_1d}</td><td>{own_1w}</td><td>{own_1m}</td></tr>
+        <tr><td>{page_name}</td><td>{own_total}</td><td>{own_1d}</td><td>{own_1w}</td><td>{own_1m}</td><td>{own_6m}</td><td>{own_1y}</td></tr>
       </tbody>
     </table>
     <table class="alpha-table">
-      <thead><tr><th>구간별 초과성과</th><th>총 누적(시작일~)</th><th>1일</th><th>1주일</th><th>1개월</th></tr></thead>
+      <thead><tr><th>구간별 초과성과</th><th>총 누적(시작일~)</th><th>1일</th><th>1주일</th><th>1개월</th><th>6개월</th><th>1년</th></tr></thead>
       <tbody>
-        <tr><td>vs 코스피</td><td>{alpha_kospi_total}</td><td>{alpha_kospi_1d}</td><td>{alpha_kospi_1w}</td><td>{alpha_kospi_1m}</td></tr>
-        <tr><td>vs 코스닥</td><td>{alpha_kosdaq_total}</td><td>{alpha_kosdaq_1d}</td><td>{alpha_kosdaq_1w}</td><td>{alpha_kosdaq_1m}</td></tr>
+        <tr><td>vs 코스피</td><td>{alpha_kospi_total}</td><td>{alpha_kospi_1d}</td><td>{alpha_kospi_1w}</td><td>{alpha_kospi_1m}</td><td>{alpha_kospi_6m}</td><td>{alpha_kospi_1y}</td></tr>
+        <tr><td>vs 코스닥</td><td>{alpha_kosdaq_total}</td><td>{alpha_kosdaq_1d}</td><td>{alpha_kosdaq_1w}</td><td>{alpha_kosdaq_1m}</td><td>{alpha_kosdaq_6m}</td><td>{alpha_kosdaq_1y}</td></tr>
       </tbody>
     </table>
   </div>
@@ -1176,6 +1257,8 @@ def main_long_short(portfolio, other_portfolios):
     bm_kosdaq_latest = bm_kosdaq[-1] if bm_kosdaq else float(BASE_INDEX)
     net_exposure_latest = net_exposure[-1] if net_exposure else 0.0
     mdd = compute_mdd(mp_index)
+    stdev_annualized = compute_annualized_stdev(mp_index)
+    sortino = compute_sortino_ratio(mp_index)
 
     def fmt_neon(v, suffix):
         if v is None:
@@ -1194,12 +1277,16 @@ def main_long_short(portfolio, other_portfolios):
         "alpha_kosdaq_1d": fmt_alpha(compute_period_alpha(dates_out, mp_index, bm_kosdaq, prev_trading_day=True)),
         "alpha_kosdaq_1w": fmt_alpha(compute_period_alpha(dates_out, mp_index, bm_kosdaq, days_back=7)),
         "alpha_kosdaq_1m": fmt_alpha(compute_period_alpha(dates_out, mp_index, bm_kosdaq, days_back=30)),
+        "alpha_kosdaq_6m": fmt_alpha(compute_period_alpha(dates_out, mp_index, bm_kosdaq, days_back=180)),
+        "alpha_kosdaq_1y": fmt_alpha(compute_period_alpha(dates_out, mp_index, bm_kosdaq, days_back=365)),
     }
     own_periods = {
         "own_total": fmt_return(pct_return(mp_latest)),
         "own_1d": fmt_return(compute_period_return(dates_out, mp_index, prev_trading_day=True)),
         "own_1w": fmt_return(compute_period_return(dates_out, mp_index, days_back=7)),
         "own_1m": fmt_return(compute_period_return(dates_out, mp_index, days_back=30)),
+        "own_6m": fmt_return(compute_period_return(dates_out, mp_index, days_back=180)),
+        "own_1y": fmt_return(compute_period_return(dates_out, mp_index, days_back=365)),
     }
 
     ref_date = dates_out[-1] if dates_out else None
@@ -1300,6 +1387,8 @@ def main_long_short(portfolio, other_portfolios):
         bm_kosdaq_latest=f"{bm_kosdaq_latest:,.2f}",
         net_exposure_latest=f"{net_exposure_latest:+.1f}%",
         mdd=f"{mdd:.2f}%" if mdd is not None else "N/A",
+        stdev_annualized=f"{stdev_annualized:.2f}%" if stdev_annualized is not None else "N/A",
+        sortino=f"{sortino:+.2f}" if sortino is not None else "N/A",
         kosdaq_actual=f"{kosdaq_actual_latest:,.2f}" if kosdaq_actual_latest is not None else "N/A",
         kosdaq_actual_date=kosdaq_actual_date,
         inception=trades['date'].min().strftime('%Y-%m-%d'),
@@ -1335,7 +1424,7 @@ TEMPLATE_LS = """<!doctype html>
   .mp-tabs span.active {{ color:#0f1115; background:#4dabf7; font-weight:bold; }}
   .badges {{ display:grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap:12px; margin-bottom:20px; max-width:820px; }}
   .table-row {{ display:flex; gap:16px; flex-wrap:wrap; margin-bottom:24px; }}
-  table.alpha-table {{ max-width:600px; background:#1a1d24; border-radius:10px; margin-bottom:0; }}
+  table.alpha-table {{ max-width:760px; background:#1a1d24; border-radius:10px; margin-bottom:0; }}
   table.alpha-table th, table.alpha-table td {{ border-bottom:none; padding:10px 14px; }}
   table.alpha-table td:not(:first-child) {{ font-weight:bold; }}
   .badge {{ background:#1a1d24; border-radius:10px; padding:14px 16px; }}
@@ -1345,6 +1434,7 @@ TEMPLATE_LS = """<!doctype html>
   .badge.bm .value {{ color:#4dabf7; }}
   .badge.exposure .value {{ color:#ffd43b; }}
   .badge.mdd .value {{ color:#ff2ec4; }}
+  .badge.risk .value {{ color:#9775fa; }}
   .chart-wrap {{ height:420px; position:relative; max-width:1100px; margin-bottom:28px; }}
   .chart-range-buttons {{ display:flex; gap:6px; margin-bottom:10px; }}
   .chart-range-buttons button {{ background:#1a1d24; border:1px solid #23262e; color:#9aa0a6;
@@ -1389,18 +1479,22 @@ TEMPLATE_LS = """<!doctype html>
     <div class="badge exposure"><div class="label">NET EXPOSURE(롱비중+숏비중)</div><div class="value">{net_exposure_latest}</div></div>
     <div class="badge mdd"><div class="label">MDD(전체기간 최대낙폭)</div><div class="value">{mdd}</div></div>
   </div>
+  <div class="badges" style="margin-top:10px;">
+    <div class="badge risk"><div class="label">연율화 표준편차</div><div class="value">{stdev_annualized}</div></div>
+    <div class="badge risk"><div class="label">소르티노비율</div><div class="value">{sortino}</div></div>
+  </div>
 
   <div class="table-row">
     <table class="alpha-table">
-      <thead><tr><th>포트폴리오 자체 수익률</th><th>총 누적(시작일~)</th><th>1일</th><th>1주일</th><th>1개월</th></tr></thead>
+      <thead><tr><th>포트폴리오 자체 수익률</th><th>총 누적(시작일~)</th><th>1일</th><th>1주일</th><th>1개월</th><th>6개월</th><th>1년</th></tr></thead>
       <tbody>
-        <tr><td>{page_name}</td><td>{own_total}</td><td>{own_1d}</td><td>{own_1w}</td><td>{own_1m}</td></tr>
+        <tr><td>{page_name}</td><td>{own_total}</td><td>{own_1d}</td><td>{own_1w}</td><td>{own_1m}</td><td>{own_6m}</td><td>{own_1y}</td></tr>
       </tbody>
     </table>
     <table class="alpha-table">
-      <thead><tr><th>구간별 초과성과</th><th>총 누적(시작일~)</th><th>1일</th><th>1주일</th><th>1개월</th></tr></thead>
+      <thead><tr><th>구간별 초과성과</th><th>총 누적(시작일~)</th><th>1일</th><th>1주일</th><th>1개월</th><th>6개월</th><th>1년</th></tr></thead>
       <tbody>
-        <tr><td>vs 코스닥</td><td>{alpha_kosdaq_total}</td><td>{alpha_kosdaq_1d}</td><td>{alpha_kosdaq_1w}</td><td>{alpha_kosdaq_1m}</td></tr>
+        <tr><td>vs 코스닥</td><td>{alpha_kosdaq_total}</td><td>{alpha_kosdaq_1d}</td><td>{alpha_kosdaq_1w}</td><td>{alpha_kosdaq_1m}</td><td>{alpha_kosdaq_6m}</td><td>{alpha_kosdaq_1y}</td></tr>
       </tbody>
     </table>
   </div>
@@ -1471,11 +1565,11 @@ TEMPLATE_LS = """<!doctype html>
 const dates = {dates_json};
 const mpIndex = {mp_json};
 const bmKosdaqIndex = {bm_kosdaq_json};
-const netExposure = {net_exposure_json};
 
 // 기간별 차트 보기(2026-09-15 추가, 롱온리 템플릿과 동일 로직) - 시작이후가 아닌 구간을 고르면
 // 그 구간 첫날을 100으로 리베이스해서 MP vs BM 상대 성과를 바로 비교할 수 있게 한다.
-// NET EXPOSURE(%)는 지수가 아니라 원래도 %라 리베이스하지 않고 오른쪽 축에 그대로 그린다.
+// NET EXPOSURE는 위 배지(badge)로 최신값만 보여주고 차트에서는 뺐다(2026-09-15 사용자 요청 -
+// MP·BM 지수 두 선만 비교하는 게 더 깔끔하다는 판단).
 const RANGE_LABELS = [['1w','1주'],['1m','1개월'],['3m','3개월'],['6m','6개월'],['1y','1년'],['all','시작이후']];
 const RANGE_DAYS = {{ '1w':7, '1m':30, '3m':90, '6m':180, '1y':365, 'all':null }};
 let navChart = null;
@@ -1507,7 +1601,6 @@ function renderChart(range) {{
       datasets: [
         {{ label: '{page_name}', data: rebase(mpIndex, idx0, doRebase), borderColor: '#ff8787', backgroundColor: 'transparent', tension: 0.1, pointRadius: 0, borderWidth: 2, yAxisID: 'y' }},
         {{ label: '코스닥(BM)', data: rebase(bmKosdaqIndex, idx0, doRebase), borderColor: '#4dabf7', backgroundColor: 'transparent', tension: 0.1, pointRadius: 0, borderWidth: 2, borderDash: [5,3], yAxisID: 'y' }},
-        {{ label: 'NET EXPOSURE(%)', data: netExposure.slice(idx0), borderColor: '#ffa94d', backgroundColor: 'transparent', tension: 0.1, pointRadius: 0, borderWidth: 1.5, borderDash: [1,2], yAxisID: 'y1' }},
       ]
     }},
     options: {{
@@ -1516,7 +1609,6 @@ function renderChart(range) {{
       scales: {{
         x: {{ ticks: {{ color: '#9aa0a6', maxTicksLimit: 12 }}, grid: {{ color: '#23262e' }} }},
         y: {{ position: 'left', title: {{ display: true, text: yTitle, color: '#9aa0a6' }}, ticks: {{ color: '#9aa0a6' }}, grid: {{ color: '#23262e' }} }},
-        y1: {{ position: 'right', title: {{ display: true, text: 'NET EXPOSURE(%)', color: '#9aa0a6' }}, ticks: {{ color: '#9aa0a6' }}, grid: {{ display: false }} }},
       }}
     }}
   }});
