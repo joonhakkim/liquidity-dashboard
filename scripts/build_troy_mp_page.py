@@ -32,7 +32,10 @@ from datetime import datetime
 import pandas as pd
 import requests
 
-from mp_portfolios import PORTFOLIOS, LONG_SHORT_PORTFOLIOS, ALL_PORTFOLIOS, BASE_INDEX, TOTAL_CAPITAL, DOCS_DIR, DOWNLOADS_DIR
+from mp_portfolios import (
+    PORTFOLIOS, LONG_SHORT_PORTFOLIOS, ALL_PORTFOLIOS, PRIVATE_PORTFOLIOS,
+    BASE_INDEX, TOTAL_CAPITAL, DOCS_DIR, DOWNLOADS_DIR, DEFAULT_PW_HASH,
+)
 from build_op_band import load_naver_sector_map
 
 DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data")
@@ -879,6 +882,7 @@ def main(portfolio, other_portfolios):
         nav_html=nav_html,
         history_html=history_html,
         xlsx_name=xlsx_name,
+        pw_hash=portfolio.get("pw_hash", DEFAULT_PW_HASH),
         base_index=f"{BASE_INDEX:,}",
         sector_ow_uw_html=sector_ow_uw_html,
         **alpha_periods,
@@ -1174,7 +1178,7 @@ function initChart() {{
   renderChart('all');
 }}
 
-const PW_HASH = "03f1a9ee7721268c34ba420e058dd33d487bec8379c9dea6a997b6968400a60e";
+const PW_HASH = "{pw_hash}";
 async function sha256Hex(str) {{
   const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(str));
   return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, "0")).join("");
@@ -1383,6 +1387,7 @@ def main_long_short(portfolio, other_portfolios):
         nav_html=nav_html,
         history_html=history_html,
         xlsx_name=xlsx_name,
+        pw_hash=portfolio.get("pw_hash", DEFAULT_PW_HASH),
         base_index=f"{BASE_INDEX:,}",
         sector_ow_uw_html=sector_ow_uw_html,
         **alpha_periods,
@@ -1645,7 +1650,7 @@ function initChart() {{
   renderChart('all');
 }}
 
-const PW_HASH = "03f1a9ee7721268c34ba420e058dd33d487bec8379c9dea6a997b6968400a60e";
+const PW_HASH = "{pw_hash}";
 async function sha256Hex(str) {{
   const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(str));
   return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, "0")).join("");
@@ -1685,3 +1690,7 @@ if __name__ == "__main__":
     for p in LONG_SHORT_PORTFOLIOS:
         others = [o for o in ALL_PORTFOLIOS if o is not p]
         main_long_short(p, others)
+    # 비공개 개인 MP(PRIVATE_PORTFOLIOS) - 의도적으로 ALL_PORTFOLIOS에 안 들어있어서 위 두
+    # 루프의 nav에는 안 보이지만, 빌드 자체는 파이프라인 실행마다 똑같이 자동으로 된다.
+    for p in PRIVATE_PORTFOLIOS:
+        main(p, [])

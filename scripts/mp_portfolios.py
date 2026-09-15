@@ -73,3 +73,25 @@ _BY_ID = {p["id"]: p for p in PORTFOLIOS + LONG_SHORT_PORTFOLIOS}
 ALL_PORTFOLIOS = [_BY_ID[i] for i in [
     "troy_mp", "momentum_mp", "kosdaq_long_short_index", "mingu_mp",
 ]]
+
+# 페이지 비밀번호(클라이언트 사이드 SHA-256 해시 - build_troy_mp_page.py 참고). 위 4개 MP는
+# 전부 이 공통 해시를 쓴다(portfolio dict에 "pw_hash"가 없으면 이 값으로 폴백).
+DEFAULT_PW_HASH = "03f1a9ee7721268c34ba420e058dd33d487bec8379c9dea6a997b6968400a60e"
+
+# 비공개 개인 MP(2026-09-15 사용자 요청) - 의도적으로 ALL_PORTFOLIOS에 안 넣는다. render_nav_html이
+# 항상 ALL_PORTFOLIOS만 순회해서 탭을 그리기 때문에, 여기 안 넣으면 트로이/모멘텀/코스닥롱숏/민구
+# 어느 페이지의 nav에도 이 포트폴리오로 가는 링크가 안 생긴다(URL을 직접 아는 사람만 접근).
+# 다른 4개와 다른 비밀번호(pw_hash)를 써서 공용 비밀번호로는 못 열어보게 한다.
+# 주의: 이 레포는 public GitHub repo라 페이지 소스(및 트레이딩 로그 csv)는 URL/레포를 아는
+# 누구나 볼 수 있다 - 비밀번호는 클라이언트 사이드 확인일 뿐 실제 접근 제어가 아니다.
+PRIVATE_PORTFOLIOS = [
+    {
+        "id": "my_mp",
+        "name": "마이 MP",
+        "trades_path": os.path.join(DATA_DIR, "manual", "my_mp_trades.csv"),
+        "prices_path": os.path.join(DATA_DIR, "my_mp_prices.csv"),
+        "out_path": os.path.join(DOCS_DIR, "my_mp.html"),
+        "xlsx_path": os.path.join(DOWNLOADS_DIR, "my_mp_history.xlsx"),
+        "pw_hash": "f7c80e84aca1584a8596bbdc541ecb3c64758b7f567e4d2e1bf41433da34c7e9",
+    },
+]
