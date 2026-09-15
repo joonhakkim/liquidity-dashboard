@@ -33,6 +33,10 @@ import pandas as pd
 import requests
 
 from mp_portfolios import PORTFOLIOS, LONG_SHORT_PORTFOLIOS, ALL_PORTFOLIOS, BASE_INDEX, TOTAL_CAPITAL, DOCS_DIR, DOWNLOADS_DIR
+from build_op_band import load_naver_sector_map
+
+DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data")
+MARKET_SECTOR_WEIGHTS_PATH = os.path.join(DATA_DIR, "market_sector_weights.csv")
 
 # NET EXPOSURE 계산용 종목별 베타 보정치(기본 1.0). 인버스/레버리지 ETF처럼 기초지수와 배율이
 # 다르게 움직이는 상품만 여기 등록한다 - 실제 매매/손익 계산에는 영향 없음(compute_twr_index_ls
@@ -106,6 +110,84 @@ def fill_missing_prices(trades, prices_wide, trades_path):
         out.to_csv(trades_path, index=False, encoding="utf-8-sig")
         print(f"매매일지에 빈 단가 {missing.sum()}건을 네이버 종가로 채워서 저장했습니다.")
     return trades, changed
+
+
+def load_market_sector_weights():
+    """fetch_market_sector_weights.py 결과 -> {섹터: {"kospi": %, "kosdaq": %, "combined": %}}.
+    섹터별 OW/UW 비교(compute_sector_ow_uw)의 벤치마크로 쓴다."""
+    if not os.path.exists(MARKET_SECTOR_WEIGHTS_PATH):
+        return {}
+    df = pd.read_csv(MARKET_SECTOR_WEIGHTS_PATH)
+    return {
+        row["sector"]: {
+            "kospi": row["kospi_weight_pct"], "kosdaq": row["kosdaq_weight_pct"],
+            "combined": row["combined_weight_pct"],
+        }
+        for _, row in df.iterrows()
+    }
+
+
+def compute_sector_ow_uw(holdings, naver_sector_map, benchmark_weights, benchmark_key="combined"):
+    """보유종목(compute_holdings_table 결과)을 종목코드 기준 네이버 업종분류(load_naver_sector_map)로
+    섹터별 비중 합산 -> data/market_sector_weights.csv의 시장 전체 섹터 비중과 비교해서
+    OW(오버웨이트)/UW(언더웨이트, %p)를 계산한다(2026-09-15 사용자 요청).
+
+    매매일지의 sector 컬럼(사람이 자유롭게 붙인 라벨, 예: "항공", "반도체소부장")이 아니라
+    네이버 79개 업종분류로 다시 조회하는 이유 - 벤치마크(market_sector_weights.csv)도 같은
+    분류 체계라서, 라벨이 일치해야 비교가 의미 있다."""
+    sums = {}
+    for r in holdings:
+        code = r.get("code")
+        if not code or code == "-":  # 현금/지수(BM) 참고행 제외
+            continue
+        w = r.get("weight_pct")
+        if w is None:
+            continue
+        sector = naver_sector_map.get(code) or "미분류"
+        sums[sector] = sums.get(sector, 0.0) + w
+
+    rows = []
+    for sector, w in sums.items():
+        bm = benchmark_weights.get(sector, {}).get(benchmark_key)
+        rows.append({
+            "sector": sector,
+            "portfolio_weight": round(w, 2),
+            "benchmark_weight": round(bm, 2) if bm is not None else None,
+            "ow_uw": round(w - bm, 2) if bm is not None else None,
+        })
+    # OW(비중 초과)가 큰 순 -> UW(비중 부족)가 큰 순으로 정렬, 벤치마크 매칭 안 되는 섹터(ETF 등)는 맨 뒤.
+    rows.sort(key=lambda r: (r["ow_uw"] is None, -(r["ow_uw"] if r["ow_uw"] is not None else 0)))
+    return rows
+
+
+def render_sector_ow_uw_table(sector_rows, benchmark_label, asof_date):
+    if not sector_rows:
+        return ""
+    body = ""
+    for r in sector_rows:
+        bm_txt = f"{r['benchmark_weight']:.2f}%" if r["benchmark_weight"] is not None else "-"
+        if r["ow_uw"] is None:
+            ow_txt, ow_style = "-", ""
+        else:
+            sign = "+" if r["ow_uw"] >= 0 else ""
+            color = "#ff6b6b" if r["ow_uw"] > 0 else ("#4dabf7" if r["ow_uw"] < 0 else "#9aa0a6")
+            ow_txt, ow_style = f"{sign}{r['ow_uw']:.2f}%p", f' style="color:{color}"'
+        body += f"""
+        <tr>
+          <td>{r['sector']}</td>
+          <td>{r['portfolio_weight']:.2f}%</td>
+          <td>{bm_txt}</td>
+          <td{ow_style}>{ow_txt}</td>
+        </tr>"""
+    return f"""
+  <div class="sector-ow-uw" style="margin-top:24px;">
+    <h3 style="font-size:13px; color:#c7cbd1; margin:0 0 8px 0;">섹터별 비중 비교 (vs {benchmark_label} 시가총액 비중, 기준일 {asof_date})</h3>
+    <table>
+      <thead><tr><th>섹터</th><th>MP 비중</th><th>벤치마크 비중</th><th>OW/UW</th></tr></thead>
+      <tbody>{body}
+      </tbody>
+    </table>
+  </div>"""
 
 
 def compute_holdings_table(trades, latest_prices, prev_prices, name_map, sector_map, show_cash_row=True, cash_mode="full"):
@@ -595,6 +677,16 @@ def main(portfolio, other_portfolios):
     holdings, total_eval = compute_holdings_table(trades, latest_prices, prev_prices, name_map, sector_map)
     dates_out, mp_index, bm_kospi, bm_kosdaq = compute_twr_index(trades, prices_wide, kospi, kosdaq)
 
+    naver_sector_map = load_naver_sector_map()
+    benchmark_weights = load_market_sector_weights()
+    benchmark_asof = "N/A"
+    if os.path.exists(MARKET_SECTOR_WEIGHTS_PATH):
+        _bm_df = pd.read_csv(MARKET_SECTOR_WEIGHTS_PATH)
+        if len(_bm_df):
+            benchmark_asof = _bm_df["asof_date"].iloc[0]
+    sector_ow_uw_rows = compute_sector_ow_uw(holdings, naver_sector_map, benchmark_weights, benchmark_key="combined")
+    sector_ow_uw_html = render_sector_ow_uw_table(sector_ow_uw_rows, "코스피+코스닥 전체", benchmark_asof)
+
     dates_json = json.dumps([d.strftime("%Y-%m-%d") for d in dates_out])
     mp_json = json.dumps([round(v, 3) for v in mp_index])
     bm_kospi_json = json.dumps([round(v, 3) for v in bm_kospi])
@@ -714,6 +806,7 @@ def main(portfolio, other_portfolios):
         history_html=history_html,
         xlsx_name=xlsx_name,
         base_index=f"{BASE_INDEX:,}",
+        sector_ow_uw_html=sector_ow_uw_html,
         **alpha_periods,
         **own_periods,
         dates_json=dates_json,
@@ -822,6 +915,11 @@ TEMPLATE = """<!doctype html>
   .badge.alpha .value {{ color:#63e6be; }}
   .badge.mdd .value {{ color:#ff2ec4; }}
   .chart-wrap {{ height:420px; position:relative; max-width:1100px; margin-bottom:28px; }}
+  .chart-range-buttons {{ display:flex; gap:6px; margin-bottom:10px; }}
+  .chart-range-buttons button {{ background:#1a1d24; border:1px solid #23262e; color:#9aa0a6;
+    font-size:12px; padding:5px 12px; border-radius:6px; cursor:pointer; }}
+  .chart-range-buttons button:hover {{ border-color:#4dabf7; color:#e6e6e6; }}
+  .chart-range-buttons button.active {{ background:#2a3f5f; border-color:#4dabf7; color:#e6e6e6; }}
   table {{ border-collapse: collapse; width:100%; font-size:13px; }}
   th, td {{ padding:8px 12px; text-align:right; border-bottom:1px solid #23262e; }}
   th:first-child, td:first-child {{ text-align:left; }}
@@ -874,6 +972,7 @@ TEMPLATE = """<!doctype html>
     </table>
   </div>
 
+  <div class="chart-range-buttons" id="chartRangeButtons"></div>
   <div class="chart-wrap"><canvas id="navChart"></canvas></div>
 
   <div class="main-row">
@@ -911,6 +1010,7 @@ TEMPLATE = """<!doctype html>
     <div class="badge bm"><div class="label">코스피 실제 지수({kospi_actual_date})</div><div class="value">{kospi_actual}</div></div>
     <div class="badge bm"><div class="label">코스닥 실제 지수({kosdaq_actual_date})</div><div class="value">{kosdaq_actual}</div></div>
   </div>
+  {sector_ow_uw_html}
   </div>
 
 <script>
@@ -919,17 +1019,42 @@ const mpIndex = {mp_json};
 const bmKospiIndex = {bm_kospi_json};
 const bmKosdaqIndex = {bm_kosdaq_json};
 
-function initChart() {{
-  if (window.__navChartInited) return;
-  window.__navChartInited = true;
-  new Chart(document.getElementById('navChart').getContext('2d'), {{
+// 기간별 차트 보기(2026-09-15 추가) - 1주/1개월/3개월/6개월/1년/시작이후 버튼으로 구간을
+// 골라볼 수 있다. "시작이후" 말고 다른 구간을 고르면 그 구간 첫날을 100으로 다시 리베이스해서
+// (원래 지수는 편입일=10000 기준이라 짧은 구간만 떼어보면 세 선이 거의 평행하게 보여 상대
+// 성과 비교가 어려움) MP·BM의 그 구간 동안 상대 성과를 바로 비교할 수 있게 한다.
+const RANGE_LABELS = [['1w','1주'],['1m','1개월'],['3m','3개월'],['6m','6개월'],['1y','1년'],['all','시작이후']];
+const RANGE_DAYS = {{ '1w':7, '1m':30, '3m':90, '6m':180, '1y':365, 'all':null }};
+let navChart = null;
+
+function sliceStart(range) {{
+  if (range === 'all' || dates.length === 0) return 0;
+  const days = RANGE_DAYS[range];
+  const cutoffMs = new Date(dates[dates.length - 1]).getTime() - days * 86400000;
+  const idx = dates.findIndex(d => new Date(d).getTime() >= cutoffMs);
+  return idx < 0 ? 0 : idx;
+}}
+
+function rebase(series, idx0, doRebase) {{
+  if (!doRebase) return series.slice(idx0);
+  const base = series[idx0];
+  if (!base) return series.slice(idx0);
+  return series.slice(idx0).map(v => v == null ? null : (v / base) * 100);
+}}
+
+function renderChart(range) {{
+  const idx0 = sliceStart(range);
+  const doRebase = range !== 'all';
+  const yTitle = doRebase ? '구간 시작=100' : '지수(편입일={base_index})';
+  if (navChart) navChart.destroy();
+  navChart = new Chart(document.getElementById('navChart').getContext('2d'), {{
     type: 'line',
     data: {{
-      labels: dates,
+      labels: dates.slice(idx0),
       datasets: [
-        {{ label: '{page_name}', data: mpIndex, borderColor: '#ff8787', backgroundColor: 'transparent', tension: 0.1, pointRadius: 0, borderWidth: 2 }},
-        {{ label: '코스피(BM)', data: bmKospiIndex, borderColor: '#4dabf7', backgroundColor: 'transparent', tension: 0.1, pointRadius: 0, borderWidth: 2, borderDash: [5,3] }},
-        {{ label: '코스닥(BM)', data: bmKosdaqIndex, borderColor: '#63e6be', backgroundColor: 'transparent', tension: 0.1, pointRadius: 0, borderWidth: 2, borderDash: [2,3] }},
+        {{ label: '{page_name}', data: rebase(mpIndex, idx0, doRebase), borderColor: '#ff8787', backgroundColor: 'transparent', tension: 0.1, pointRadius: 0, borderWidth: 2 }},
+        {{ label: '코스피(BM)', data: rebase(bmKospiIndex, idx0, doRebase), borderColor: '#4dabf7', backgroundColor: 'transparent', tension: 0.1, pointRadius: 0, borderWidth: 2, borderDash: [5,3] }},
+        {{ label: '코스닥(BM)', data: rebase(bmKosdaqIndex, idx0, doRebase), borderColor: '#63e6be', backgroundColor: 'transparent', tension: 0.1, pointRadius: 0, borderWidth: 2, borderDash: [2,3] }},
       ]
     }},
     options: {{
@@ -937,10 +1062,27 @@ function initChart() {{
       plugins: {{ legend: {{ labels: {{ color: '#e6e6e6' }} }} }},
       scales: {{
         x: {{ ticks: {{ color: '#9aa0a6', maxTicksLimit: 12 }}, grid: {{ color: '#23262e' }} }},
-        y: {{ title: {{ display: true, text: '지수(편입일={base_index})', color: '#9aa0a6' }}, ticks: {{ color: '#9aa0a6' }}, grid: {{ color: '#23262e' }} }},
+        y: {{ title: {{ display: true, text: yTitle, color: '#9aa0a6' }}, ticks: {{ color: '#9aa0a6' }}, grid: {{ color: '#23262e' }} }},
       }}
     }}
   }});
+  document.querySelectorAll('#chartRangeButtons button').forEach(btn => {{
+    btn.classList.toggle('active', btn.dataset.range === range);
+  }});
+}}
+
+function initChart() {{
+  if (window.__navChartInited) return;
+  window.__navChartInited = true;
+  const btnWrap = document.getElementById('chartRangeButtons');
+  RANGE_LABELS.forEach(([key, label]) => {{
+    const btn = document.createElement('button');
+    btn.textContent = label;
+    btn.dataset.range = key;
+    btn.addEventListener('click', () => renderChart(key));
+    btnWrap.appendChild(btn);
+  }});
+  renderChart('all');
 }}
 
 const PW_HASH = "03f1a9ee7721268c34ba420e058dd33d487bec8379c9dea6a997b6968400a60e";
@@ -1120,6 +1262,18 @@ def main_long_short(portfolio, other_portfolios):
     short_rows = [r for r in holdings if r["shares"] is not None and effective_side(r) < 0]
     ref_rows = [r for r in holdings if r["shares"] is None]
 
+    # 섹터 OW/UW는 롱 북만 대상으로 한다 - 숏은 인버스ETF(코스닥 하락 베팅) 하나뿐이라
+    # 섹터 비중 비교 대상이 아니고, 코스닥 종목 롱 포지션의 섹터 쏠림만 보면 된다.
+    naver_sector_map = load_naver_sector_map()
+    benchmark_weights = load_market_sector_weights()
+    benchmark_asof = "N/A"
+    if os.path.exists(MARKET_SECTOR_WEIGHTS_PATH):
+        _bm_df = pd.read_csv(MARKET_SECTOR_WEIGHTS_PATH)
+        if len(_bm_df):
+            benchmark_asof = _bm_df["asof_date"].iloc[0]
+    sector_ow_uw_rows = compute_sector_ow_uw(long_rows, naver_sector_map, benchmark_weights, benchmark_key="kosdaq")
+    sector_ow_uw_html = render_sector_ow_uw_table(sector_ow_uw_rows, "코스닥 전체(롱 종목 기준)", benchmark_asof)
+
     long_rows_html = render_rows(long_rows)
     short_rows_html = render_rows(short_rows)
     ref_rows_html = render_rows(ref_rows)
@@ -1135,6 +1289,7 @@ def main_long_short(portfolio, other_portfolios):
         history_html=history_html,
         xlsx_name=xlsx_name,
         base_index=f"{BASE_INDEX:,}",
+        sector_ow_uw_html=sector_ow_uw_html,
         **alpha_periods,
         **own_periods,
         dates_json=dates_json,
@@ -1191,6 +1346,11 @@ TEMPLATE_LS = """<!doctype html>
   .badge.exposure .value {{ color:#ffd43b; }}
   .badge.mdd .value {{ color:#ff2ec4; }}
   .chart-wrap {{ height:420px; position:relative; max-width:1100px; margin-bottom:28px; }}
+  .chart-range-buttons {{ display:flex; gap:6px; margin-bottom:10px; }}
+  .chart-range-buttons button {{ background:#1a1d24; border:1px solid #23262e; color:#9aa0a6;
+    font-size:12px; padding:5px 12px; border-radius:6px; cursor:pointer; }}
+  .chart-range-buttons button:hover {{ border-color:#4dabf7; color:#e6e6e6; }}
+  .chart-range-buttons button.active {{ background:#2a3f5f; border-color:#4dabf7; color:#e6e6e6; }}
   table {{ border-collapse: collapse; width:100%; font-size:13px; }}
   th, td {{ padding:8px 12px; text-align:right; border-bottom:1px solid #23262e; }}
   th:first-child, td:first-child {{ text-align:left; }}
@@ -1245,6 +1405,7 @@ TEMPLATE_LS = """<!doctype html>
     </table>
   </div>
 
+  <div class="chart-range-buttons" id="chartRangeButtons"></div>
   <div class="chart-wrap"><canvas id="navChart"></canvas></div>
 
   <div class="main-row">
@@ -1303,6 +1464,7 @@ TEMPLATE_LS = """<!doctype html>
   <div class="badges" style="margin-top:16px;">
     <div class="badge bm"><div class="label">코스닥 실제 지수({kosdaq_actual_date})</div><div class="value">{kosdaq_actual}</div></div>
   </div>
+  {sector_ow_uw_html}
   </div>
 
 <script>
@@ -1311,16 +1473,41 @@ const mpIndex = {mp_json};
 const bmKosdaqIndex = {bm_kosdaq_json};
 const netExposure = {net_exposure_json};
 
-function initChart() {{
-  if (window.__navChartInited) return;
-  window.__navChartInited = true;
-  new Chart(document.getElementById('navChart').getContext('2d'), {{
+// 기간별 차트 보기(2026-09-15 추가, 롱온리 템플릿과 동일 로직) - 시작이후가 아닌 구간을 고르면
+// 그 구간 첫날을 100으로 리베이스해서 MP vs BM 상대 성과를 바로 비교할 수 있게 한다.
+// NET EXPOSURE(%)는 지수가 아니라 원래도 %라 리베이스하지 않고 오른쪽 축에 그대로 그린다.
+const RANGE_LABELS = [['1w','1주'],['1m','1개월'],['3m','3개월'],['6m','6개월'],['1y','1년'],['all','시작이후']];
+const RANGE_DAYS = {{ '1w':7, '1m':30, '3m':90, '6m':180, '1y':365, 'all':null }};
+let navChart = null;
+
+function sliceStart(range) {{
+  if (range === 'all' || dates.length === 0) return 0;
+  const days = RANGE_DAYS[range];
+  const cutoffMs = new Date(dates[dates.length - 1]).getTime() - days * 86400000;
+  const idx = dates.findIndex(d => new Date(d).getTime() >= cutoffMs);
+  return idx < 0 ? 0 : idx;
+}}
+
+function rebase(series, idx0, doRebase) {{
+  if (!doRebase) return series.slice(idx0);
+  const base = series[idx0];
+  if (!base) return series.slice(idx0);
+  return series.slice(idx0).map(v => v == null ? null : (v / base) * 100);
+}}
+
+function renderChart(range) {{
+  const idx0 = sliceStart(range);
+  const doRebase = range !== 'all';
+  const yTitle = doRebase ? '구간 시작=100' : '지수(편입일={base_index})';
+  if (navChart) navChart.destroy();
+  navChart = new Chart(document.getElementById('navChart').getContext('2d'), {{
     type: 'line',
     data: {{
-      labels: dates,
+      labels: dates.slice(idx0),
       datasets: [
-        {{ label: '{page_name}', data: mpIndex, borderColor: '#ff8787', backgroundColor: 'transparent', tension: 0.1, pointRadius: 0, borderWidth: 2, yAxisID: 'y' }},
-        {{ label: '코스닥(BM)', data: bmKosdaqIndex, borderColor: '#4dabf7', backgroundColor: 'transparent', tension: 0.1, pointRadius: 0, borderWidth: 2, borderDash: [5,3], yAxisID: 'y' }},
+        {{ label: '{page_name}', data: rebase(mpIndex, idx0, doRebase), borderColor: '#ff8787', backgroundColor: 'transparent', tension: 0.1, pointRadius: 0, borderWidth: 2, yAxisID: 'y' }},
+        {{ label: '코스닥(BM)', data: rebase(bmKosdaqIndex, idx0, doRebase), borderColor: '#4dabf7', backgroundColor: 'transparent', tension: 0.1, pointRadius: 0, borderWidth: 2, borderDash: [5,3], yAxisID: 'y' }},
+        {{ label: 'NET EXPOSURE(%)', data: netExposure.slice(idx0), borderColor: '#ffa94d', backgroundColor: 'transparent', tension: 0.1, pointRadius: 0, borderWidth: 1.5, borderDash: [1,2], yAxisID: 'y1' }},
       ]
     }},
     options: {{
@@ -1328,10 +1515,28 @@ function initChart() {{
       plugins: {{ legend: {{ labels: {{ color: '#e6e6e6' }} }} }},
       scales: {{
         x: {{ ticks: {{ color: '#9aa0a6', maxTicksLimit: 12 }}, grid: {{ color: '#23262e' }} }},
-        y: {{ position: 'left', title: {{ display: true, text: '지수(편입일={base_index})', color: '#9aa0a6' }}, ticks: {{ color: '#9aa0a6' }}, grid: {{ color: '#23262e' }} }},
+        y: {{ position: 'left', title: {{ display: true, text: yTitle, color: '#9aa0a6' }}, ticks: {{ color: '#9aa0a6' }}, grid: {{ color: '#23262e' }} }},
+        y1: {{ position: 'right', title: {{ display: true, text: 'NET EXPOSURE(%)', color: '#9aa0a6' }}, ticks: {{ color: '#9aa0a6' }}, grid: {{ display: false }} }},
       }}
     }}
   }});
+  document.querySelectorAll('#chartRangeButtons button').forEach(btn => {{
+    btn.classList.toggle('active', btn.dataset.range === range);
+  }});
+}}
+
+function initChart() {{
+  if (window.__navChartInited) return;
+  window.__navChartInited = true;
+  const btnWrap = document.getElementById('chartRangeButtons');
+  RANGE_LABELS.forEach(([key, label]) => {{
+    const btn = document.createElement('button');
+    btn.textContent = label;
+    btn.dataset.range = key;
+    btn.addEventListener('click', () => renderChart(key));
+    btnWrap.appendChild(btn);
+  }});
+  renderChart('all');
 }}
 
 const PW_HASH = "03f1a9ee7721268c34ba420e058dd33d487bec8379c9dea6a997b6968400a60e";
