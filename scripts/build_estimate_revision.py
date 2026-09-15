@@ -181,10 +181,23 @@ def build_summary_row(code, data, sector_map, naver_sector_map, fnguide_map=None
     # FY1(당해) 대비 FY2(차년도) 성장률 - "추정치가 시간이 지나며 상향/하향됐는지"(위 컬럼들)와는
     # 다른 지표로, "지금 시점에 내년이 올해보다 얼마나 더 좋아질 걸로 보는지"(2026-09-07 요청).
     # 둘 중 하나라도 TTM 폴백값이면 순수 FY1/FY2 비교가 아니라는 걸 growth_mixed_ttm으로 표시.
+    #
+    # 부호가 섞이면(적자<->흑자 전환) 단순 비율(fy2/fy1-1)이 정반대로 오해를 부른다(2026-09-15
+    # 사용자 지적) - 예: FY1=-100, FY2=+50(적자에서 흑자 전환, 실제로는 개선)인데
+    # 50/-100-1 = -150%로 나와서 대폭 "악화"된 것처럼 보임. OP밴드 v2의 부호 처리와 같은
+    # 원칙으로, 부호가 다르거나 둘 다 적자인 구간은 숫자 대신 "흑자전환/적자전환/적자지속"
+    # 라벨로 보여주고 오해를 부르는 % 자체를 아예 계산하지 않는다.
+    row["fy2_vs_fy1_growth"] = None
+    row["fy2_vs_fy1_growth_label"] = None
     if latest_fy1 not in (None, 0) and latest_fy2 is not None:
-        row["fy2_vs_fy1_growth"] = round((latest_fy2 / latest_fy1 - 1) * 100, 2)
-    else:
-        row["fy2_vs_fy1_growth"] = None
+        if latest_fy1 > 0 and latest_fy2 > 0:
+            row["fy2_vs_fy1_growth"] = round((latest_fy2 / latest_fy1 - 1) * 100, 2)
+        elif latest_fy1 < 0 and latest_fy2 > 0:
+            row["fy2_vs_fy1_growth_label"] = "흑자전환"
+        elif latest_fy1 > 0 and latest_fy2 < 0:
+            row["fy2_vs_fy1_growth_label"] = "적자전환"
+        elif latest_fy1 < 0 and latest_fy2 < 0:
+            row["fy2_vs_fy1_growth_label"] = "적자지속"
     row["growth_mixed_ttm"] = fy1_source != "FY" or fy2_source != "FY"
     return row
 
@@ -269,7 +282,8 @@ TEMPLATE = """<!doctype html>
   </div>
   <div class="hint">상향률 = (최신값 / N거래일 전 값 - 1) x 100. 데이터가 그만큼 안 쌓인 종목은 "-"로 표시됩니다.
     <span class="ttm-tag">TTM</span> 표시는 해당 연도 컨센서스 자체가 없어서 최근 12개월 실적(TTM)으로 대신 비교했다는 뜻입니다.
-    {fy1_year}년&rarr;{fy2_year}년 성장률은 "지금 시점 컨센서스로 내년이 올해보다 얼마나 좋아질 것으로 보는지"이고, 위 상향률(추정치가 최근 얼마나 바뀌었는지)과는 다른 지표입니다.</div>
+    {fy1_year}년&rarr;{fy2_year}년 성장률은 "지금 시점 컨센서스로 내년이 올해보다 얼마나 좋아질 것으로 보는지"이고, 위 상향률(추정치가 최근 얼마나 바뀌었는지)과는 다른 지표입니다.
+    <span class="ttm-tag">흑자전환</span>/<span class="ttm-tag">적자전환</span>/<span class="ttm-tag">적자지속</span> 표시는 두 해 중 하나라도 적자라 단순 비율(%)이 부호 때문에 실제와 반대로 보일 수 있어서(예: 적자→흑자 전환인데 계산상 "-150%"처럼 나옴) 숫자 대신 상태로 표시합니다.</div>
 
 <script>
 const ROWS = {rows_json};
@@ -342,7 +356,7 @@ function applyFilters() {{
       <td>${{fmtPct(r[fy1key])}}</td>
       <td>${{fmtOp(r.fy2, r.fy2_source)}}</td>
       <td>${{fmtPct(r[fy2key])}}</td>
-      <td>${{fmtPct(r.fy2_vs_fy1_growth)}}${{r.growth_mixed_ttm && r.fy2_vs_fy1_growth !== null ? ' <span class="ttm-tag">TTM포함</span>' : ''}}</td>
+      <td>${{r.fy2_vs_fy1_growth_label ? `<span class="ttm-tag">${{r.fy2_vs_fy1_growth_label}}</span>` : fmtPct(r.fy2_vs_fy1_growth)}}${{r.growth_mixed_ttm && (r.fy2_vs_fy1_growth !== null || r.fy2_vs_fy1_growth_label) ? ' <span class="ttm-tag">TTM포함</span>' : ''}}</td>
       <td>${{r.latest_date}}</td>
     </tr>
   `).join('');
@@ -367,7 +381,7 @@ function downloadExcel() {{
     [fy2Label + "(억원)"]: r.fy2 !== null ? Math.round(r.fy2 / 1e5) : null,
     [fy2Label + " 소스"]: r.fy2_source,
     ["선택기간 " + fy2Label.replace("추정치","") + "상향률(%)"]: r[currentFy2Key],
-    "{fy1_year}년→{fy2_year}년 성장률(%)": r.fy2_vs_fy1_growth,
+    "{fy1_year}년→{fy2_year}년 성장률(%)": r.fy2_vs_fy1_growth_label ?? r.fy2_vs_fy1_growth,
     "기준일": r.latest_date,
   }}));
   const ws = XLSX.utils.json_to_sheet(data);
