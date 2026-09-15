@@ -883,6 +883,8 @@ def main(portfolio, other_portfolios):
         history_html=history_html,
         xlsx_name=xlsx_name,
         pw_hash=portfolio.get("pw_hash", DEFAULT_PW_HASH),
+        portfolio_id=portfolio["id"],
+        secret_unlock_js=build_secret_unlock_js(portfolio),
         base_index=f"{BASE_INDEX:,}",
         sector_ow_uw_html=sector_ow_uw_html,
         **alpha_periods,
@@ -929,6 +931,31 @@ def render_nav_html(portfolio, other_portfolios):
         else:
             items.append(f'<a class="mp-tab" href="{href}">{label}</a>')
     return '<div class="mp-tabs">' + "".join(items) + '</div>'
+
+
+def build_secret_unlock_js(portfolio):
+    """공개 페이지(트로이/모멘텀/민구/코스닥롱숏)의 비밀번호 입력창에서 마이 MP 전용
+    비밀번호를 입력하면 my_mp.html로 바로 이동하는 JS 분기를 만든다(2026-09-15 사용자 요청 -
+    "MP트래커 비밀번호 입력할 때 마이MP 비밀번호 치면 마이MP만 나오게" - URL을 따로 몰라도
+    "MP 트래커"에 늘 들어가던 대로 들어가서 비밀번호만 다르게 치면 됨). my_mp 페이지 자기
+    자신에는 이 분기를 안 넣는다(자기 자신으로 리다이렉트할 필요 없음).
+    sessionStorage 키를 "mp_unlocked_<portfolio id>"로 페이지별로 분리한 이유- 예전처럼
+    "mp_unlocked" 하나만 쓰면(모든 페이지가 같은 origin이라 세션스토리지가 공유됨) 공용
+    비밀번호로 아무 페이지나 한 번 열었을 때 my_mp.html도 같이 잠금 해제돼 버린다.
+    주의: 이 분기를 넣으면 트로이MP 등 평소에 사람들이 보는 페이지의 소스에 마이 MP 비밀번호
+    해시와 파일명이 그대로 노출된다 - repo를 직접 뒤져야 찾을 수 있던 것보다 훨씬 발견되기
+    쉬워진다는 뜻(2026-09-15 사용자에게 안내 완료, 그래도 이 방식을 요청함)."""
+    if portfolio["id"] == "my_mp":
+        return ""
+    my_mp_cfg = next((p for p in PRIVATE_PORTFOLIOS if p["id"] == "my_mp"), None)
+    if not my_mp_cfg:
+        return ""
+    return (
+        ' else if (hash === "' + my_mp_cfg["pw_hash"] + '") {\n'
+        '    sessionStorage.setItem("mp_unlocked_my_mp", "1");\n'
+        '    window.location.href = "' + os.path.basename(my_mp_cfg["out_path"]) + '";\n'
+        '  }'
+    )
 
 
 EMPTY_TEMPLATE = """<!doctype html>
@@ -1192,15 +1219,15 @@ async function tryUnlock() {{
   const val = document.getElementById("pw-input").value;
   const hash = await sha256Hex(val);
   if (hash === PW_HASH) {{
-    sessionStorage.setItem("mp_unlocked", "1");
+    sessionStorage.setItem("mp_unlocked_{portfolio_id}", "1");
     unlockPage();
-  }} else {{
+  }}{secret_unlock_js} else {{
     document.getElementById("pw-error").textContent = "비밀번호가 틀렸습니다";
   }}
 }}
 document.getElementById("pw-submit").addEventListener("click", tryUnlock);
 document.getElementById("pw-input").addEventListener("keydown", e => {{ if (e.key === "Enter") tryUnlock(); }});
-if (sessionStorage.getItem("mp_unlocked") === "1") {{
+if (sessionStorage.getItem("mp_unlocked_{portfolio_id}") === "1") {{
   unlockPage();
 }}
 </script>
@@ -1388,6 +1415,8 @@ def main_long_short(portfolio, other_portfolios):
         history_html=history_html,
         xlsx_name=xlsx_name,
         pw_hash=portfolio.get("pw_hash", DEFAULT_PW_HASH),
+        portfolio_id=portfolio["id"],
+        secret_unlock_js=build_secret_unlock_js(portfolio),
         base_index=f"{BASE_INDEX:,}",
         sector_ow_uw_html=sector_ow_uw_html,
         **alpha_periods,
@@ -1664,15 +1693,15 @@ async function tryUnlock() {{
   const val = document.getElementById("pw-input").value;
   const hash = await sha256Hex(val);
   if (hash === PW_HASH) {{
-    sessionStorage.setItem("mp_unlocked", "1");
+    sessionStorage.setItem("mp_unlocked_{portfolio_id}", "1");
     unlockPage();
-  }} else {{
+  }}{secret_unlock_js} else {{
     document.getElementById("pw-error").textContent = "비밀번호가 틀렸습니다";
   }}
 }}
 document.getElementById("pw-submit").addEventListener("click", tryUnlock);
 document.getElementById("pw-input").addEventListener("keydown", e => {{ if (e.key === "Enter") tryUnlock(); }});
-if (sessionStorage.getItem("mp_unlocked") === "1") {{
+if (sessionStorage.getItem("mp_unlocked_{portfolio_id}") === "1") {{
   unlockPage();
 }}
 </script>
