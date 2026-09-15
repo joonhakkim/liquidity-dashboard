@@ -155,8 +155,10 @@ def compute_sector_ow_uw(holdings, naver_sector_map, benchmark_weights, benchmar
             "benchmark_weight": round(bm, 2) if bm is not None else None,
             "ow_uw": round(w - bm, 2) if bm is not None else None,
         })
-    # OW(비중 초과)가 큰 순 -> UW(비중 부족)가 큰 순으로 정렬, 벤치마크 매칭 안 되는 섹터(ETF 등)는 맨 뒤.
-    rows.sort(key=lambda r: (r["ow_uw"] is None, -(r["ow_uw"] if r["ow_uw"] is not None else 0)))
+    # 벤치마크(코스피/코스닥) 섹터 비중이 큰 순으로 정렬(2026-09-15 사용자 요청) - "시장에서
+    # 비중이 큰 섹터부터" 봐야 우리 포트폴리오가 그 섹터를 얼마나 따라가는지/벗어나는지 한눈에
+    # 파악하기 쉽다. 벤치마크에 아예 없는 섹터(인버스ETF 등)는 맨 뒤.
+    rows.sort(key=lambda r: (r["benchmark_weight"] is None, -(r["benchmark_weight"] or 0)))
     return rows
 
 
