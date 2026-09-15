@@ -62,7 +62,7 @@
   <a class="back" href="index.html">&larr; 홈</a>
   <h1>코스닥 롱숏(지수) 트래커</h1>
   <div class="mp-tabs"><a class="mp-tab" href="troy_mp.html">트로이 MP</a><a class="mp-tab" href="momentum_mp.html">모멘텀 MP</a><span class="mp-tab active">코스닥 롱숏(지수)</span><a class="mp-tab" href="mingu_mp.html">민구MP</a></div>
-  <div class="updated">최종 갱신: 2026-09-15 15:50 &middot; 편입 시작일 2026-09-09 (=10,000 기준) &middot; 보유 23종목 &middot; 평가금액 합계 995,941,820원</div>
+  <div class="updated">최종 갱신: 2026-09-15 15:57 &middot; 편입 시작일 2026-09-09 (=10,000 기준) &middot; 보유 23종목 &middot; 평가금액 합계 995,941,820원</div>
 
   <div class="badges">
     <div class="badge mp"><div class="label">코스닥 롱숏(지수) 지수</div><div class="value">9,959.42</div></div>
@@ -796,7 +796,7 @@ async function tryUnlock() {
   const val = document.getElementById("pw-input").value;
   const hash = await sha256Hex(val);
   if (hash === PW_HASH) {
-    sessionStorage.setItem("mp_unlocked_kosdaq_long_short_index", "1");
+    sessionStorage.setItem("mp_unlocked_shared", "1");
     unlockPage();
   } else if (hash === "f7c80e84aca1584a8596bbdc541ecb3c64758b7f567e4d2e1bf41433da34c7e9") {
     sessionStorage.setItem("mp_unlocked_my_mp", "1");
@@ -807,7 +807,7 @@ async function tryUnlock() {
 }
 document.getElementById("pw-submit").addEventListener("click", tryUnlock);
 document.getElementById("pw-input").addEventListener("keydown", e => { if (e.key === "Enter") tryUnlock(); });
-if (sessionStorage.getItem("mp_unlocked_kosdaq_long_short_index") === "1") {
+if (sessionStorage.getItem("mp_unlocked_shared") === "1") {
   unlockPage();
 }
 </script>
