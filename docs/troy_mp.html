@@ -59,7 +59,7 @@
   <a class="back" href="index.html">&larr; 홈</a>
   <h1>트로이 MP 트래커</h1>
   <div class="mp-tabs"><span class="mp-tab active">트로이 MP</span><a class="mp-tab" href="momentum_mp.html">모멘텀 MP</a><a class="mp-tab" href="kosdaq_long_short_index.html">코스닥 롱숏(지수)</a><a class="mp-tab" href="mingu_mp.html">민구MP</a></div>
-  <div class="updated">최종 갱신: 2026-09-15 09:49 &middot; 편입 시작일 2026-08-18 (=10,000 기준) &middot; 보유 35종목 &middot; 평가금액 합계 996,100,810원</div>
+  <div class="updated">최종 갱신: 2026-09-15 09:51 &middot; 편입 시작일 2026-08-18 (=10,000 기준) &middot; 보유 35종목 &middot; 평가금액 합계 996,100,810원</div>
 
   <div class="badges">
     <div class="badge mp"><div class="label">트로이 MP 지수</div><div class="value">9,954.70</div></div>
@@ -1356,7 +1356,13 @@
     신규 편입·비중 조절이 지수 레벨을 왜곡하지 않습니다(펀드 성과평가 TWR 방식과 동일).
     MP·코스피·코스닥(BM) 모두 편입 첫날을 10,000로 리베이스합니다.<br><br>
     <b>평균매수단가</b> — 이동평균원가법. 매수 시 원가에 매입금액을 더하고, 매도 시 매도수량 비율만큼 원가를 비례
-    차감합니다.
+    차감합니다.<br><br>
+    <b>연율화 표준편차</b> — 일별수익률의 표본표준편차 × &radic;252(연간 거래일수). MP 자체의
+    변동성(위험)을 나타내는 가장 기본적인 지표입니다.<br><br>
+    <b>정보비율(IR)</b> — (MP-BM 일별 초과수익의 평균 / 그 초과수익의 표준편차) × &radic;252.
+    "벤치마크 대비 초과성과를 얼마나 꾸준하게(적은 변동으로) 냈는지"를 나타내며, 액티브 운용
+    평가에서 샤프비율보다 더 자주 쓰이는 지표입니다. 값이 클수록 초과성과가 크고 안정적이라는
+    뜻이고, 코스피/코스닥 각각 대비로 따로 계산합니다.
   </div>
 
   <div class="badges" style="margin-top:16px;">
