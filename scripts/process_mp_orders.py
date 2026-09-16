@@ -86,7 +86,7 @@ def get_holdings(portfolio):
     trades = load_trades(trades_path)
     if trades.empty:
         return {"trades": trades, "holdings": [], "aum": TOTAL_CAPITAL, "prices": {}, "date": None}
-    prices = pd.read_csv(prices_path, dtype={"code": str})
+    prices = pd.read_csv(prices_path, dtype={"code": str}, parse_dates=["date"])
     if prices.empty:
         return None
     prices["code"] = prices["code"].str.zfill(6)
@@ -139,9 +139,15 @@ def main():
             summary.append(f"[{pid}] 알 수 없는 포트폴리오 id, 스킵")
             continue
         state = get_holdings(portfolio)
-        if state is None or state["date"] != today:
-            summary.append(f"[{pid}] 오늘({today}) 가격 데이터가 아직 없음 - 처리 보류(다음 실행에 재시도)")
+        if state is None:
+            summary.append(f"[{pid}] 가격 데이터를 아예 못 읽음 - 처리 보류(다음 실행에 재시도)")
             continue
+        # 원래는 "오늘 가격이 아직 없으면 보류"였는데, 지시가 처리 예정일보다 늦게 들어와
+        # 하루 이상 밀렸을 때도 이 조건 때문에 영영 처리가 안 되는 버그가 있었다(2026-09-17,
+        # "민구MP 변동이 없는데" 지적으로 발견). 대신 "확보된 가장 최근 종가"를 그냥 쓰고,
+        # 그게 오늘 날짜가 아니면(=지시가 밀렸으면) 로그에 명확히 남긴다.
+        if state["date"] != today:
+            summary.append(f"[{pid}] 참고: 최신 확보 종가가 {state['date']}(오늘 {today} 아님) - 이 날짜 기준으로 처리")
 
         trades_path = portfolio["trades_path"]
         aum = state["aum"]
@@ -172,7 +178,7 @@ def main():
                     summary.append(f"[{pid}] '{name}' 편출 지시인데 보유중 아님 - 스킵")
                     continue
                 amt = h["shares"] * h["cur_price"]
-                append_trade(trades_path, today, code, h["name"], "SELL", h["cur_price"], amt, sector)
+                append_trade(trades_path, state["date"], code, h["name"], "SELL", h["cur_price"], amt, sector)
                 summary.append(f"[{pid}] {h['name']} 전량편출 {h['shares']:.0f}주 @ {h['cur_price']:.0f} = {amt:,.0f}원")
                 done_idx.append(idx)
                 continue
@@ -189,11 +195,11 @@ def main():
 
             if action in ("reduce_pct", "increase_pct"):
                 act = "SELL" if action == "reduce_pct" else "BUY"
-                append_trade(trades_path, today, code, name, act, price, target_amt, sector)
+                append_trade(trades_path, state["date"], code, name, act, price, target_amt, sector)
                 summary.append(f"[{pid}] {name} {action} {pct}%p ({act}) {target_amt:,.0f}원 @ {price:,.0f}")
                 done_idx.append(idx)
             elif action == "new_entry_pct":
-                append_trade(trades_path, today, code, name, "BUY", price, target_amt, sector)
+                append_trade(trades_path, state["date"], code, name, "BUY", price, target_amt, sector)
                 summary.append(f"[{pid}] {name} 신규편입 {pct}% {target_amt:,.0f}원 @ {price:,.0f}")
                 done_idx.append(idx)
             else:
@@ -214,7 +220,7 @@ def main():
                     if abs(delta) < h["cur_price"] * 0.5:
                         continue
                     act = "BUY" if delta > 0 else "SELL"
-                    append_trade(trades_path, today, h["code"], h["name"], act, h["cur_price"], abs(delta), h["sector"])
+                    append_trade(trades_path, state2["date"], h["code"], h["name"], act, h["cur_price"], abs(delta), h["sector"])
                     summary.append(f"[{pid}] {h['name']} 균등리밸런싱 -> {pct}% ({act} {abs(delta):,.0f}원)")
                 done_idx.append(idx)
 

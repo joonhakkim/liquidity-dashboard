@@ -905,7 +905,10 @@ def main(portfolio, other_portfolios):
         kosdaq_actual=f"{kosdaq_actual_latest:,.2f}" if kosdaq_actual_latest is not None else "N/A",
         kosdaq_actual_date=kosdaq_actual_date,
         inception=trades['date'].min().strftime('%Y-%m-%d'),
-        n_holdings=len(holdings),
+        # len(holdings)는 현금/지수(BM) 참고행까지 포함해서 실제 보유종목수보다 많게
+        # 나오는 버그였다(2026-09-17, 모멘텀MP가 실제 25종목인데 "28종목"으로 표시된 걸
+        # 사용자가 지적해서 발견) - shares가 있는(=진짜 보유종목인) 행만 센다.
+        n_holdings=sum(1 for r in holdings if r["shares"] is not None),
         total_eval=f"{total_eval:,.0f}",
         rows_html=rows_html,
         updated_at=datetime.now().strftime("%Y-%m-%d %H:%M"),
@@ -1438,7 +1441,7 @@ def main_long_short(portfolio, other_portfolios):
         kosdaq_actual=f"{kosdaq_actual_latest:,.2f}" if kosdaq_actual_latest is not None else "N/A",
         kosdaq_actual_date=kosdaq_actual_date,
         inception=trades['date'].min().strftime('%Y-%m-%d'),
-        n_holdings=len(holdings),
+        n_holdings=len(long_rows) + len(short_rows),  # 현금/지수 참고행 제외, 롱+숏 실종목수만
         n_long=len(long_rows),
         n_short=len(short_rows),
         total_eval=f"{total_eval:,.0f}",
