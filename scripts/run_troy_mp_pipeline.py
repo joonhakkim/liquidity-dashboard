@@ -21,6 +21,9 @@ PYTHON = sys.executable
 
 STEPS = [
     ("fetch_troy_mp_prices.py", "MP 트래커: 편입 종목 일별 종가 수집(네이버 차트 API)"),
+    ("process_mp_orders.py", "MP 트래커: 사용자가 직접 적어둔 지시서(mp_orders.csv) 오늘자 처리 - "
+     "그날 확정 종가로 정확한 수량 계산해서 매매일지에 기록(2026-09-16 추가)"),
+    ("fetch_troy_mp_prices.py", "MP 트래커: 지시서로 신규 편입된 종목 가격 이력도 받기(재실행)"),
     ("fetch_market_sector_weights.py", "MP 트래커: 섹터별 OW/UW 비교용 코스피/코스닥 전종목 시총 수집"),
     ("build_troy_mp_page.py", "MP 트래커 페이지 빌드(트로이 MP/모멘텀 MP/코스닥 롱숏 2종)"),
     ("build_home.py", "홈페이지 빌드"),

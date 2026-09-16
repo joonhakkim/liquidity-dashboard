@@ -221,13 +221,21 @@ def main():
     if fnguide_map:
         print(f"FnGuide 보정 적용 중(현재 회계연도 FY{current_use_year}, {len(fnguide_map)}종목 커버)...")
         skipped_has_live = 0
+        overridden = 0
         for code in all_results:
             data = all_results[code]
             if data.get("latest_has_estimate"):
                 skipped_has_live += 1
                 continue
             all_results[code] = apply_year_override(code, data, fnguide_map, current_use_year)
-        print(f"  (이미 실제 추정치가 살아있어 override 생략: {skipped_has_live}종목)")
+            # has_2027(=NFY2, 지금은 current_use_year=2027) 필터가 원본 엑셀만 보고 있었는데
+            # (2026-09-16 사용자 지적 - "네이버에서 따오는 것까지 합해서 그렇게 적나?"), 이
+            # override로 채워진 것도 실제 2027 컨센서스가 맞으니 필터에 포함시켜야 한다.
+            if code in fnguide_map and current_use_year in fnguide_map[code]:
+                all_results[code]["has_2027"] = True
+                overridden += 1
+        print(f"  (이미 실제 추정치가 살아있어 override 생략: {skipped_has_live}종목, "
+              f"FnGuide로 새로 채움: {overridden}종목)")
     else:
         print("FnGuide 데이터 없음(fetch_op_band_consensus.py 미실행) - 원본만 사용")
 
@@ -237,6 +245,8 @@ def main():
         for code in manual_map:
             if code in all_results:
                 all_results[code] = apply_year_override(code, all_results[code], manual_map, current_use_year)
+                if current_use_year in manual_map[code]:
+                    all_results[code]["has_2027"] = True
 
     naver_sector_map = load_naver_sector_map()
     sector_map = load_sector_map()
