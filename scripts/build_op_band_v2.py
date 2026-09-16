@@ -97,6 +97,8 @@ def process_sheet_v2(ws):
         series_dates, series_mult, series_op, series_mktcap = [], [], [], []
         prev_op = None
         latest_has_estimate = False
+        latest_fy2_present = False  # NFY2(=다음 연도, 지금 시점 기준 2027년) 컨센서스가
+        # TTM 폴백이 아니라 실제로 잡히는 종목만 거르는 필터용(2026-09-16 사용자 요청)
         for row_vals, d in zip(data_rows, dates):
             mktcap = row_vals[mktcap_idx]
             if mktcap is None:
@@ -127,6 +129,7 @@ def process_sheet_v2(ws):
                 continue
             prev_op = op
             latest_has_estimate = is_estimate
+            latest_fy2_present = fy2 is not None
             op_won = op * 1000
             series_dates.append(d.strftime("%Y-%m-%d"))
             series_op.append(round(op_won, 0))
@@ -136,7 +139,8 @@ def process_sheet_v2(ws):
         if series_dates:
             results[code] = {"name": name, "dates": series_dates, "mult": series_mult,
                               "op": series_op, "mktcap": series_mktcap,
-                              "latest_has_estimate": latest_has_estimate}
+                              "latest_has_estimate": latest_has_estimate,
+                              "has_2027": latest_fy2_present}
     return results
 
 
@@ -166,6 +170,7 @@ def build_row(code, data, sector_map, naver_sector_map, latest_overall):
         "latest_mult": round(latest_mult, 2),
         "min_mult": round(min(m for _d, m in pairs), 2),
         "latest_mktcap": round(data["mktcap"][-1], 0) if data.get("mktcap") else None,
+        "has_2027": bool(data.get("has_2027")),
     }
     any_window = False
     for key, years, _label in BOTTOM_WINDOWS:
@@ -368,6 +373,7 @@ TEMPLATE = """<!doctype html>
     <label>현재배수 최소 <input type="number" id="fMultMin" step="0.5"></label>
     <label>현재배수 최대 <input type="number" id="fMultMax" step="0.5"></label>
     <label><input type="checkbox" id="fIncludeNeg"> 적자(마이너스 배수) 포함</label>
+    <label><input type="checkbox" id="fHas2027"> 2027년 컨센서스 있는 종목만(TTM 제외)</label>
     <label>시총 최소(억) <input type="number" id="fMktcapMin" step="100"></label>
     <label>바텀대비 하한 <input type="number" id="fGapLo" placeholder="예 -50"></label>
     <label>정렬 <select id="fSort">
@@ -431,6 +437,7 @@ function applyFilters() {{
   const mktcapMin = parseFloat(document.getElementById('fMktcapMin').value);
   const sort = document.getElementById('fSort').value;
   const includeNeg = document.getElementById('fIncludeNeg').checked;
+  const has2027Only = document.getElementById('fHas2027').checked;
   const bKey = 'b_' + win + '_p' + pct, gKey = 'gap_' + win + '_p' + pct, nKey = 'n_' + win;
   const winLabel = {{'3y':'3년','5y':'5년','all':'전체'}}[win];
 
@@ -446,6 +453,7 @@ function applyFilters() {{
     if (!isNaN(multMin) && r.latest_mult < multMin) return false;
     if (!isNaN(multMax) && r.latest_mult > multMax) return false;
     if (!isNaN(mktcapMin) && (r.latest_mktcap == null || r.latest_mktcap / 1e8 < mktcapMin)) return false;
+    if (has2027Only && !r.has_2027) return false;
     return true;
   }});
 
@@ -471,7 +479,7 @@ function applyFilters() {{
     tr.addEventListener('click', () => openDetail(tr.dataset.code)));
 }}
 
-['fSearch','fSector','fWin','fPct','fGap','fGapLo','fMultMin','fMultMax','fMktcapMin','fSort','fIncludeNeg'].forEach(id => {{
+['fSearch','fSector','fWin','fPct','fGap','fGapLo','fMultMin','fMultMax','fMktcapMin','fSort','fIncludeNeg','fHas2027'].forEach(id => {{
   document.getElementById(id).addEventListener('input', applyFilters);
   document.getElementById(id).addEventListener('change', applyFilters);
 }});
