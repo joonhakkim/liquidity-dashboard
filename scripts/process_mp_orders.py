@@ -120,7 +120,12 @@ def main():
     if "processed" not in orders.columns:
         orders["processed"] = ""
     today = datetime.now().strftime("%Y-%m-%d")
-    todo = orders[(orders["date"] == today) & (orders["processed"].isna() | (orders["processed"] == ""))]
+    # date == today가 아니라 <= today로 잡는다(2026-09-17 버그 수정) - 지시를 넣은 날짜의
+    # 파이프라인 실행 시각을 이미 지나쳐서(예: 20:05 자동 실행 이후에 추가) 그날 못 걸린
+    # 지시가 다음날 이후로도 영영 처리 안 되는 문제가 있었다(사용자가 "민구MP 변동이
+    # 없는데"라고 지적해서 발견). 밀린 지시는 그 지시에 적힌 날짜(예: "9/16 종가로")가
+    # 아니라 실제 처리되는 날의 종가를 쓰게 된다 - 하루 이상 밀리면 사용자에게 다시 확인.
+    todo = orders[(orders["date"] <= today) & (orders["processed"].isna() | (orders["processed"] == ""))]
     if todo.empty:
         print(f"오늘({today}) 처리할 지시 없음")
         return
