@@ -175,14 +175,20 @@ def main():
     # 연결선과 같은 개념) - 스윙고점 구간마다 그 구간의 거래대금 최고치 지점만 값을 채우고
     # 나머지는 null로 둬서 line + spanGaps로 점들만 이어지게 한다.
     tv_wave_peaks = [None] * n
+    tv_wave_troughs = [None] * n
     for k in range(len(swing_idxs)):
         seg_start = 0 if k == 0 else swing_idxs[k - 1]
         seg_end = swing_idxs[k]
         seg_tv = tv[seg_start:seg_end + 1]
         peak_idx = seg_start + int(seg_tv.argmax())
+        trough_idx = seg_start + int(seg_tv.argmin())
         tv_wave_peaks[peak_idx] = round(float(tv[peak_idx]) / 1e6, 1)
+        tv_wave_troughs[trough_idx] = round(float(tv[trough_idx]) / 1e6, 1)
     if live_status:
         tv_wave_peaks[live_status["cur_wave_tv_peak_idx"]] = live_status["cur_wave_tv_peak"]
+        live_wave_tv = tv[live_status["prev_swing_idx"]:]
+        live_trough_idx = live_status["prev_swing_idx"] + int(live_wave_tv.argmin())
+        tv_wave_troughs[live_trough_idx] = round(float(tv[live_trough_idx]) / 1e6, 1)
 
     chart_data = {
         "dates": df["date"].dt.strftime("%Y-%m-%d").tolist(),
@@ -192,6 +198,7 @@ def main():
         "point_style": point_style,
         "point_bg": point_bg,
         "tv_wave_peaks": tv_wave_peaks,
+        "tv_wave_troughs": tv_wave_troughs,
     }
 
     html = TEMPLATE.format(
@@ -258,7 +265,8 @@ TEMPLATE = """<!doctype html>
     <div style="font-size:12px; color:#9aa0a6; margin-bottom:8px;">
       <span style="color:#ff6b6b;">&#9650;</span> 확정 신호&nbsp;&nbsp;
       <span style="color:#ffd43b;">&#9733;</span> 지금 진행중&nbsp;&nbsp;
-      <span style="color:#ffd43b;">- - -</span> 파동별 거래대금 고점 연결선
+      <span style="color:#ffd43b;">- - -</span> 파동별 거래대금 고점 연결선&nbsp;&nbsp;
+      <span style="color:#63e6be;">- - -</span> 파동별 거래대금 저점 연결선(박스)
     </div>
     <div id="mainChart"><canvas id="tvChart"></canvas></div>
   </div>
@@ -367,6 +375,7 @@ function buildChart(rangeIdx) {{
   const pointStyle = CHART.point_style.slice(startIdx);
   const pointBg = CHART.point_bg.slice(startIdx);
   const tvPeaks = CHART.tv_wave_peaks.slice(startIdx);
+  const tvTroughs = CHART.tv_wave_troughs.slice(startIdx);
 
   if (chartObj) chartObj.destroy();
   chartObj = new Chart(document.getElementById('tvChart').getContext('2d'), {{
@@ -375,6 +384,7 @@ function buildChart(rangeIdx) {{
       datasets: [
         {{ type: 'bar', label: '거래대금(조원)', data: tv, backgroundColor: '#4dabf799', borderWidth: 0, yAxisID: 'yTv', order: 3 }},
         {{ type: 'line', label: '거래대금 파동고점선', data: tvPeaks, borderColor: '#ffd43b', backgroundColor: '#ffd43b', borderWidth: 1.5, borderDash: [5, 4], spanGaps: true, pointRadius: 4, pointStyle: 'circle', pointBackgroundColor: '#ffd43b', tension: 0, yAxisID: 'yTv', order: 2 }},
+        {{ type: 'line', label: '거래대금 파동저점선', data: tvTroughs, borderColor: '#63e6be', backgroundColor: '#63e6be', borderWidth: 1.5, borderDash: [5, 4], spanGaps: true, pointRadius: 4, pointStyle: 'circle', pointBackgroundColor: '#63e6be', tension: 0, yAxisID: 'yTv', order: 2 }},
         {{ type: 'line', label: '코스피', data: close, borderColor: '#e6e6e6', backgroundColor: 'transparent', borderWidth: 1.5, pointRadius, pointStyle, pointBackgroundColor: pointBg, pointBorderColor: pointBg, tension: 0.1, yAxisID: 'yClose', order: 1 }},
       ]
     }},
