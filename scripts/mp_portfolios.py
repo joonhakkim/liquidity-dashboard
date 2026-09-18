@@ -95,21 +95,3 @@ PRIVATE_PORTFOLIOS = [
         "pw_hash": "f7c80e84aca1584a8596bbdc541ecb3c64758b7f567e4d2e1bf41433da34c7e9",
     },
 ]
-
-# 해외(미국) 주식 MP(2026-09-18 추가) - 원화/코스피/코스닥 기준인 위 포트폴리오들과 통화·벤치마크가
-# 달라서(달러, S&P500/나스닥100) build_troy_mp_page.py의 main()을 그대로 못 쓰고
-# build_overseas_mp_page.py를 따로 둔다. ALL_PORTFOLIOS에는 안 넣어서(통화가 섞이면 nav 탭에서
-# 혼동되므로) 국내 MP들의 탭 바에는 안 뜨고, 홈 화면에 별도 카드로만 연결한다.
-TOTAL_CAPITAL_USD = 1_000_000  # 총 투입자본(달러)
-
-OVERSEAS_PORTFOLIOS = [
-    {
-        "id": "overseas_mp",
-        "name": "해외MP",
-        "trades_path": os.path.join(DATA_DIR, "manual", "overseas_mp_trades.csv"),
-        "prices_path": os.path.join(DATA_DIR, "overseas_mp_prices.csv"),
-        "out_path": os.path.join(DOCS_DIR, "overseas_mp.html"),
-        "xlsx_path": os.path.join(DOWNLOADS_DIR, "overseas_mp_history.xlsx"),
-        "pw_hash": DEFAULT_PW_HASH,
-    },
-]
