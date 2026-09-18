@@ -60,6 +60,50 @@ def find_signals(close, tv, swing_idxs):
     return signals
 
 
+def find_live_signal(df, close, tv, swing_idxs):
+    """확정된 스윙고점(좌우 N일 다 지나야 확정)만으로는 '지금'은 절대 신호가 안 뜬다 -
+    최근 N거래일은 미래 데이터가 없어서 스윙고점 확정이 불가능하기 때문. 그래서 마지막으로
+    확정된 스윙고점 이후 '진행 중인 파동'을 별도로 추적해서, 아직 파동이 안 끝났어도
+    지금 시점 기준으로 신호 조건(가격 신고점 + 거래대금 고점 하락)을 만족하는지 본다."""
+    if len(swing_idxs) < 1:
+        return None
+
+    prev1 = swing_idxs[-1]
+    if len(swing_idxs) >= 2:
+        prev2 = swing_idxs[-2]
+        tv_prev_peak = float(tv[prev2:prev1 + 1].max())
+    else:
+        start = max(0, prev1 - 60)
+        tv_prev_peak = float(tv[start:prev1 + 1].max())
+
+    wave = close[prev1:]
+    wave_tv = tv[prev1:]
+    cur_max_close_offset = int(wave.argmax())
+    cur_max_close_idx = prev1 + cur_max_close_offset
+    cur_max_close = float(wave[cur_max_close_offset])
+    cur_wave_tv_peak_offset = int(wave_tv.argmax())
+    cur_wave_tv_peak_idx = prev1 + cur_wave_tv_peak_offset
+    cur_wave_tv_peak = float(wave_tv[cur_wave_tv_peak_offset])
+
+    price_new_high = cur_max_close > float(close[prev1])
+    tv_lower = cur_wave_tv_peak < tv_prev_peak
+    active = bool(price_new_high and tv_lower)
+
+    return {
+        "active": active,
+        "as_of_date": df.loc[len(df) - 1, "date"].strftime("%Y-%m-%d"),
+        "prev_swing_idx": int(prev1),
+        "prev_swing_date": df.loc[prev1, "date"].strftime("%Y-%m-%d"),
+        "prev_swing_close": float(close[prev1]),
+        "cur_wave_high_idx": int(cur_max_close_idx),
+        "cur_wave_tv_peak_idx": int(cur_wave_tv_peak_idx),
+        "cur_wave_high_date": df.loc[cur_max_close_idx, "date"].strftime("%Y-%m-%d"),
+        "cur_wave_high_close": cur_max_close,
+        "tv_prev_peak": round(tv_prev_peak / 1e6, 1),
+        "cur_wave_tv_peak": round(cur_wave_tv_peak / 1e6, 1),
+    }
+
+
 def main():
     if not os.path.exists(KRX_RAW_PATH):
         print("krx_raw.csv가 없습니다. fetch_krx.py를 먼저 실행하세요.")
@@ -75,6 +119,7 @@ def main():
 
     swing_idxs = find_swing_highs(close)
     signals = find_signals(close, tv, swing_idxs)
+    live_status = find_live_signal(df, close, tv, swing_idxs)
 
     for h in FORWARD_HORIZONS:
         df[f"fwd{h}"] = df["kospi_close"].shift(-h) / df["kospi_close"] - 1
@@ -108,12 +153,45 @@ def main():
     last_signal = signal_rows[-1] if signal_rows else None
     last_swing_date = df.loc[swing_idxs[-1], "date"].strftime("%Y-%m-%d") if swing_idxs else None
 
+    n = len(df)
+    # 가격선 위에 신호 마커를 찍을 때 scatter를 별도 데이터셋으로 분리하면 category 축과
+    # 안 맞아서 위치가 틀어진다(Chart.js가 scatter는 기본 선형축으로 좌표를 해석함) - 그래서
+    # 가격선(close) 자체의 포인트 스타일을 인덱스별로 다르게 줘서(대부분 반지름 0, 신호 인덱스만
+    # 크게) 같은 카테고리 축을 그대로 쓰게 한다.
+    point_radius = [0] * n
+    point_style = ["circle"] * n
+    point_bg = ["transparent"] * n
+    for s in signals:
+        point_radius[s["idx"]] = 7
+        point_style[s["idx"]] = "triangle"
+        point_bg[s["idx"]] = "#ff6b6b"
+    if live_status and live_status["active"]:
+        li = live_status["cur_wave_high_idx"]
+        point_radius[li] = 9
+        point_style[li] = "star"
+        point_bg[li] = "#ffd43b"
+
+    # 파동별 거래대금 고점을 이어서 그린 추세선(사용자가 보여준 차트처럼 손으로 그은 고점
+    # 연결선과 같은 개념) - 스윙고점 구간마다 그 구간의 거래대금 최고치 지점만 값을 채우고
+    # 나머지는 null로 둬서 line + spanGaps로 점들만 이어지게 한다.
+    tv_wave_peaks = [None] * n
+    for k in range(len(swing_idxs)):
+        seg_start = 0 if k == 0 else swing_idxs[k - 1]
+        seg_end = swing_idxs[k]
+        seg_tv = tv[seg_start:seg_end + 1]
+        peak_idx = seg_start + int(seg_tv.argmax())
+        tv_wave_peaks[peak_idx] = round(float(tv[peak_idx]) / 1e6, 1)
+    if live_status:
+        tv_wave_peaks[live_status["cur_wave_tv_peak_idx"]] = live_status["cur_wave_tv_peak"]
+
     chart_data = {
         "dates": df["date"].dt.strftime("%Y-%m-%d").tolist(),
         "close": df["kospi_close"].round(2).tolist(),
         "tv": (df["kospi_trading_value"] / 1e6).round(1).tolist(),  # 백만원 -> 조원
-        "signal_dates": [df.loc[s["idx"], "date"].strftime("%Y-%m-%d") for s in signals],
-        "signal_close": [float(df.loc[s["idx"], "kospi_close"]) for s in signals],
+        "point_radius": point_radius,
+        "point_style": point_style,
+        "point_bg": point_bg,
+        "tv_wave_peaks": tv_wave_peaks,
     }
 
     html = TEMPLATE.format(
@@ -125,6 +203,7 @@ def main():
         n_signals=len(signals),
         last_signal_json=json.dumps(last_signal, ensure_ascii=False),
         last_swing_date=last_swing_date or "N/A",
+        live_status_json=json.dumps(live_status, ensure_ascii=False),
         backtest_json=json.dumps(backtest_rows, ensure_ascii=False),
         signal_rows_json=json.dumps(signal_rows, ensure_ascii=False),
         chart_json=json.dumps(chart_data, ensure_ascii=False),
@@ -176,6 +255,11 @@ TEMPLATE = """<!doctype html>
 
   <div class="chart-wrap">
     <div class="chart-range-buttons" id="rangeButtons"></div>
+    <div style="font-size:12px; color:#9aa0a6; margin-bottom:8px;">
+      <span style="color:#ff6b6b;">&#9650;</span> 확정 신호&nbsp;&nbsp;
+      <span style="color:#ffd43b;">&#9733;</span> 지금 진행중&nbsp;&nbsp;
+      <span style="color:#ffd43b;">- - -</span> 파동별 거래대금 고점 연결선
+    </div>
     <div id="mainChart"><canvas id="tvChart"></canvas></div>
   </div>
 
@@ -206,20 +290,34 @@ TEMPLATE = """<!doctype html>
 <script>
 const LAST_SIGNAL = {last_signal_json};
 const LAST_SWING_DATE = "{last_swing_date}";
+const LIVE = {live_status_json};
 const BACKTEST = {backtest_json};
 const SIGNAL_ROWS = {signal_rows_json};
 const CHART = {chart_json};
 
-// 상태 박스: 가장 최근 확정 스윙고점이 최근 60거래일 안이면 "최근 신호 근처"로 안내
+// 상태 박스: 확정된 스윙고점만 보면 최근 N거래일은 절대 신호가 안 뜬다(미래 데이터가 있어야
+// 스윙고점이 확정되므로). 그래서 마지막 확정 스윙고점 이후 '진행 중인 파동'을 지금 시점
+// 기준으로 평가한 LIVE 신호를 우선 보여준다.
 const statusBox = document.getElementById('statusBox');
-if (LAST_SIGNAL) {{
-  const idx = CHART.dates.indexOf(LAST_SIGNAL.date);
-  const daysAgo = idx >= 0 ? (CHART.dates.length - 1 - idx) : null;
-  const recent = daysAgo !== null && daysAgo <= 40;
-  statusBox.className = 'status' + (recent ? ' on' : '');
-  statusBox.innerHTML = `
-    <div class="big">${{recent ? '최근 신호 발생 (' + daysAgo + '거래일 전)' : '최근 신호 없음'}}</div>
-    <div class="sub">가장 최근 신호: ${{LAST_SIGNAL.date}} (코스피 ${{LAST_SIGNAL.close.toFixed(2)}}) &middot; 가장 최근 스윙고점: ${{LAST_SWING_DATE}}</div>`;
+if (LIVE) {{
+  statusBox.className = 'status' + (LIVE.active ? ' on' : '');
+  if (LIVE.active) {{
+    statusBox.innerHTML = `
+      <div class="big">지금 신호 진행 중</div>
+      <div class="sub">${{LIVE.prev_swing_date}} 스윙고점(코스피 ${{LIVE.prev_swing_close.toFixed(2)}}) 이후,
+      ${{LIVE.cur_wave_high_date}}에 코스피 ${{LIVE.cur_wave_high_close.toFixed(2)}}로 신고점을 냈지만
+      이번 파동 거래대금 최고치(${{LIVE.cur_wave_tv_peak}}조원)가 직전 파동 최고치(${{LIVE.tv_prev_peak}}조원)보다 낮음
+      (기준일 ${{LIVE.as_of_date}}, 아직 파동이 끝나지 않아 미확정)</div>`;
+  }} else {{
+    statusBox.innerHTML = `
+      <div class="big">지금 신호 없음</div>
+      <div class="sub">가장 최근 확정 스윙고점: ${{LIVE.prev_swing_date}} (코스피 ${{LIVE.prev_swing_close.toFixed(2)}})
+      &middot; 이후 최고가 ${{LIVE.cur_wave_high_date}} ${{LIVE.cur_wave_high_close.toFixed(2)}}
+      (거래대금 ${{LIVE.cur_wave_tv_peak}}조원 vs 직전파동 ${{LIVE.tv_prev_peak}}조원)</div>`;
+  }}
+}} else if (LAST_SIGNAL) {{
+  statusBox.innerHTML = `<div class="big">확정 신호 이력만 있음</div>
+    <div class="sub">가장 최근 확정 신호: ${{LAST_SIGNAL.date}} (코스피 ${{LAST_SIGNAL.close.toFixed(2)}}) &middot; 가장 최근 스윙고점: ${{LAST_SWING_DATE}}</div>`;
 }} else {{
   statusBox.innerHTML = '<div class="big">신호 없음</div>';
 }}
@@ -265,12 +363,10 @@ function buildChart(rangeIdx) {{
   const labels = CHART.dates.slice(startIdx);
   const close = CHART.close.slice(startIdx);
   const tv = CHART.tv.slice(startIdx);
-
-  const signalPoints = [];
-  CHART.signal_dates.forEach((d, i) => {{
-    const li = labels.indexOf(d);
-    if (li >= 0) signalPoints.push({{ x: li, y: CHART.signal_close[i] }});
-  }});
+  const pointRadius = CHART.point_radius.slice(startIdx);
+  const pointStyle = CHART.point_style.slice(startIdx);
+  const pointBg = CHART.point_bg.slice(startIdx);
+  const tvPeaks = CHART.tv_wave_peaks.slice(startIdx);
 
   if (chartObj) chartObj.destroy();
   chartObj = new Chart(document.getElementById('tvChart').getContext('2d'), {{
@@ -278,8 +374,8 @@ function buildChart(rangeIdx) {{
       labels,
       datasets: [
         {{ type: 'bar', label: '거래대금(조원)', data: tv, backgroundColor: '#4dabf799', borderWidth: 0, yAxisID: 'yTv', order: 3 }},
-        {{ type: 'line', label: '코스피', data: close, borderColor: '#e6e6e6', backgroundColor: 'transparent', borderWidth: 1.5, pointRadius: 0, tension: 0.1, yAxisID: 'yClose', order: 1 }},
-        {{ type: 'scatter', label: '거래대금 신호', data: signalPoints, backgroundColor: '#ff6b6b', borderColor: '#ff6b6b', pointRadius: 6, pointStyle: 'triangle', yAxisID: 'yClose', order: 0 }},
+        {{ type: 'line', label: '거래대금 파동고점선', data: tvPeaks, borderColor: '#ffd43b', backgroundColor: '#ffd43b', borderWidth: 1.5, borderDash: [5, 4], spanGaps: true, pointRadius: 4, pointStyle: 'circle', pointBackgroundColor: '#ffd43b', tension: 0, yAxisID: 'yTv', order: 2 }},
+        {{ type: 'line', label: '코스피', data: close, borderColor: '#e6e6e6', backgroundColor: 'transparent', borderWidth: 1.5, pointRadius, pointStyle, pointBackgroundColor: pointBg, pointBorderColor: pointBg, tension: 0.1, yAxisID: 'yClose', order: 1 }},
       ]
     }},
     options: {{
