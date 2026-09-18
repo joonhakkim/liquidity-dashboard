@@ -26,6 +26,8 @@ STEPS = [
     ("fetch_troy_mp_prices.py", "MP 트래커: 지시서로 신규 편입된 종목 가격 이력도 받기(재실행)"),
     ("fetch_market_sector_weights.py", "MP 트래커: 섹터별 OW/UW 비교용 코스피/코스닥 전종목 시총 수집"),
     ("build_troy_mp_page.py", "MP 트래커 페이지 빌드(트로이 MP/모멘텀 MP/코스닥 롱숏 2종)"),
+    ("fetch_overseas_mp_prices.py", "해외MP 트래커: 편입 종목+S&P500 일별 종가 수집(Yahoo Finance, 2026-09-18 추가)"),
+    ("build_overseas_mp_page.py", "해외MP 트래커 페이지 빌드"),
     ("build_home.py", "홈페이지 빌드"),
 ]
 

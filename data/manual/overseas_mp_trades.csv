@@ -1,0 +1,17 @@
+date,code,name,action,price,amount,sector
+2026-08-28,NET,클라우드플레어,BUY,300,30000,Technology
+2026-08-28,PANW,팔로알토,BUY,372,60000,Technology
+2026-08-28,RBRK,루브릭,BUY,93,30000,Technology
+2026-08-28,DDOG,데이터독,BUY,237,60000,Technology
+2026-08-28,DT,다이나트레이스,BUY,54,60000,Technology
+2026-08-28,NOW,서비스나우,BUY,145,60000,Technology
+2026-08-28,ADP,오토데이터프로세싱,BUY,287,30000,Technology
+2026-08-28,MA,마스터카드,BUY,595,60000,Financial
+2026-08-28,JPM,JP모건,BUY,358,30000,Financial
+2026-08-28,CRCL,써클,BUY,87,60000,Financial
+2026-08-28,NTRA,나테라,BUY,326,60000,Healthcare
+2026-08-28,UBER,우버,BUY,79,90000,Consumer Cyclical
+2026-08-28,BKR,베이커휴즈,BUY,62,60000,Energy
+2026-08-28,SLB,SLB,BUY,57,30000,Energy
+2026-08-28,VST,비스트라,BUY,137,60000,Utilities
+2026-09-09,ORCL,오라클,BUY,161,50000,Technology

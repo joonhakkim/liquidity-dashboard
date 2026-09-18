@@ -195,7 +195,7 @@ def render_sector_ow_uw_table(sector_rows, benchmark_label, asof_date):
   </div>"""
 
 
-def compute_holdings_table(trades, latest_prices, prev_prices, name_map, sector_map, show_cash_row=True, cash_mode="full"):
+def compute_holdings_table(trades, latest_prices, prev_prices, name_map, sector_map, show_cash_row=True, cash_mode="full", total_capital=None):
     """이동평균원가법으로 종목별 현재 보유수량/원가/평균매수단가를 계산.
     현금은 "TOTAL_CAPITAL - 현재 보유중인 종목들의 원가 합"이 아니라(이 계산은 편출한 종목의
     실현손익을 전혀 반영 못 함 - 예: 손실 보고 전량 매도한 뒤 그 매도대금보다 큰 금액을 다른
@@ -217,9 +217,10 @@ def compute_holdings_table(trades, latest_prices, prev_prices, name_map, sector_
     남겨달라"고 해서(2026-09-01) 롱 매매만의 잔여현금을 보여주기로 함. total_eval(포트폴리오
     전체 평가금액/NAV)은 always cash_mode 상관없이 진짜 전체 현금(cash_full)을 써서 지수와
     어긋나지 않게 한다 - 화면에 보여주는 값(display_cash)만 다르다."""
+    cap = total_capital if total_capital is not None else TOTAL_CAPITAL
     pos = {}  # code -> {"shares": x, "cost": y}
-    cash_full = TOTAL_CAPITAL
-    cash_long = TOTAL_CAPITAL
+    cash_full = cap
+    cash_long = cap
     for _, row in trades.iterrows():
         code = row["code"]
         p = pos.setdefault(code, {"shares": 0.0, "cost": 0.0})
@@ -296,7 +297,7 @@ def compute_holdings_table(trades, latest_prices, prev_prices, name_map, sector_
     # cash_mode="long_only"(롱숏 포트폴리오)는 지금 0이어도 "나중에 롱 쪽 리밸런싱하다 현금이
     # 생길 수 있으니 자리를 남겨달라"는 요청(2026-09-01)이 있어서 금액과 상관없이 항상 행을
     # 보여준다.
-    if show_cash_row and (cash_mode == "long_only" or abs(display_cash) > TOTAL_CAPITAL * 0.0001):
+    if show_cash_row and (cash_mode == "long_only" or abs(display_cash) > cap * 0.0001):
         cash_label = "현금(롱 잔여)" if cash_mode == "long_only" else "현금"
         rows.append({
             "code": "-", "name": cash_label, "sector": "-", "shares": None, "avg_price": None,
@@ -420,7 +421,7 @@ def write_trade_history_xlsx(history, xlsx_path):
         df.to_excel(writer, sheet_name="편입편출 히스토리", index=False)
 
 
-def compute_twr_index(trades, prices_wide, kospi, kosdaq):
+def compute_twr_index(trades, prices_wide, kospi, kosdaq, total_capital=None):
     """일별 TWR 지수(MP)와 코스피/코스닥(BM) 지수를 편입 첫날=BASE_INDEX로 리베이스해서 같이 반환.
     미투자 현금(TOTAL_CAPITAL - 누적 순매수금액)은 수익률 0%로 취급해서 v_start/v_end 양쪽에
     똑같이 더해준다 - 그래야 "몇 %는 현금이라 안 움직인다"는 게 지수에 정확히 희석 반영된다."""
@@ -435,7 +436,7 @@ def compute_twr_index(trades, prices_wide, kospi, kosdaq):
 
     codes = sorted(trades["code"].unique())
     shares = {c: 0.0 for c in codes}
-    cash = TOTAL_CAPITAL
+    cash = total_capital if total_capital is not None else TOTAL_CAPITAL
     trades_by_date = {d: g for d, g in trades.groupby("date")}
 
     mp_index = [float(BASE_INDEX)]
