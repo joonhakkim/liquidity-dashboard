@@ -232,25 +232,42 @@ def compute_holdings_table(trades, latest_prices, prev_prices, name_map, sector_
             cash_long -= row["amount"]
         elif action == "SELL":
             if p["shares"] > 0:
-                ratio = min(qty / p["shares"], 1.0)
+                # 매도수량(qty)이 보유수량보다 크면(매매일지에 잘못 큰 금액이 적힌 경우) ratio를
+                # 1.0으로 캡해도 예전엔 shares는 그대로 qty만큼 깎여서 마이너스로 뒤집히고,
+                # cost는 0인데 shares는 음수인 불일치 상태가 됐다 - avg_price(=cost/shares)가
+                # 0이 돼서 나중에 ret_pct 계산에서 ZeroDivisionError로 죽었다(2026-09-21,
+                # process_mp_orders.py의 reduce_pct 오버셀로 실제 발생). qty 자체를 보유수량으로
+                # 캡해서 shares가 절대 0 밑으로 안 내려가게 하고, 현금도 실제로 판 만큼만
+                # (capped_qty * price) 반영한다 - 정상 범위(qty<=shares) 거래는 capped_qty==qty라
+                # 결과가 완전히 동일하다.
+                sell_qty = min(qty, p["shares"])
+                ratio = sell_qty / p["shares"]
+                realized = sell_qty * row["price"]
                 p["cost"] *= (1 - ratio)
-                p["shares"] -= qty
+                p["shares"] -= sell_qty
+                cash_full += realized
+                cash_long += realized
             else:
                 p["shares"] -= qty
-            cash_full += row["amount"]
-            cash_long += row["amount"]
+                cash_full += row["amount"]
+                cash_long += row["amount"]
         elif action == "SHORT":
             p["shares"] -= qty
             p["cost"] -= row["amount"]
             cash_full += row["amount"]
         elif action == "COVER":
             if p["shares"] < 0:
-                ratio = min(qty / abs(p["shares"]), 1.0)
+                # SELL과 동일한 이유로 cover_qty를 |보유수량|으로 캡(공매도 수량보다 많이
+                # 되사면 shares가 플러스로 뒤집히며 같은 문제가 생김).
+                cover_qty = min(qty, abs(p["shares"]))
+                ratio = cover_qty / abs(p["shares"])
+                realized = cover_qty * row["price"]
                 p["cost"] *= (1 - ratio)
-                p["shares"] += qty
+                p["shares"] += cover_qty
+                cash_full -= realized
             else:
                 p["shares"] += qty
-            cash_full -= row["amount"]
+                cash_full -= row["amount"]
 
     cash = cash_full  # total_eval 계산엔 항상 전체 현금을 쓴다(TWR 지수와 일치시키기 위함)
     # "현금(롱 잔여)"은 정수 주식수 반올림 때문에 아주 살짝 마이너스가 나올 수 있는데(예: 목표
