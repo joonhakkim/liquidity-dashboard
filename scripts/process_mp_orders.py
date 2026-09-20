@@ -195,8 +195,21 @@ def main():
 
             if action in ("reduce_pct", "increase_pct"):
                 act = "SELL" if action == "reduce_pct" else "BUY"
-                append_trade(trades_path, state["date"], code, name, act, price, target_amt, sector)
-                summary.append(f"[{pid}] {name} {action} {pct}%p ({act}) {target_amt:,.0f}원 @ {price:,.0f}")
+                sell_amt = target_amt
+                if act == "SELL":
+                    # target_amt(=pct%*AUM)가 실제 보유평가금액보다 크면 포지션이 마이너스로
+                    # 뒤집히면서 원가가 0이 돼 이후 ret_pct 계산에서 ZeroDivisionError가 난다
+                    # (2026-09-21, 파마리서치가 실제로는 AUM의 ~1.9%밖에 안 됐는데 "2%p 축소"
+                    # 지시가 그대로 2%*AUM을 팔아버려서 발생 - 보유금액으로 캡을 씌워 전량매도로
+                    # 자동 대체한다).
+                    h = by_name.get(name) or next((x for x in state["holdings"] if x["code"] == code), None)
+                    if h is not None:
+                        cur_value = h["shares"] * h["cur_price"]
+                        if sell_amt > cur_value:
+                            sell_amt = cur_value
+                append_trade(trades_path, state["date"], code, name, act, price, sell_amt, sector)
+                summary.append(f"[{pid}] {name} {action} {pct}%p ({act}) {sell_amt:,.0f}원 @ {price:,.0f}"
+                                + (" (보유금액 초과로 전량매도 처리)" if sell_amt != target_amt else ""))
                 done_idx.append(idx)
             elif action == "new_entry_pct":
                 append_trade(trades_path, state["date"], code, name, "BUY", price, target_amt, sector)
