@@ -20,3 +20,11 @@
 2026-09-18,mingu_mp,new_entry_pct,피노,033790,3.0,,2026-09-21T07:29:46.532451
 2026-09-18,kosdaq_long_short_index,reduce_pct,파마리서치,214450,2.0,,2026-09-18T20:05:58.349548
 2026-09-18,kosdaq_long_short_index,new_entry_pct,코스텍시스,355150,2.0,,2026-09-21T07:29:46.473517
+2026-09-21,troy_mp,reduce_pct,동국제약,086450,3,,
+2026-09-21,troy_mp,increase_pct,달바글로벌,483650,2,,
+2026-09-21,troy_mp,new_entry_pct,한화에어로스페이스,012450,2,,
+2026-09-21,troy_mp,new_entry_pct,현대건설,000720,2,,
+2026-09-21,troy_mp,exit,미래에셋생명,085620,,,
+2026-09-21,troy_mp,exit,알테오젠,196170,,,
+2026-09-21,troy_mp,exit,대한항공,003490,,,
+2026-09-21,troy_mp,new_entry_pct,타이거일렉,219130,2,,
