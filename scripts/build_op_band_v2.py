@@ -171,6 +171,7 @@ def build_row(code, data, sector_map, naver_sector_map, latest_overall):
         "min_mult": round(min(m for _d, m in pairs), 2),
         "latest_mktcap": round(data["mktcap"][-1], 0) if data.get("mktcap") else None,
         "has_2027": bool(data.get("has_2027")),
+        "is_override": bool(data.get("is_override")),
     }
     any_window = False
     for key, years, _label in BOTTOM_WINDOWS:
@@ -247,6 +248,8 @@ def main():
                 all_results[code] = apply_year_override(code, all_results[code], manual_map, current_use_year)
                 if current_use_year in manual_map[code]:
                     all_results[code]["has_2027"] = True
+                    # 화면에 "자체추정치 적용" 배지를 띄우기 위한 표시(2026-09-21 사용자 요청).
+                    all_results[code]["is_override"] = True
 
     naver_sector_map = load_naver_sector_map()
     sector_map = load_sector_map()
@@ -328,6 +331,7 @@ TEMPLATE = """<!doctype html>
   .gap-hot {{ color:#ff2ec4; font-weight:bold; }}
   .gap-warm {{ color:#ff8787; }}
   .sub {{ color:#6b7280; font-size:11px; }}
+  .ov-badge {{ display:inline-block; background:#9775fa33; color:#9775fa; border:1px solid #9775fa; border-radius:4px; font-size:10px; padding:1px 4px; margin-right:5px; font-weight:bold; vertical-align:middle; }}
   .count {{ color:#63e6be; font-size:12px; margin-bottom:8px; }}
   tbody tr {{ cursor:pointer; }}
   tbody tr:hover {{ background:#1a1d24; }}
@@ -385,6 +389,7 @@ TEMPLATE = """<!doctype html>
     <label><input type="checkbox" id="fIncludeNeg"> 적자(마이너스 배수) 포함</label>
     <label><input type="checkbox" id="fHas2027"> 2027년 컨센서스 있는 종목만(TTM 제외)</label>
     <label>시총 최소(억) <input type="number" id="fMktcapMin" step="100"></label>
+    <label style="color:#9aa0a6;font-size:11px;"><span class="ov-badge">자체</span> = FnGuide/엑셀 컨센서스 대신 애널리스트 자체추정치(data/manual/op_band_overrides.csv)가 적용된 종목</label>
     <label>바텀대비 하한 <input type="number" id="fGapLo" placeholder="예 -50"></label>
     <label>정렬 <select id="fSort">
       <option value="gap_asc">바텀 대비 근접순</option>
@@ -476,7 +481,7 @@ function applyFilters() {{
   document.getElementById('count').textContent = rows.length + '종목 (행 클릭하면 밴드 차트)';
   document.getElementById('tbody').innerHTML = rows.slice(0, 400).map(r => `
     <tr data-code="${{r.code}}">
-      <td>${{r.name}}</td><td class="sub">${{r.code}}</td><td class="sub">${{r.sector || '-'}}</td>
+      <td>${{r.is_override ? '<span class="ov-badge" title="애널리스트 자체추정치가 컨센서스 대신 적용됨">자체</span>' : ''}}${{r.name}}</td><td class="sub">${{r.code}}</td><td class="sub">${{r.sector || '-'}}</td>
       <td>${{fmtMktcap(r.latest_mktcap)}}</td>
       <td>${{r.latest_mult.toFixed(2)}}x</td>
       <td>${{r[bKey].toFixed(2)}}x</td>
