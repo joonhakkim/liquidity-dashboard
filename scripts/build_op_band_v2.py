@@ -53,6 +53,51 @@ def forward_weight(date):
     return (13 - date.month) / 12.0
 
 
+def apply_year_override_v2(code, data, override_map, current_use_year):
+    """v2 전용 override - build_op_band.apply_year_override는 상수 하나로 그 회계연도
+    구간 전체를 덮어써서, v2의 핵심 기능인 "12개월 선행 보간(매달 가중치가 조금씩 바뀌며
+    매끄럽게 반영)"이 override된 종목만 깨지는 문제가 있었다(2026-09-21 사용자 지적 -
+    "점점 OP반영하는거는 계산이 안되는건가?"). override_map에 당해(NFY1=current_use_year-1)와
+    차년(NFY2=current_use_year) 값이 둘 다 있으면 원래 공식(w*fy1+(1-w)*fy2)을 그대로 써서
+    매끄럽게 보간하고, 하나만 있으면(예: 신규상장이라 NFY1이 없는 경우) 기존처럼 상수 하나를
+    쓴다."""
+    op_by_year = override_map.get(code)
+    if not op_by_year or current_use_year not in op_by_year:
+        return data
+
+    fy1_override = op_by_year.get(current_use_year - 1)
+    fy2_override = op_by_year.get(current_use_year)
+
+    dates = data["dates"]
+    mktcap = data["mktcap"]
+    op = data["op"][:]
+    mult = data["mult"][:]
+
+    for i in range(len(dates) - 1, -1, -1):
+        d = datetime.strptime(dates[i], "%Y-%m-%d")
+        use_year = d.year if d.month <= 6 else d.year + 1
+        if use_year != current_use_year:
+            break
+        if fy1_override is not None and fy2_override is not None:
+            if (fy1_override > 0) != (fy2_override > 0):
+                new_op = fy1_override if d.month <= 6 else fy2_override
+            else:
+                w = forward_weight(d)
+                new_op = w * fy1_override + (1 - w) * fy2_override
+        else:
+            new_op = fy2_override if fy2_override is not None else fy1_override
+        if new_op is None or new_op == 0:
+            continue
+        new_op_won = new_op  # override_map 값은 load_manual_overrides에서 이미 억원->원 변환됨
+        op[i] = round(new_op_won, 0)
+        if mktcap[i] is not None:
+            mult[i] = round(mktcap[i] / new_op_won, 4)
+
+    data["op"] = op
+    data["mult"] = mult
+    return data
+
+
 def process_sheet_v2(ws):
     max_col = ws.max_column
     max_row = ws.max_row
@@ -245,7 +290,7 @@ def main():
         print(f"수동 지정값 적용 중({len(manual_map)}종목, FnGuide보다 우선)...")
         for code in manual_map:
             if code in all_results:
-                all_results[code] = apply_year_override(code, all_results[code], manual_map, current_use_year)
+                all_results[code] = apply_year_override_v2(code, all_results[code], manual_map, current_use_year)
                 if current_use_year in manual_map[code]:
                     all_results[code]["has_2027"] = True
                     # 화면에 "자체추정치 적용" 배지를 띄우기 위한 표시(2026-09-21 사용자 요청).
