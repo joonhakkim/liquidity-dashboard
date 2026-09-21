@@ -11,6 +11,7 @@ MP 트래커용 "지시서" 자동 해석 - data/manual/mp_orders.csv에 사용�
   2026-09-17,troy_mp,new_entry_pct,한화오션,,3,
   2026-09-17,troy_mp,exit,코세스,,,
   2026-09-17,momentum_mp,rebalance_equal,,,4,전체 4%로
+  2026-09-21,momentum_mp,swap,한올바이오파마,,,한미사이언스
 
 - date: YYYY-MM-DD. 오늘 날짜인 지시만 처리한다(파이프라인이 매일 도니까 미래 날짜로
   미리 써둬도 그날이 되면 자동 처리됨).
@@ -21,6 +22,10 @@ MP 트래커용 "지시서" 자동 해석 - data/manual/mp_orders.csv에 사용�
     exit - 전량 편출(pct 무시, 보유수량 전부 매도)
     rebalance_equal - 그 포트폴리오의 "이날 처리된 다른 지시까지 반영한 뒤" 남은 보유종목
       전부를 pct%로 균등 리밸런싱(코드/이름 없이 한 줄로 포트폴리오 전체에 적용)
+    swap - name(보유중)을 전량매도하고, 그 매도금액 그대로(같은 비중) note에 적은 종목을
+      신규편입(2026-09-21 추가 - "A 편출하고 그 자리에 B로 교체" 요청이 반복돼서 만듦).
+      note에 종목명만 적으면 자동완성으로 코드 조회(모호하면 스킵). "새이름|새코드" 형식으로
+      코드까지 직접 적어도 됨.
 - code: 비워두면 종목명으로 네이버 자동완성에서 찾는다(모호하면 처리 안 하고 에러 로그).
 - sector는 sector_map.csv에서 code 기준으로 자동 조회한다(못 찾으면 "기타").
 
@@ -180,6 +185,37 @@ def main():
                 amt = h["shares"] * h["cur_price"]
                 append_trade(trades_path, state["date"], code, h["name"], "SELL", h["cur_price"], amt, sector)
                 summary.append(f"[{pid}] {h['name']} 전량편출 {h['shares']:.0f}주 @ {h['cur_price']:.0f} = {amt:,.0f}원")
+                done_idx.append(idx)
+                continue
+
+            if action == "swap":
+                h = by_name.get(name) or next((x for x in state["holdings"] if x["code"] == code), None)
+                if h is None:
+                    summary.append(f"[{pid}] '{name}' 교체 지시인데 보유중 아님 - 스킵")
+                    continue
+                note_val = row.get("note")
+                if not isinstance(note_val, str) or not note_val.strip():
+                    summary.append(f"[{pid}] '{name}' 교체 지시인데 note(새 종목)가 없음 - 스킵")
+                    continue
+                if "|" in note_val:
+                    new_name, new_code = [x.strip() for x in note_val.split("|", 1)]
+                else:
+                    new_name, new_code = note_val.strip(), None
+                if not new_code:
+                    new_code = resolve_code(new_name)
+                if not new_code:
+                    summary.append(f"[{pid}] '{new_name}' 종목코드 확인 실패 - 스킵(수동 확인 필요)")
+                    continue
+                new_code = new_code.zfill(6)
+                new_price = prices.get(new_code)
+                if new_price is None:
+                    summary.append(f"[{pid}] {new_name}({new_code}) 오늘 가격 없음 - 스킵(가격 이력 백필 필요)")
+                    continue
+                amt = h["shares"] * h["cur_price"]
+                new_sector = sector_map.get(new_code, "기타")
+                append_trade(trades_path, state["date"], h["code"], h["name"], "SELL", h["cur_price"], amt, sector_map.get(h["code"], "기타"))
+                append_trade(trades_path, state["date"], new_code, new_name, "BUY", new_price, amt, new_sector)
+                summary.append(f"[{pid}] {h['name']} -> {new_name} 교체매매 {amt:,.0f}원 (SELL @ {h['cur_price']:,.0f} / BUY @ {new_price:,.0f})")
                 done_idx.append(idx)
                 continue
 
