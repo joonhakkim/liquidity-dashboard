@@ -135,7 +135,15 @@ def fetch_kospi_index_naver(start, end):
         if df.empty:
             break
         df.columns = ["date_str", "close", "change", "pct", "volume_k", "value_m"]
-        df["date"] = pd.to_datetime(df["date_str"], format="%Y.%m.%d")
+        try:
+            df["date"] = pd.to_datetime(df["date_str"], format="%Y.%m.%d")
+        except ValueError:
+            # 이 페이지 자체가 서비스 종료되면(2026-09-18 확인, "이 페이지는 더 이상
+            # 제공되지 않습니다" 안내문이 표 형태로 내려옴) date_str이 날짜가 아니라
+            # 안내 문구라 파싱이 그대로 죽었었다 - 예외 없이 빈 결과로 넘어가서
+            # fetch_kospi_index()의 다음 폴백(야후 파이낸스)으로 넘어가게 한다.
+            print(f"  page {page}: 이 소스가 더 이상 날짜 데이터를 안 줌(서비스 종료 추정) - 중단")
+            break
 
         for _, row in df.iterrows():
             d = row["date"].date()
@@ -156,20 +164,56 @@ def fetch_kospi_index_naver(start, end):
     return pd.DataFrame(rows)
 
 
+def fetch_kospi_index_yahoo(start, end):
+    """Yahoo Finance 차트 API(^KS11)로 코스피 종가만 받는다(로그인/키 불필요, fetch_gdx.py와
+    동일 방식 - 2026-09-18 백테스트 작업 때 검증됨). KRX Open API(401, 미승인)와 네이버
+    일별시세 페이지(서비스 종료, 2026-09-18 확인)가 둘 다 막혔을 때 마지막 폴백.
+    거래대금은 이 API가 안 주는 단위(원화 거래대금이 아니라 주식수 거래량)라 여기서는
+    kospi_close만 채우고 kospi_trading_value는 fetch_kospi_stock_agg(stk_bydd_trd 합산)에
+    맡긴다."""
+    print(f"코스피 지수(Yahoo Finance) 수집 중 ({start} ~ {end})...")
+    p1 = int(datetime.combine(start, datetime.min.time()).timestamp())
+    p2 = int((datetime.combine(end, datetime.min.time()) + timedelta(days=1)).timestamp())
+    try:
+        r = requests.get(
+            "https://query1.finance.yahoo.com/v8/finance/chart/%5EKS11",
+            params={"period1": p1, "period2": p2, "interval": "1d"},
+            headers={"User-Agent": "Mozilla/5.0"}, timeout=20,
+        )
+        r.raise_for_status()
+        result = r.json()["chart"]["result"][0]
+        ts = result["timestamp"]
+        closes = result["indicators"]["quote"][0]["close"]
+    except Exception as e:
+        print(f"  야후 파이낸스 요청/파싱 실패 ({e})")
+        return pd.DataFrame(columns=["date", "kospi_close"])
+
+    df = pd.DataFrame({"date": pd.to_datetime(ts, unit="s").normalize(), "kospi_close": closes}).dropna()
+    df = df.drop_duplicates(subset="date").sort_values("date").reset_index(drop=True)
+    df = df[(df["date"].dt.date >= start) & (df["date"].dt.date <= end)]
+    return df
+
+
 def fetch_kospi_index(start, end):
     df = fetch_kospi_index_krx_open_api(start, end)
     if df.empty:
         df = fetch_kospi_index_naver(start, end)
+    if df.empty:
+        df = fetch_kospi_index_yahoo(start, end)
     return df
 
 
-def fetch_kospi_market_cap(start, end):
-    """stk_bydd_trd(유가증권 일별매매정보, 종목별)로 KOSPI 전종목 시가총액을 합산.
+def fetch_kospi_stock_agg(start, end):
+    """stk_bydd_trd(유가증권 일별매매정보, 종목별)로 KOSPI 전종목의 시가총액(MKTCAP)과
+    거래대금(ACC_TRDVAL)을 하루치 응답에서 한 번에 합산한다(예전엔 시가총액만 뽑았는데,
+    2026-09-21에 네이버 일별시세 페이지가 죽어서 거래대금 소스가 아예 없어진 걸 발견하고
+    - 이미 승인된 이 API에 거래대금도 들어있길래 - 같은 응답에서 같이 뽑도록 확장함.
+    API 호출 횟수도 그대로라 더 비싸지지 않음).
     지수 API(kospi_dd_trd)는 아직 활용신청 승인이 안 됐지만 이 종목별 API는 승인됨."""
     if not KRX_OPEN_API_KEY:
-        return pd.DataFrame(columns=["date", "kospi_market_cap"])
+        return pd.DataFrame(columns=["date", "kospi_market_cap", "kospi_trading_value"])
 
-    print(f"코스피 시가총액(Open API stk_bydd_trd 합산) 수집 중 ({start} ~ {end})...")
+    print(f"코스피 시가총액·거래대금(Open API stk_bydd_trd 합산) 수집 중 ({start} ~ {end})...")
     headers = {"AUTH_KEY": KRX_OPEN_API_KEY}
     rows = []
     day = start
@@ -189,12 +233,15 @@ def fetch_kospi_market_cap(start, end):
 
         data = r.json().get("OutBlock_1", [])
         if data:
-            total = sum(
-                pd.to_numeric(item.get("MKTCAP"), errors="coerce") or 0
-                for item in data if item.get("MKT_NM") == "KOSPI"
-            )
-            if total:
-                rows.append({"date": pd.to_datetime(basDd), "kospi_market_cap": total})
+            kospi_items = [item for item in data if item.get("MKT_NM") == "KOSPI"]
+            mktcap_total = sum(pd.to_numeric(item.get("MKTCAP"), errors="coerce") or 0 for item in kospi_items)
+            trdval_total = sum(pd.to_numeric(item.get("ACC_TRDVAL"), errors="coerce") or 0 for item in kospi_items)
+            if mktcap_total or trdval_total:
+                rows.append({
+                    "date": pd.to_datetime(basDd),
+                    "kospi_market_cap": mktcap_total or None,
+                    "kospi_trading_value": (trdval_total / 1e6) if trdval_total else None,  # 원 -> 백만원(기존 단위 통일)
+                })
 
         n_days += 1
         if n_days % 30 == 0:
@@ -213,20 +260,21 @@ def main():
         return
 
     index_df = fetch_kospi_index(start, end)
-    market_cap_df = fetch_kospi_market_cap(start, end)
+    stock_agg_df = fetch_kospi_stock_agg(start, end)
 
-    if index_df.empty and market_cap_df.empty:
+    if index_df.empty and stock_agg_df.empty:
         merged = pd.DataFrame(columns=["date", "kospi_close", "kospi_trading_value", "kospi_market_cap"] + UNAVAILABLE_COLUMNS)
     else:
-        merged = index_df.merge(market_cap_df, on="date", how="outer") if not market_cap_df.empty else index_df
-        if "kospi_market_cap" not in merged.columns:
-            merged["kospi_market_cap"] = pd.NA
+        merged = index_df.merge(stock_agg_df, on="date", how="outer") if not stock_agg_df.empty else index_df
+        for col in ("kospi_market_cap", "kospi_trading_value"):
+            if col not in merged.columns:
+                merged[col] = pd.NA
         for col in UNAVAILABLE_COLUMNS:
             merged[col] = pd.NA
 
     merged = merged.sort_values("date").reset_index(drop=True)
 
-    got_new_data = len(index_df) > 0 or len(market_cap_df) > 0
+    got_new_data = len(index_df) > 0 or len(stock_agg_df) > 0
     if not got_new_data:
         print("이번 실행에서 수집된 새 데이터가 없습니다.")
 

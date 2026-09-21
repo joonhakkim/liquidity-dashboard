@@ -1,21 +1,16 @@
 """
-원/달러 환율, 금, 은 시세를 네이버 금융에서 가져와 data/markets_raw.csv 로 저장한다.
-(구리는 네이버에 없어서 fetch_fred.py에서 FRED 데이터로 따로 받는다.)
+원/달러 환율, 금, 은, 달러/엔, 구리 시세를 Yahoo Finance 차트 API에서 가져와
+data/markets_raw.csv 로 저장한다. 로그인/키 불필요(fetch_gdx.py와 동일한 패턴).
 
-기존 fetch_krx.py의 코스피 지수 스크래핑과 동일한 패턴 - 페이지네이션되는
-일별시세 표를 pandas.read_html로 파싱한다. 로그인/키 불필요.
-
-발견한 엔드포인트:
-  - 원/달러: https://finance.naver.com/marketindex/exchangeDailyQuote.naver?marketindexCd=FX_USDKRW&page=N
-  - 금(국제): https://finance.naver.com/marketindex/worldDailyQuote.naver?marketindexCd=CMDT_GC&fdtc=2&page=N
-  - 은(국제): https://finance.naver.com/marketindex/worldDailyQuote.naver?marketindexCd=CMDT_SI&fdtc=2&page=N
-  - 달러/엔: https://finance.naver.com/marketindex/worldDailyQuote.naver?marketindexCd=FX_USDJPY&fdtc=4&page=N
-  (marketindexCd는 /marketindex/worldGoldDetail.naver, /marketindex/worldExchangeDetail.naver 등 상세페이지의 iframe src에서 확인)
+원래는 네이버 금융의 exchangeDailyQuote/worldDailyQuote 일별시세 페이지를 파싱했는데,
+2026-09월 중순 네이버가 이 구형 페이지들을 전부 서비스 종료했다("이 페이지는 더 이상
+제공되지 않습니다" - stock.naver.com 신형 페이지로 통합). HTTP는 200/410으로 응답하고
+표는 파싱되지만 안내 문구만 들어있어서 조용히 빈 결과만 쌓이고 있었다(크래시가 안 나서
+한동안 못 알아챔 - 2026-09-21, "유동성 지표 갱신 안되는 게 많다"는 지적으로 발견). 다섯
+시세 전부 Yahoo Finance로 교체.
 """
 import os
-import time
 from datetime import datetime, timedelta
-from io import StringIO
 
 import pandas as pd
 import requests
@@ -23,63 +18,37 @@ import requests
 DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data")
 OUT_PATH = os.path.join(DATA_DIR, "markets_raw.csv")
 
-EXCHANGE_URL = "https://finance.naver.com/marketindex/exchangeDailyQuote.naver"
-WORLD_URL = "https://finance.naver.com/marketindex/worldDailyQuote.naver"
-
 BACKFILL_YEARS = 7
 
-# (컬럼명, 요청 함수용 파라미터)
+# (컬럼명, Yahoo Finance 티커)
 SOURCES = [
-    ("usd_krw", EXCHANGE_URL, {"marketindexCd": "FX_USDKRW"}),
-    ("gold_usd", WORLD_URL, {"marketindexCd": "CMDT_GC", "fdtc": 2}),
-    ("silver_usd", WORLD_URL, {"marketindexCd": "CMDT_SI", "fdtc": 2}),
-    ("usd_jpy", WORLD_URL, {"marketindexCd": "FX_USDJPY", "fdtc": 4}),  # 달러/엔(1달러=몇엔)
-    ("copper_usd", WORLD_URL, {"marketindexCd": "CMDT_CDY", "fdtc": 2}),  # 구리 - 예전엔 네이버에
-    # 없는 줄 알고 FRED(IMF 발표, 월간)로 대체했었는데 실제로는 있었음(사용자가 찾아줌). 매일
-    # 갱신되는 이 소스로 교체하고 FRED 쪽 copper_usd는 fetch_fred.py에서 제거함(컬럼명 충돌 방지).
+    ("usd_krw", "KRW=X"),
+    ("gold_usd", "GC=F"),
+    ("silver_usd", "SI=F"),
+    ("usd_jpy", "JPY=X"),
+    ("copper_usd", "HG=F"),
 ]
 
 
-def fetch_series(col, url, params, start):
-    session = requests.Session()
-    session.trust_env = False
-    rows = []
-    page = 1
-    while True:
-        try:
-            r = session.get(url, params={**params, "page": page}, headers={"User-Agent": "Mozilla/5.0"}, timeout=15)
-            r.encoding = "euc-kr"
-            tables = pd.read_html(StringIO(r.text))
-        except Exception as e:
-            print(f"  page {page}: 요청/파싱 실패 ({e})")
-            break
-
-        df = tables[0].dropna(how="all")
-        if df.empty:
-            break
-        # 첫 컬럼=날짜, 둘째 컬럼=시세값. 나머지(변동폭/등락률/고가/저가 등)는 안 씀.
-        df = df.iloc[:, :2]
-        df.columns = ["date_str", col]
-        df["date"] = pd.to_datetime(df["date_str"], format="%Y.%m.%d", errors="coerce")
-        df = df.dropna(subset=["date"])
-        if df.empty:
-            break
-
-        rows.append(df[["date", col]])
-
-        if df["date"].min().date() < start:
-            break
-        page += 1
-        if page > 600:  # 안전장치: 약 16년치
-            break
-        time.sleep(0.15)
-
-    if not rows:
+def fetch_series(col, ticker, start, end):
+    p1 = int(datetime.combine(start, datetime.min.time()).timestamp())
+    p2 = int((datetime.combine(end, datetime.min.time()) + timedelta(days=1)).timestamp())
+    try:
+        r = requests.get(
+            f"https://query1.finance.yahoo.com/v8/finance/chart/{ticker}",
+            params={"period1": p1, "period2": p2, "interval": "1d"},
+            headers={"User-Agent": "Mozilla/5.0"}, timeout=20,
+        )
+        r.raise_for_status()
+        result = r.json()["chart"]["result"][0]
+        ts = result["timestamp"]
+        closes = result["indicators"]["quote"][0]["close"]
+    except Exception as e:
+        print(f"  {col}({ticker}) 요청/파싱 실패 ({e})")
         return pd.DataFrame(columns=["date", col])
-    out = pd.concat(rows, ignore_index=True)
-    out[col] = pd.to_numeric(out[col], errors="coerce")
-    out = out[out["date"].dt.date >= start]
-    return out.drop_duplicates(subset="date")
+
+    df = pd.DataFrame({"date": pd.to_datetime(ts, unit="s").normalize(), col: closes}).dropna()
+    return df.drop_duplicates(subset="date").sort_values("date").reset_index(drop=True)
 
 
 def determine_start():
@@ -87,7 +56,7 @@ def determine_start():
     existing = pd.read_csv(OUT_PATH, parse_dates=["date"]) if os.path.exists(OUT_PATH) else None
     if existing is not None and len(existing) > 0:
         last_date = existing["date"].max().date()
-        start = last_date - timedelta(days=3)  # 며칠 겹치게 재수집(수정치 반영용)
+        start = last_date - timedelta(days=7)  # 며칠 겹치게 재수집(수정치 반영용)
         print(f"기존 데이터 발견: {last_date} 부근부터 다시 수집")
     else:
         start = today - timedelta(days=365 * BACKFILL_YEARS)
@@ -97,11 +66,12 @@ def determine_start():
 
 def main():
     existing, start = determine_start()
+    end = datetime.today().date()
 
     merged = None
-    for col, url, params in SOURCES:
-        print(f"수집 중: {col} ...")
-        df = fetch_series(col, url, params, start)
+    for col, ticker in SOURCES:
+        print(f"수집 중: {col} ({ticker}) ...")
+        df = fetch_series(col, ticker, start, end)
         print(f"  {len(df)}행")
         merged = df if merged is None else merged.merge(df, on="date", how="outer")
 
