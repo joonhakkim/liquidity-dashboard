@@ -31,7 +31,7 @@ from build_op_band import (
     MKTCAP_ITEM, TTM_ITEM, QUARTER_ITEM,
     HEADER_CODE_ROW, HEADER_NAME_ROW, HEADER_ITEM_ROW, HEADER_BASEDATE_ROW, DATA_START_ROW,
     find_workbook, detect_blocks, load_naver_sector_map, load_sector_map, pick_band_multiples,
-    load_fnguide_map, load_manual_overrides, apply_year_override,
+    load_fnguide_map, apply_year_override,
 )
 
 DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data")
@@ -53,14 +53,40 @@ def forward_weight(date):
     return (13 - date.month) / 12.0
 
 
-def apply_year_override_v2(code, data, override_map, current_use_year):
+def load_manual_overrides_v2():
+    """op_band_overrides.csv -> ({code: {year: op_won}}, {code: effective_date}) - v2 전용.
+    "date" 컬럼(담당자가 실제로 이 추정치를 입력/갱신한 날짜)을 같이 읽어서, override를
+    회계연도 시작일(7/1)이 아니라 "실제 입력한 날짜"부터 적용되게 한다(2026-09-21 사용자
+    지적 - "에스티팜같은거는 7월에 확 뛰어버리자나" - 기존엔 use_year 경계에서 원본
+    컨센서스 블렌드값 -> override 블렌드값으로 입력 자체가 통째로 바뀌면서 계단이 생겼음.
+    실제로 추정치를 입력한 날짜 이전은 원본 그대로 두고, 그 날짜부터만 override가 시작되게
+    해서 진짜 정보가 생긴 시점에만 계단이 생기게 함 - 이건 실제 추정치 변경이니 자연스러움).
+    date가 비어있는 레거시 행(예: 이수화학, 2026-08-18 이전 방식)은 항상 적용되도록 아주
+    이른 날짜로 잡는다."""
+    path = os.path.join(DATA_DIR, "manual", "op_band_overrides.csv")
+    if not os.path.exists(path):
+        return {}, {}
+    df = pd.read_csv(path, dtype={"code": str})
+    op_map, date_map = {}, {}
+    for _, row in df.iterrows():
+        code = row["code"]
+        op_map.setdefault(code, {})[int(row["year"])] = row["op_100mil"] * 1e8  # 억원 -> 원
+        d = str(row.get("date") or "").strip()
+        if not d or d == "nan":
+            d = "2000-01-01"
+        if code not in date_map or d > date_map[code]:
+            date_map[code] = d
+    return op_map, date_map
+
+
+def apply_year_override_v2(code, data, override_map, current_use_year, effective_date=None):
     """v2 전용 override - build_op_band.apply_year_override는 상수 하나로 그 회계연도
     구간 전체를 덮어써서, v2의 핵심 기능인 "12개월 선행 보간(매달 가중치가 조금씩 바뀌며
     매끄럽게 반영)"이 override된 종목만 깨지는 문제가 있었다(2026-09-21 사용자 지적 -
     "점점 OP반영하는거는 계산이 안되는건가?"). override_map에 당해(NFY1=current_use_year-1)와
     차년(NFY2=current_use_year) 값이 둘 다 있으면 원래 공식(w*fy1+(1-w)*fy2)을 그대로 써서
     매끄럽게 보간하고, 하나만 있으면(예: 신규상장이라 NFY1이 없는 경우) 기존처럼 상수 하나를
-    쓴다."""
+    쓴다. effective_date를 주면 회계연도 시작일이 아니라 그 날짜부터만 override한다."""
     op_by_year = override_map.get(code)
     if not op_by_year or current_use_year not in op_by_year:
         return data
@@ -74,6 +100,8 @@ def apply_year_override_v2(code, data, override_map, current_use_year):
     mult = data["mult"][:]
 
     for i in range(len(dates) - 1, -1, -1):
+        if effective_date is not None and dates[i] < effective_date:
+            break
         d = datetime.strptime(dates[i], "%Y-%m-%d")
         use_year = d.year if d.month <= 6 else d.year + 1
         if use_year != current_use_year:
@@ -88,7 +116,7 @@ def apply_year_override_v2(code, data, override_map, current_use_year):
             new_op = fy2_override if fy2_override is not None else fy1_override
         if new_op is None or new_op == 0:
             continue
-        new_op_won = new_op  # override_map 값은 load_manual_overrides에서 이미 억원->원 변환됨
+        new_op_won = new_op  # override_map 값은 load_manual_overrides_v2에서 이미 억원->원 변환됨
         op[i] = round(new_op_won, 0)
         if mktcap[i] is not None:
             mult[i] = round(mktcap[i] / new_op_won, 4)
@@ -285,12 +313,13 @@ def main():
     else:
         print("FnGuide 데이터 없음(fetch_op_band_consensus.py 미실행) - 원본만 사용")
 
-    manual_map = load_manual_overrides()
+    manual_map, manual_date_map = load_manual_overrides_v2()
     if manual_map:
         print(f"수동 지정값 적용 중({len(manual_map)}종목, FnGuide보다 우선)...")
         for code in manual_map:
             if code in all_results:
-                all_results[code] = apply_year_override_v2(code, all_results[code], manual_map, current_use_year)
+                eff_date = manual_date_map.get(code)
+                all_results[code] = apply_year_override_v2(code, all_results[code], manual_map, current_use_year, eff_date)
                 if current_use_year in manual_map[code]:
                     all_results[code]["has_2027"] = True
                     # 화면에 "자체추정치 적용" 배지를 띄우기 위한 표시(2026-09-21 사용자 요청).
