@@ -74,14 +74,21 @@ def main():
 
         write("\n--- GitHub 배포 (git commit + push) ---")
         try:
-            subprocess.run(["git", "add", "-A"], cwd=BASE_DIR, check=True, capture_output=True, text=True)
+            # 아래 git 호출들엔 원래 encoding/errors가 없어서 text=True가 시스템 로케일
+            # (cp949)로 디코딩을 시도했다 - git 자체 출력(변경된 한글 파일명 등)은 UTF-8이라
+            # 여기서 진짜 UnicodeDecodeError가 났다(_readerthread에서 스레드가 죽는 형태라
+            # 파이프라인 자체는 안 멈추고 로그만 깨졌음 - 2026-09-23에 STEPS 루프의
+            # subprocess.run은 이미 encoding="utf-8" 지정돼 있는 걸 재확인하고서야 진짜
+            # 원인이 여기였다는 걸 찾았다). 동일하게 encoding/errors를 맞춰준다.
+            g_kw = dict(encoding="utf-8", errors="replace")
+            subprocess.run(["git", "add", "-A"], cwd=BASE_DIR, check=True, capture_output=True, text=True, **g_kw)
             diff = subprocess.run(["git", "diff", "--cached", "--quiet"], cwd=BASE_DIR)
             if diff.returncode == 0:
                 write("변경 사항 없음, 커밋 스킵")
             else:
                 commit_msg = f"MP 트래커 자동 갱신 {today}"
-                subprocess.run(["git", "commit", "-m", commit_msg], cwd=BASE_DIR, check=True, capture_output=True, text=True)
-                push = subprocess.run(["git", "push"], cwd=BASE_DIR, capture_output=True, text=True)
+                subprocess.run(["git", "commit", "-m", commit_msg], cwd=BASE_DIR, check=True, capture_output=True, text=True, **g_kw)
+                push = subprocess.run(["git", "push"], cwd=BASE_DIR, capture_output=True, text=True, **g_kw)
                 if push.returncode == 0:
                     write("git push 완료")
                 else:
