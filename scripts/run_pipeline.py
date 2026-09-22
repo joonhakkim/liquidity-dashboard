@@ -51,7 +51,9 @@ CORE_STEPS = [
     ("build_taylor_rule.py", "테일러 준칙 적정금리 트래커 빌드(FRED 근원PCE/실업률/기준금리/10년물 기반)"),
     ("fetch_inflation_nowcast.py", "클리블랜드 연은 인플레이션 나우캐스트(CPI/PCE 등) 스크래핑"),
     ("build_inflation_nowcast.py", "인플레이션 나우캐스트 트래커 페이지 빌드"),
-    ("fetch_investor_flow.py", "수급주체(data/manual/수급정리*.xlsm 병합, 코스피/코스닥 분류)"),
+    # fetch_investor_flow.py는 여기(07:30, 장 시작 전) 안 돌린다 - 2026-09-22부터 쓰는 신버전
+    # 네이버 API가 "오늘" 실시간 스냅샷만 줘서 장 시작 전엔 무조건 0이 찍힌다. 장마감 이후인
+    # run_troy_mp_pipeline.py(20:05)에서만 돌려서 그날 확정치를 받는다.
     ("fetch_news_sentiment.py", "한국은행 신뉴스심리지수(ECOS 523Y001, 일별, 2026-09-01 산출체계 개편) 수집"),
     ("optimize_percentile_window.py", "통합차트 백분위 지표 최적 기간 재탐색(데이터 누적에 따라 자동 조정)"),
     ("build_dashboard.py", "유동성 대시보드 빌드"),
