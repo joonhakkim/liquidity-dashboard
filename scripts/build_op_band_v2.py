@@ -33,6 +33,11 @@ from build_op_band import (
     find_workbook, detect_blocks, load_naver_sector_map, load_sector_map, pick_band_multiples,
     load_fnguide_map, apply_year_override,
 )
+from build_estimate_revision import pct_change
+
+# 상향 추세 판정에 쓰는 lookback(build_estimate_revision.py와 동일 단위 - 이미 검증된 방식을
+# 그대로 재사용, 2026-09-22 사용자 요청 "추정치가 상향되고 있는 추세인지 필터").
+REV_LOOKBACKS = [("1w", 5), ("1m", 21)]
 
 DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data")
 DOCS_DIR = os.path.join(os.path.dirname(__file__), "..", "docs")
@@ -168,6 +173,8 @@ def process_sheet_v2(ws):
 
         name = row_names[start] if start < len(row_names) else code
         series_dates, series_mult, series_op, series_mktcap = [], [], [], []
+        series_fy1_raw, series_fy2_raw = [], []  # 상향추세용 원본값(보간/이월 없이 그대로,
+        # build_estimate_revision.py와 동일 원칙 - 지어내지 않는다)
         prev_op = None
         latest_has_estimate = False
         latest_fy2_present = False  # NFY2(=다음 연도, 지금 시점 기준 2027년) 컨센서스가
@@ -208,12 +215,15 @@ def process_sheet_v2(ws):
             series_op.append(round(op_won, 0))
             series_mktcap.append(round(mktcap, 0))
             series_mult.append(round(mktcap / op_won, 4))
+            series_fy1_raw.append(fy1)
+            series_fy2_raw.append(fy2)
 
         if series_dates:
             results[code] = {"name": name, "dates": series_dates, "mult": series_mult,
                               "op": series_op, "mktcap": series_mktcap,
                               "latest_has_estimate": latest_has_estimate,
-                              "has_2027": latest_fy2_present}
+                              "has_2027": latest_fy2_present,
+                              "fy1_raw": series_fy1_raw, "fy2_raw": series_fy2_raw}
     return results
 
 
@@ -246,6 +256,14 @@ def build_row(code, data, sector_map, naver_sector_map, latest_overall):
         "has_2027": bool(data.get("has_2027")),
         "is_override": bool(data.get("is_override")),
     }
+    # 추정치 상향 추세(2026-09-22 추가) - NFY1/NFY2 원본 컨센서스 값 자체를 스위칭/보간 없이
+    # N거래일 전과 비교(build_estimate_revision.py와 동일 로직 재사용). "선행OP"(위 mult 분모)는
+    # 매달 가중치(w)가 굴러가며 자연히 값이 움직이는데, 그 기계적 drift를 "상향"으로 착각하면
+    # 안 되므로 blended op가 아니라 NFY1/NFY2 각각의 원본 시계열로 계산한다.
+    fy1_raw, fy2_raw = data.get("fy1_raw") or [], data.get("fy2_raw") or []
+    for key, back in REV_LOOKBACKS:
+        row[f"fy1_rev_{key}"] = pct_change(fy1_raw, back)
+        row[f"fy2_rev_{key}"] = pct_change(fy2_raw, back)
     any_window = False
     for key, years, _label in BOTTOM_WINDOWS:
         if years is None:
@@ -404,6 +422,8 @@ TEMPLATE = """<!doctype html>
   th {{ color:#9aa0a6; font-weight:normal; font-size:12px; position:sticky; top:0; background:#0f1115; }}
   .gap-hot {{ color:#ff2ec4; font-weight:bold; }}
   .gap-warm {{ color:#ff8787; }}
+  .rev-up {{ color:#63e6be; }}
+  .rev-down {{ color:#ff8787; }}
   .sub {{ color:#6b7280; font-size:11px; }}
   .ov-badge {{ display:inline-block; background:#9775fa33; color:#9775fa; border:1px solid #9775fa; border-radius:4px; font-size:10px; padding:1px 4px; margin-right:5px; font-weight:bold; vertical-align:middle; }}
   .count {{ color:#63e6be; font-size:12px; margin-bottom:8px; }}
@@ -465,12 +485,18 @@ TEMPLATE = """<!doctype html>
     <label>시총 최소(억) <input type="number" id="fMktcapMin" step="100"></label>
     <label style="color:#9aa0a6;font-size:11px;"><span class="ov-badge">자체</span> = FnGuide/엑셀 컨센서스 대신 애널리스트 자체추정치(data/manual/op_band_overrides.csv)가 적용된 종목</label>
     <label>바텀대비 하한 <input type="number" id="fGapLo" placeholder="예 -50"></label>
+    <label>추정치추세 기준 <select id="fRevWin">
+      <option value="1w">최근 1주</option>
+      <option value="1m" selected>최근 1개월</option>
+    </select></label>
+    <label><input type="checkbox" id="fRevUp"> 추정치 상향 종목만(NFY1/NFY2 컨센서스 자체가 상향)</label>
     <label>정렬 <select id="fSort">
       <option value="gap_asc">바텀 대비 근접순</option>
       <option value="mult_asc">현재배수 낮은순</option>
       <option value="mult_desc">현재배수 높은순</option>
       <option value="mktcap_desc">시가총액 큰순</option>
       <option value="mktcap_asc">시가총액 작은순</option>
+      <option value="rev_desc">추정치 상향폭 큰순</option>
     </select></label>
   </div>
   <div class="count" id="count"></div>
@@ -478,7 +504,7 @@ TEMPLATE = """<!doctype html>
   <div class="table-wrap">
   <table>
     <thead><tr>
-      <th>종목명</th><th>코드</th><th>섹터</th><th>시가총액</th><th>현재배수</th><th>바텀배수</th><th>바텀 대비</th><th>구간최저</th><th>표본</th><th>기준일</th>
+      <th>종목명</th><th>코드</th><th>섹터</th><th>시가총액</th><th>현재배수</th><th>바텀배수</th><th>바텀 대비</th><th>구간최저</th><th>표본</th><th>추정치추세</th><th>기준일</th>
     </tr></thead>
     <tbody id="tbody"></tbody>
   </table>
@@ -508,6 +534,14 @@ const selSector = document.getElementById('fSector');
 sectors.forEach(s => {{ const o = document.createElement('option'); o.value = s; o.textContent = s; selSector.appendChild(o); }});
 
 function gapClass(g) {{ if (g == null) return ''; if (g <= 0) return 'gap-hot'; if (g <= 10) return 'gap-warm'; return ''; }}
+// NFY2(차년도) 값이 있으면 그걸 우선(지금 시점 기준으로 더 먼 미래 추정치라 최근에 반영이
+// 시작된 경우가 많음), 없으면 NFY1로 - 어느 걸 썼는지 라벨로 표시해서 숨기지 않는다.
+function revInfo(r, win) {{
+  const fy2 = r['fy2_rev_' + win], fy1 = r['fy1_rev_' + win];
+  if (fy2 != null) return {{ value: fy2, label: 'NFY2' }};
+  if (fy1 != null) return {{ value: fy1, label: 'NFY1' }};
+  return {{ value: null, label: null }};
+}}
 function fmtMktcap(v) {{
   if (v == null) return '-';
   const eok = v / 1e8;
@@ -527,10 +561,13 @@ function applyFilters() {{
   const sort = document.getElementById('fSort').value;
   const includeNeg = document.getElementById('fIncludeNeg').checked;
   const has2027Only = document.getElementById('fHas2027').checked;
+  const revWin = document.getElementById('fRevWin').value;
+  const revUpOnly = document.getElementById('fRevUp').checked;
   const bKey = 'b_' + win + '_p' + pct, gKey = 'gap_' + win + '_p' + pct, nKey = 'n_' + win;
   const winLabel = {{'3y':'3년','5y':'5년','all':'전체'}}[win];
 
   let rows = ROWS.filter(r => {{
+    if (revUpOnly) {{ const rv = revInfo(r, revWin).value; if (rv == null || rv <= 0) return false; }}
     // 적자(현재 배수 마이너스)는 배수 자체가 의미 없어서 기본 제외 - 바텀 대비 %가
     // -5만% 같은 무의미한 값으로 정렬 상단을 채워버림
     if (!includeNeg && r.latest_mult <= 0) return false;
@@ -550,6 +587,7 @@ function applyFilters() {{
   else if (sort === 'mult_asc') rows.sort((a, b) => a.latest_mult - b.latest_mult);
   else if (sort === 'mult_desc') rows.sort((a, b) => b.latest_mult - a.latest_mult);
   else if (sort === 'mktcap_desc') rows.sort((a, b) => (b.latest_mktcap ?? 0) - (a.latest_mktcap ?? 0));
+  else if (sort === 'rev_desc') rows.sort((a, b) => (revInfo(b, revWin).value ?? -9e9) - (revInfo(a, revWin).value ?? -9e9));
   else rows.sort((a, b) => (a.latest_mktcap ?? 9e18) - (b.latest_mktcap ?? 9e18));
 
   document.getElementById('count').textContent = rows.length + '종목 (행 클릭하면 밴드 차트)';
@@ -562,13 +600,14 @@ function applyFilters() {{
       <td class="${{gapClass(r[gKey])}}">${{r[gKey] == null ? '-' : r[gKey].toFixed(1) + '%'}}</td>
       <td class="sub">${{r.min_mult.toFixed(2)}}x</td>
       <td class="sub">${{r[nKey]}}일<br>${{winLabel}}</td>
+      <td class="${{(() => {{ const v = revInfo(r, revWin).value; return v == null ? '' : (v > 0 ? 'rev-up' : v < 0 ? 'rev-down' : ''); }})()}}">${{(() => {{ const ri = revInfo(r, revWin); return ri.value == null ? '-' : `${{ri.label}} ${{ri.value > 0 ? '+' : ''}}${{ri.value.toFixed(1)}}%`; }})()}}</td>
       <td class="sub">${{r.latest_date}}</td>
     </tr>`).join('');
   document.querySelectorAll('#tbody tr').forEach(tr =>
     tr.addEventListener('click', () => openDetail(tr.dataset.code)));
 }}
 
-['fSearch','fSector','fWin','fPct','fGap','fGapLo','fMultMin','fMultMax','fMktcapMin','fSort','fIncludeNeg','fHas2027'].forEach(id => {{
+['fSearch','fSector','fWin','fPct','fGap','fGapLo','fMultMin','fMultMax','fMktcapMin','fSort','fIncludeNeg','fHas2027','fRevWin','fRevUp'].forEach(id => {{
   document.getElementById(id).addEventListener('input', applyFilters);
   document.getElementById(id).addEventListener('change', applyFilters);
 }});
