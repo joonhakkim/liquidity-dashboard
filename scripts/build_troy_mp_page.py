@@ -279,7 +279,13 @@ def compute_holdings_table(trades, latest_prices, prev_prices, name_map, sector_
 
     rows = []
     for code, p in pos.items():
-        if abs(p["shares"]) <= 1e-6:
+        # 원래 1e-6이었는데 실제 float 잔차가 그보다 컸던 사례가 나왔다(2026-09-23,
+        # 트로이MP 후성 전량편출 - process_mp_orders.py의 exit이 h["shares"]*h["cur_price"]로
+        # 매도금액을 계산한 뒤 그 금액을 다시 price로 나눠 qty를 구하는 왕복 계산 때문에
+        # 3.15e-06주 잔량이 남았고, 1e-6 문턱을 살짝 넘겨 "편출 안 된 것처럼" 보였다). 실제
+        # 보유가 아닌 float 잔차는 이보다 훨씬 클 수 있어 1e-3으로 넉넉히 올림 - 롱온리
+        # 포트폴리오에서 0.001주는 어차피 의미 있는 포지션이 될 수 없다.
+        if abs(p["shares"]) <= 1e-3:
             continue
         avg_price = p["cost"] / p["shares"]
         cur_price = latest_prices.get(code)
@@ -342,22 +348,22 @@ def build_trade_history(trades, name_map):
         if action == "BUY":
             p["shares"] += qty
             p["cost"] += row["amount"]
-            label = "편입" if prev_shares <= 1e-6 else "비중 확대"
+            label = "편입" if prev_shares <= 1e-3 else "비중 확대"
             color = "#ffa94d"
         elif action == "SHORT":
             p["shares"] -= qty
             p["cost"] -= row["amount"]
-            label = "편입(숏)" if prev_shares >= -1e-6 else "비중 확대(숏)"
+            label = "편입(숏)" if prev_shares >= -1e-3 else "비중 확대(숏)"
             color = "#ffa94d"
         elif action == "COVER":
-            avg_cost_before = p["cost"] / p["shares"] if p["shares"] < -1e-6 else None
+            avg_cost_before = p["cost"] / p["shares"] if p["shares"] < -1e-3 else None
             if p["shares"] < 0:
                 ratio = min(qty / abs(p["shares"]), 1.0)
                 p["cost"] *= (1 - ratio)
                 p["shares"] += qty
             else:
                 p["shares"] += qty
-            if p["shares"] >= -1e-6:
+            if p["shares"] >= -1e-3:
                 label = "편출"
                 if avg_cost_before:
                     realized_ret_pct = (1 - row["price"] / avg_cost_before) * 100  # 숏은 가격이 내려야 이익
@@ -365,14 +371,14 @@ def build_trade_history(trades, name_map):
                 label = "비중 축소"
             color = "#4dabf7"
         else:  # SELL
-            avg_cost_before = p["cost"] / p["shares"] if p["shares"] > 1e-6 else None
+            avg_cost_before = p["cost"] / p["shares"] if p["shares"] > 1e-3 else None
             if p["shares"] > 0:
                 ratio = min(qty / p["shares"], 1.0)
                 p["cost"] *= (1 - ratio)
                 p["shares"] -= qty
             else:
                 p["shares"] -= qty
-            if p["shares"] <= 1e-6:
+            if p["shares"] <= 1e-3:
                 label = "편출"
                 if avg_cost_before:
                     realized_ret_pct = (row["price"] / avg_cost_before - 1) * 100

@@ -9,6 +9,7 @@ fetch_troy_mp_prices.py/build_troy_mp_page.py 둘 다 mp_portfolios.PORTFOLIOS�
 register_per_tracker_task_windows.ps1 참고). 그래서 이 트래커만 당일 종가가 나온
 이후 시간대로 분리했다.
 """
+import os
 import subprocess
 import sys
 from datetime import datetime
@@ -18,6 +19,13 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SCRIPTS_DIR = BASE_DIR / "scripts"
 LOGS_DIR = BASE_DIR / "logs"
 PYTHON = sys.executable
+
+# 자식 파이썬 프로세스가 콘솔 코드페이지(cp949)가 아니라 UTF-8로 stdout/stderr를 쓰게 강제한다.
+# 부모 쪽은 encoding="utf-8"/errors="replace"로 받고 있었는데도, 자식이 실제로는 cp949 바이트를
+# 내보내던 경우가 있어서 디코딩 스레드(_readerthread)가 드물게 UnicodeDecodeError로 죽었다
+# (2026-09-23, MP 트래커 자동 갱신 로그에서 발견 - 파이프라인 자체는 계속 진행됐지만 로그가
+# 지저분해짐). 환경변수로 자식의 출력 인코딩 자체를 UTF-8로 고정하는 게 근본 수정.
+CHILD_ENV = {**os.environ, "PYTHONIOENCODING": "utf-8"}
 
 STEPS = [
     ("fetch_troy_mp_prices.py", "MP 트래커: 편입 종목 일별 종가 수집(네이버 차트 API)"),
@@ -55,6 +63,7 @@ def main():
             result = subprocess.run(
                 [PYTHON, str(SCRIPTS_DIR / script)],
                 capture_output=True, text=True, encoding="utf-8", errors="replace",
+                env=CHILD_ENV,
             )
             write(result.stdout)
             if result.stderr:

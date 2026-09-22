@@ -45,6 +45,7 @@ import requests
 sys.path.insert(0, os.path.dirname(__file__))
 from mp_portfolios import ALL_PORTFOLIOS, PRIVATE_PORTFOLIOS, TOTAL_CAPITAL  # noqa: E402
 from build_troy_mp_page import load_trades, compute_holdings_table  # noqa: E402
+from fetch_troy_mp_prices import fetch_price_history  # noqa: E402
 
 DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data")
 ORDERS_PATH = os.path.join(DATA_DIR, "manual", "mp_orders.csv")
@@ -75,6 +76,29 @@ def resolve_code(name):
     if len(exact) == 1:
         return exact[0]["code"]
     return None
+
+
+def get_price_or_fetch(code, prices):
+    """포트폴리오 자체 가격 캐시(prices, 그 포트폴리오의 *_prices.csv)에 없으면 네이버에서
+    그 종목 하나만 즉시 조회해 최신 종가를 쓴다.
+
+    fetch_troy_mp_prices.py는 각 포트폴리오의 "지금까지의 매매일지"에 이미 등장한 종목만
+    받아오는데, new_entry_pct/swap 지시로 그 포트폴리오에 "처음" 편입하려는 종목은 구조적으로
+    아직 매매일지에 없다 - 매매일지에 넣으려면 가격이 있어야 하고, 가격은 매매일지에 있어야
+    받아오는 순환 의존이라 "오늘 가격 없음"으로 영영 스킵됐다(2026-09-23, mingu_mp에
+    RF머트리얼즈 신규편입 지시가 troy_mp에만 그 종목이 있어서 이틀 연속 스킵된 걸 발견).
+    다른 포트폴리오가 이미 그 종목을 갖고 있어도 가격 캐시가 포트폴리오별로 따로라 공유되지
+    않으므로, 못 찾으면 그냥 이 종목 하나만 가볍게 즉시 조회한다."""
+    price = prices.get(code)
+    if price is not None:
+        return price
+    try:
+        df = fetch_price_history(code, count=5)
+    except Exception:
+        return None
+    if df is None or df.empty:
+        return None
+    return float(df.sort_values("date").iloc[-1]["close"])
 
 
 def load_sector_map():
@@ -207,7 +231,7 @@ def main():
                     summary.append(f"[{pid}] '{new_name}' 종목코드 확인 실패 - 스킵(수동 확인 필요)")
                     continue
                 new_code = new_code.zfill(6)
-                new_price = prices.get(new_code)
+                new_price = get_price_or_fetch(new_code, prices)
                 if new_price is None:
                     summary.append(f"[{pid}] {new_name}({new_code}) 오늘 가격 없음 - 스킵(가격 이력 백필 필요)")
                     continue
@@ -219,7 +243,7 @@ def main():
                 done_idx.append(idx)
                 continue
 
-            price = prices.get(code)
+            price = get_price_or_fetch(code, prices)
             if price is None:
                 summary.append(f"[{pid}] {name}({code}) 오늘 가격 없음 - 스킵")
                 continue
