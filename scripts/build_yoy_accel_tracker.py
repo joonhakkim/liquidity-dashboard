@@ -150,13 +150,35 @@ def build_row_and_detail(code, data, sector_map, naver_sector_map):
     prev_yoy = yoy[idxs_with_yoy[-2]] if len(idxs_with_yoy) >= 2 and idxs_with_yoy[-2] == latest_i - 1 else None
     accel = round(latest_yoy - prev_yoy, 1) if prev_yoy is not None else None
 
+    # 세자리 YoY(100%+) 유지 분기 수 - 최신 분기부터 거꾸로 훑어서 100% 이상이 끊기지 않고
+    # 몇 분기째 이어지는지(2026-09-23 사용자 요청 "세자리 YoY가 3분기 이상 유지되는 걸로
+    # 필터"). 중간에 YoY가 없거나(부호 전환 등) 100% 밑으로 내려가면 그 자리에서 스트릭이
+    # 끊긴다.
+    triple_digit_streak = 0
+    for i in range(latest_i, -1, -1):
+        if yoy[i] is not None and yoy[i] >= 100:
+            triple_digit_streak += 1
+        else:
+            break
+
+    # 가속화(전분기 대비 YoY 상승) 유지 분기 수 - 최신 분기부터 거꾸로, 바로 앞 분기 대비
+    # YoY가 계속 더 높아지고 있는 구간이 몇 분기째 이어지는지(2026-09-23 사용자 요청
+    # "전분기 대비 가속화가 3분기 이상 유지되고 있는 애들"). 중간에 YoY가 비거나(부호전환 등)
+    # 바로 직전 분기가 아니면(연속이 아니면) 비교 자체가 안 되므로 그 자리에서 끊긴다.
+    accel_streak = 0
+    i = latest_i
+    while i - 1 >= 0 and yoy[i] is not None and yoy[i - 1] is not None and yoy[i] > yoy[i - 1]:
+        accel_streak += 1
+        i -= 1
+
     row = {
         "code": code, "name": data["name"],
         "sector": naver_sector_map.get(code.lstrip("A")) or sector_map.get(data["name"]),
         "latest_mktcap": data["latest_mktcap"],
         "latest_period": latest_q["period"], "latest_is_estimate": latest_q["is_estimate"],
         "latest_yoy": latest_yoy, "prev_yoy": prev_yoy, "accel": accel,
-        "n_quarters": len(quarters),
+        "n_quarters": len(quarters), "triple_digit_streak": triple_digit_streak,
+        "accel_streak": accel_streak,
     }
 
     # 클릭 시 보여줄 표 - 시기/영업이익/YoY만(2026-09-23 사용자 요청, 차트 대신 숫자 표).
@@ -272,10 +294,14 @@ TEMPLATE = """<!doctype html>
     <label>섹터 <select id="fSector"><option value="">전체</option></select></label>
     <label>최신 YoY% 최소 <input type="number" id="fYoyMin" step="10"></label>
     <label><input type="checkbox" id="fAccelOnly"> 가속 중인 종목만(YoY가 전분기보다 상승)</label>
+    <label><input type="checkbox" id="fTripleOnly"> 세자리 YoY(100%+) 3분기 이상 유지</label>
+    <label><input type="checkbox" id="fAccelStreakOnly"> 가속화 3분기 이상 유지(전분기 대비 YoY 계속 상승)</label>
     <label>시총 최소(억) <input type="number" id="fMktcapMin" step="100"></label>
     <label>정렬 <select id="fSort">
       <option value="accel_desc">가속도 큰순</option>
       <option value="yoy_desc">최신 YoY% 큰순</option>
+      <option value="streak_desc">세자리 유지 분기수 큰순</option>
+      <option value="accel_streak_desc">가속화 유지 분기수 큰순</option>
       <option value="mktcap_desc">시가총액 큰순</option>
     </select></label>
   </div>
@@ -284,7 +310,7 @@ TEMPLATE = """<!doctype html>
   <div class="table-wrap">
   <table>
     <thead><tr>
-      <th>종목명</th><th>코드</th><th>섹터</th><th>시가총액</th><th>최신 분기</th><th>최신 YoY%</th><th>전분기 YoY%</th><th>가속도(%p)</th>
+      <th>종목명</th><th>코드</th><th>섹터</th><th>시가총액</th><th>최신 분기</th><th>최신 YoY%</th><th>전분기 YoY%</th><th>가속도(%p)</th><th>세자리 유지</th><th>가속화 유지</th>
     </tr></thead>
     <tbody id="tbody"></tbody>
   </table>
@@ -330,6 +356,8 @@ function applyFilters() {{
   const yoyMin = parseFloat(document.getElementById('fYoyMin').value);
   const mktcapMin = parseFloat(document.getElementById('fMktcapMin').value);
   const accelOnly = document.getElementById('fAccelOnly').checked;
+  const tripleOnly = document.getElementById('fTripleOnly').checked;
+  const accelStreakOnly = document.getElementById('fAccelStreakOnly').checked;
   const sort = document.getElementById('fSort').value;
 
   let rows = ROWS.filter(r => {{
@@ -338,14 +366,18 @@ function applyFilters() {{
     if (!isNaN(yoyMin) && (r.latest_yoy == null || r.latest_yoy < yoyMin)) return false;
     if (!isNaN(mktcapMin) && (r.latest_mktcap == null || r.latest_mktcap / 1e8 < mktcapMin)) return false;
     if (accelOnly && (r.accel == null || r.accel <= 0)) return false;
+    if (tripleOnly && r.triple_digit_streak < 3) return false;
+    if (accelStreakOnly && r.accel_streak < 3) return false;
     return true;
   }});
 
   if (sort === 'accel_desc') rows.sort((a, b) => (b.accel ?? -9e9) - (a.accel ?? -9e9));
   else if (sort === 'yoy_desc') rows.sort((a, b) => (b.latest_yoy ?? -9e9) - (a.latest_yoy ?? -9e9));
+  else if (sort === 'streak_desc') rows.sort((a, b) => b.triple_digit_streak - a.triple_digit_streak);
+  else if (sort === 'accel_streak_desc') rows.sort((a, b) => b.accel_streak - a.accel_streak);
   else rows.sort((a, b) => (b.latest_mktcap ?? 0) - (a.latest_mktcap ?? 0));
 
-  document.getElementById('count').textContent = rows.length + '종목 (행 클릭하면 차트)';
+  document.getElementById('count').textContent = rows.length + '종목 (행 클릭하면 표)';
   document.getElementById('tbody').innerHTML = rows.slice(0, 400).map(r => `
     <tr data-code="${{r.code}}">
       <td>${{r.name}}</td><td class="sub">${{r.code}}</td><td class="sub">${{r.sector || '-'}}</td>
@@ -354,12 +386,14 @@ function applyFilters() {{
       <td>${{pctSpan(r.latest_yoy)}}</td>
       <td>${{pctSpan(r.prev_yoy)}}</td>
       <td>${{pctSpan(r.accel)}}</td>
+      <td class="sub">${{r.triple_digit_streak > 0 ? r.triple_digit_streak + '분기' : '-'}}</td>
+      <td class="sub">${{r.accel_streak > 0 ? r.accel_streak + '분기' : '-'}}</td>
     </tr>`).join('');
   document.querySelectorAll('#tbody tr').forEach(tr =>
     tr.addEventListener('click', () => openDetail(tr.dataset.code)));
 }}
 
-['fSearch','fSector','fYoyMin','fMktcapMin','fAccelOnly','fSort'].forEach(id => {{
+['fSearch','fSector','fYoyMin','fMktcapMin','fAccelOnly','fTripleOnly','fAccelStreakOnly','fSort'].forEach(id => {{
   document.getElementById(id).addEventListener('input', applyFilters);
   document.getElementById(id).addEventListener('change', applyFilters);
 }});
