@@ -27,27 +27,23 @@
   tbody tr:hover { background:#1a1d24; }
   .overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.75); z-index:200; overflow:auto; padding:40px 20px; }
   .overlay.open { display:block; }
-  .modal { background:#12151b; border:1px solid #23262e; border-radius:14px; max-width:1100px; margin:0 auto; padding:22px 26px; }
-  .modal h2 { font-size:17px; margin:0 0 6px 0; }
+  .modal { background:#12151b; border:1px solid #23262e; border-radius:14px; max-width:520px; margin:0 auto; padding:22px 26px; }
+  .modal h2 { font-size:17px; margin:0 0 12px 0; }
   .close-btn { float:right; background:none; border:none; color:#9aa0a6; font-size:22px; cursor:pointer; line-height:1; }
-  .chart-wrap { height:380px; position:relative; margin-top:12px; }
-  .legend { display:flex; gap:16px; flex-wrap:wrap; font-size:12px; color:#9aa0a6; margin-top:8px; }
-  .legend span { display:flex; align-items:center; gap:4px; }
-  .sw { width:12px; height:2px; display:inline-block; }
-  .sq { width:10px; height:10px; border-radius:2px; display:inline-block; }
+  .detail-table { width:100%; }
+  .detail-table th { position:static; }
 </style>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
 </head>
 <body>
   <a class="back" href="index.html">&larr; 홈</a>
   <h1>YoY 가속화 트래커</h1>
-  <div class="updated">최종 갱신: 2026-09-23 14:42 &middot; 654종목(컨센서스 보유)</div>
+  <div class="updated">최종 갱신: 2026-09-23 16:43 &middot; 654종목(컨센서스 보유)</div>
 
   <div class="exp">
     <b>무엇을 보는 페이지인가</b><br>
     분기별 영업이익(실적+애널리스트 컨센서스 추정치)의 <b>전년동기대비(YoY) 증감률</b>과,
     그 YoY 증감률 자체가 <b>전분기보다 더 가속되고 있는지</b>(가속도 = 이번 분기 YoY − 전분기 YoY)를
-    같이 봅니다. 분기 막대는 분기말이 아니라 <b>분기말+1개월(실적 발표 시점 근사)</b>에 표시합니다.
+    같이 봅니다. 종목명을 클릭하면 분기별 시기/영업이익/YoY% 표를 볼 수 있습니다.
     적자/흑자가 뒤바뀌는 구간은 YoY%가 왜곡되므로 계산하지 않습니다(표에서 제외).
     FnGuide 컨센서스(추정치)가 하나도 없는 종목은 애초에 포함하지 않습니다.
   </div>
@@ -79,12 +75,10 @@
     <div class="modal">
       <button class="close-btn" id="closeBtn">&times;</button>
       <h2 id="detailName"></h2>
-      <div class="legend">
-        <span><span class="sw" style="background:#eb6834"></span>시가총액(조원, 왼쪽 축)</span>
-        <span><span class="sq" style="background:#2a78d6"></span>영업이익 YoY%(실적, 오른쪽 축)</span>
-        <span><span class="sq" style="background:#a9c8ec"></span>영업이익 YoY%(추정, 오른쪽 축)</span>
-      </div>
-      <div class="chart-wrap"><canvas id="detailChart"></canvas></div>
+      <table class="detail-table">
+        <thead><tr><th style="text-align:left;">시기</th><th>영업이익(억원)</th><th>YoY%</th></tr></thead>
+        <tbody id="detailBody"></tbody>
+      </table>
     </div>
   </div>
 
@@ -151,40 +145,15 @@ function applyFilters() {
   document.getElementById(id).addEventListener('change', applyFilters);
 });
 
-let chart = null;
 function openDetail(code) {
   fetch(`yoy_accel_tracker_data/${code}.json`).then(r => r.json()).then(d => {
     document.getElementById('detailName').textContent = `${d.name} (${d.code})`;
-    // 빌드 스크립트에서 이미 월별 연속 격자(빈 달 포함)로 정렬해서 내려주므로 여기선
-    // 그대로 쓴다 - 카테고리가 적고 균등해야 막대가 눌려 안 보이는 문제가 안 생긴다.
-    const labels = d.labels;
-    const MC = d.mc_eok.map(v => v == null ? null : v / 10000);
-    const OP = d.bar_yoy;
-    const COL = d.bar_is_estimate.map(e => e ? '#a9c8ec' : '#2a78d6');
-
-    if (chart) chart.destroy();
-    chart = new Chart(document.getElementById('detailChart').getContext('2d'), {
-      data: {
-        labels: labels,
-        datasets: [
-          { type: 'bar', label: '영업이익 YoY%', data: OP, backgroundColor: COL, borderRadius: 4, maxBarThickness: 36, order: 2, yAxisID: 'y1' },
-          { type: 'line', label: '시가총액', data: MC, borderColor: '#eb6834', backgroundColor: 'rgba(235,104,52,0.08)', borderWidth: 2, pointRadius: 2, fill: true, spanGaps: false, tension: 0.15, order: 1, yAxisID: 'y' },
-        ]
-      },
-      options: {
-        responsive: true, maintainAspectRatio: false,
-        plugins: {
-          legend: { display: false },
-          tooltip: { mode: 'index', intersect: false, filter: (c) => c.parsed.y != null, callbacks: { label: (c) => c.dataset.yAxisID === 'y' ? c.dataset.label + ': ' + c.parsed.y.toLocaleString() + '조원' : c.dataset.label + ': ' + (c.parsed.y >= 0 ? '+' : '') + c.parsed.y.toFixed(1) + '%' } }
-        },
-        scales: {
-          x: { grid: { display: false }, ticks: { color: '#9aa0a6', maxTicksLimit: 14, maxRotation: 45 } },
-          y: { position: 'left', grid: { color: '#23262e' }, ticks: { color: '#eb6834', callback: (v) => v.toLocaleString() + '조' } },
-          y1: { position: 'right', grid: { display: false }, ticks: { color: '#2a78d6', callback: (v) => v + '%' } },
-        },
-        interaction: { mode: 'index', intersect: false }
-      }
-    });
+    document.getElementById('detailBody').innerHTML = d.quarters.slice().reverse().map(q => `
+      <tr>
+        <td style="text-align:left;">${fmtPeriod(q.period)}${q.is_estimate ? '<span class="est-badge">추정</span>' : ''}</td>
+        <td>${q.op_100mil.toLocaleString()}억</td>
+        <td>${pctSpan(q.yoy)}</td>
+      </tr>`).join('');
     document.getElementById('overlay').classList.add('open');
   });
 }

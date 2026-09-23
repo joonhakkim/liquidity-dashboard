@@ -11,18 +11,17 @@ YYYYMM 라벨이 헤더12행에 붙어 있음)을 뽑아, 전년동기대비(YoY
 ("컨센서스가 있는 종목들만 선택해서") 그대로. 추정치가 전혀 없으면 이 트래커가 보려는
 "앞으로도 이어질 성장세인지"를 가늠할 근거 자체가 없다.
 
-분기 막대는 분기말이 아니라 "분기말 + 1개월"(실제 실적 발표 시점 근사, 2026-09-23 사용자
-확정 - "그냥 1개월 래깅으로 한다치고")로 당겨서 표시한다. 분기말에 그대로 찍으면 아직
-발표도 안 된 시점에 막대가 서는 착시가 생긴다.
+처음엔 시가총액과 함께 차트로 보여줬는데, 종목을 클릭했을 때 숫자 자체를 바로 보고 싶다는
+요청(2026-09-23, "그냥 숫자자체를 보여줄 수 있게 그래프는 지워도 좋아")으로 차트를 빼고
+분기별 시기/영업이익/YoY 표로 바꿨다.
 
 부호가 섞이면(적자<->흑자 전환) 단순 비율이 정반대로 오해를 부르므로(OP밴드 v2/이익추정치
 상향 트래커와 동일 원칙) 그 구간은 YoY%를 계산하지 않고 None으로 둔다.
 """
-import calendar
 import glob
 import json
 import os
-from datetime import date, datetime
+from datetime import datetime
 
 import openpyxl
 import pandas as pd
@@ -43,8 +42,6 @@ MKTCAP_ITEM = "S102100"
 OP_ACTUAL_ITEM = "M121500.M"
 OP_EST_ITEM = "E121500.M"
 MIN_QUARTERS_FOR_YOY = 5  # 최소 5분기(작년 동기 1개 비교 가능) 있어야 대상에 포함
-MKTCAP_CHART_START = date(2025, 1, 1)  # 2023년말부터 다 그리면 차트가 눌려 보여서(2026-09-23
-# 사용자 지적 - "이게 23년부터 다끌어오니까 잘안보인다이가?") 최근 구간만 남긴다.
 
 
 def find_workbook():
@@ -53,19 +50,6 @@ def find_workbook():
     if not candidates:
         return None
     return max(candidates, key=os.path.getmtime)
-
-
-def month_end(y, m):
-    return date(y, m, calendar.monthrange(y, m)[1])
-
-
-def add_month(y, m):
-    m2 = m + 1
-    y2 = y
-    if m2 > 12:
-        m2 = 1
-        y2 += 1
-    return y2, m2
 
 
 def process_sheet(ws):
@@ -107,15 +91,13 @@ def process_sheet(ws):
 
         name = row_names[start] if start < len(row_names) else code
 
-        # 월별로 다운샘플링(그 달의 마지막 거래일 값만) - 일별 그대로 쓰면 카테고리 수가
-        # 너무 많아져서 분기 막대가 눌린 실선처럼 안 보이는 문제가 있었다(2026-09-23 사용자
-        # 지적 - "막대가 너무 작아서 보이지 않고"). 막대(분기말+1개월)도 월말 날짜라 이렇게
-        # 하면 시가총액 선과 같은 월별 격자 위에 자연스럽게 겹친다.
-        mc_by_month = {}
+        # 표(숫자) 위주 페이지라 시가총액은 요약표의 참고용 "최신값"만 있으면 된다(2026-09-23
+        # 사용자 요청 - 차트를 표로 대체, 시계열 전체는 더 이상 안 씀).
+        latest_mktcap = None
         for row_vals, d in zip(data_rows, dates):
             v = row_vals[mktcap_idx]
-            if v is not None and d.date() >= MKTCAP_CHART_START:
-                mc_by_month[(d.year, d.month)] = v
+            if v is not None:
+                latest_mktcap = v
 
         quarters = []
         for col_idx, period, is_est in sorted(quarter_cols, key=lambda x: x[1]):
@@ -134,7 +116,7 @@ def process_sheet(ws):
             continue
 
         results[code] = {
-            "name": name, "mc_by_month": mc_by_month, "quarters": quarters,
+            "name": name, "latest_mktcap": latest_mktcap, "quarters": quarters,
         }
     return results
 
@@ -154,13 +136,6 @@ def compute_yoy(quarters):
     return yoy
 
 
-def announce_date(period_yyyymm):
-    """분기말(YYYYMM 말일) + 1개월 = 실적 발표 시점 근사."""
-    y, m = period_yyyymm // 100, period_yyyymm % 100
-    ay, am = add_month(y, m)
-    return month_end(ay, am)
-
-
 def build_row_and_detail(code, data, sector_map, naver_sector_map):
     quarters = data["quarters"]
     yoy = compute_yoy(quarters)
@@ -175,44 +150,23 @@ def build_row_and_detail(code, data, sector_map, naver_sector_map):
     prev_yoy = yoy[idxs_with_yoy[-2]] if len(idxs_with_yoy) >= 2 and idxs_with_yoy[-2] == latest_i - 1 else None
     accel = round(latest_yoy - prev_yoy, 1) if prev_yoy is not None else None
 
-    mc_by_month = data["mc_by_month"]
-    mktcap = mc_by_month[max(mc_by_month)] if mc_by_month else None
     row = {
         "code": code, "name": data["name"],
         "sector": naver_sector_map.get(code.lstrip("A")) or sector_map.get(data["name"]),
-        "latest_mktcap": mktcap,
+        "latest_mktcap": data["latest_mktcap"],
         "latest_period": latest_q["period"], "latest_is_estimate": latest_q["is_estimate"],
         "latest_yoy": latest_yoy, "prev_yoy": prev_yoy, "accel": accel,
         "n_quarters": len(quarters),
     }
 
-    bars = [(announce_date(q["period"]), yoy[i], q["is_estimate"])
-            for i, q in enumerate(quarters) if yoy[i] is not None]
-
-    # 월별 연속 격자(빈 달도 채워서 시가총액 선/막대가 균등 간격으로 보이게 - 2026-09-23
-    # 사용자 지적 "막대가 너무 작아서 보이지 않고"). 시가총액 데이터가 끊긴 뒤에도 추정치
-    # 분기가 남아있으면 그 마지막 추정 분기까지 격자를 늘린다("추정치가 존재하면 시계열을
-    # 그만큼 늘려서 보여주고" - 시가총액 없다고 막대 표시 구간을 잘라내지 않는다).
-    grid_end = max([b[0] for b in bars], default=MKTCAP_CHART_START)
-    if mc_by_month:
-        last_mc_y, last_mc_m = max(mc_by_month)
-        grid_end = max(grid_end, month_end(last_mc_y, last_mc_m))
-    y, m = MKTCAP_CHART_START.year, MKTCAP_CHART_START.month
-    grid = []
-    while (y, m) <= (grid_end.year, grid_end.month):
-        grid.append(month_end(y, m))
-        y, m = add_month(y, m)
-
-    mc_map = {month_end(y2, m2): round(v / 1e8, 1) for (y2, m2), v in mc_by_month.items()}
-    bar_map = {d: yoy for d, yoy, _est in bars}
-    est_map = {d: est for d, _yoy, est in bars}
-
+    # 클릭 시 보여줄 표 - 시기/영업이익/YoY만(2026-09-23 사용자 요청, 차트 대신 숫자 표).
     detail = {
         "code": code, "name": data["name"],
-        "labels": [str(d) for d in grid],
-        "mc_eok": [mc_map.get(d) for d in grid],
-        "bar_yoy": [bar_map.get(d) for d in grid],
-        "bar_is_estimate": [bool(est_map.get(d, False)) for d in grid],
+        "quarters": [
+            {"period": q["period"], "op_100mil": round(q["op_won"] / 1e8, 1),
+             "yoy": yoy[i], "is_estimate": q["is_estimate"]}
+            for i, q in enumerate(quarters)
+        ],
     }
     return row, detail
 
@@ -292,16 +246,12 @@ TEMPLATE = """<!doctype html>
   tbody tr:hover {{ background:#1a1d24; }}
   .overlay {{ display:none; position:fixed; inset:0; background:rgba(0,0,0,0.75); z-index:200; overflow:auto; padding:40px 20px; }}
   .overlay.open {{ display:block; }}
-  .modal {{ background:#12151b; border:1px solid #23262e; border-radius:14px; max-width:1100px; margin:0 auto; padding:22px 26px; }}
-  .modal h2 {{ font-size:17px; margin:0 0 6px 0; }}
+  .modal {{ background:#12151b; border:1px solid #23262e; border-radius:14px; max-width:520px; margin:0 auto; padding:22px 26px; }}
+  .modal h2 {{ font-size:17px; margin:0 0 12px 0; }}
   .close-btn {{ float:right; background:none; border:none; color:#9aa0a6; font-size:22px; cursor:pointer; line-height:1; }}
-  .chart-wrap {{ height:380px; position:relative; margin-top:12px; }}
-  .legend {{ display:flex; gap:16px; flex-wrap:wrap; font-size:12px; color:#9aa0a6; margin-top:8px; }}
-  .legend span {{ display:flex; align-items:center; gap:4px; }}
-  .sw {{ width:12px; height:2px; display:inline-block; }}
-  .sq {{ width:10px; height:10px; border-radius:2px; display:inline-block; }}
+  .detail-table {{ width:100%; }}
+  .detail-table th {{ position:static; }}
 </style>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
 </head>
 <body>
   <a class="back" href="index.html">&larr; 홈</a>
@@ -312,7 +262,7 @@ TEMPLATE = """<!doctype html>
     <b>무엇을 보는 페이지인가</b><br>
     분기별 영업이익(실적+애널리스트 컨센서스 추정치)의 <b>전년동기대비(YoY) 증감률</b>과,
     그 YoY 증감률 자체가 <b>전분기보다 더 가속되고 있는지</b>(가속도 = 이번 분기 YoY − 전분기 YoY)를
-    같이 봅니다. 분기 막대는 분기말이 아니라 <b>분기말+1개월(실적 발표 시점 근사)</b>에 표시합니다.
+    같이 봅니다. 종목명을 클릭하면 분기별 시기/영업이익/YoY% 표를 볼 수 있습니다.
     적자/흑자가 뒤바뀌는 구간은 YoY%가 왜곡되므로 계산하지 않습니다(표에서 제외).
     FnGuide 컨센서스(추정치)가 하나도 없는 종목은 애초에 포함하지 않습니다.
   </div>
@@ -344,12 +294,10 @@ TEMPLATE = """<!doctype html>
     <div class="modal">
       <button class="close-btn" id="closeBtn">&times;</button>
       <h2 id="detailName"></h2>
-      <div class="legend">
-        <span><span class="sw" style="background:#eb6834"></span>시가총액(조원, 왼쪽 축)</span>
-        <span><span class="sq" style="background:#2a78d6"></span>영업이익 YoY%(실적, 오른쪽 축)</span>
-        <span><span class="sq" style="background:#a9c8ec"></span>영업이익 YoY%(추정, 오른쪽 축)</span>
-      </div>
-      <div class="chart-wrap"><canvas id="detailChart"></canvas></div>
+      <table class="detail-table">
+        <thead><tr><th style="text-align:left;">시기</th><th>영업이익(억원)</th><th>YoY%</th></tr></thead>
+        <tbody id="detailBody"></tbody>
+      </table>
     </div>
   </div>
 
@@ -416,40 +364,15 @@ function applyFilters() {{
   document.getElementById(id).addEventListener('change', applyFilters);
 }});
 
-let chart = null;
 function openDetail(code) {{
   fetch(`yoy_accel_tracker_data/${{code}}.json`).then(r => r.json()).then(d => {{
     document.getElementById('detailName').textContent = `${{d.name}} (${{d.code}})`;
-    // 빌드 스크립트에서 이미 월별 연속 격자(빈 달 포함)로 정렬해서 내려주므로 여기선
-    // 그대로 쓴다 - 카테고리가 적고 균등해야 막대가 눌려 안 보이는 문제가 안 생긴다.
-    const labels = d.labels;
-    const MC = d.mc_eok.map(v => v == null ? null : v / 10000);
-    const OP = d.bar_yoy;
-    const COL = d.bar_is_estimate.map(e => e ? '#a9c8ec' : '#2a78d6');
-
-    if (chart) chart.destroy();
-    chart = new Chart(document.getElementById('detailChart').getContext('2d'), {{
-      data: {{
-        labels: labels,
-        datasets: [
-          {{ type: 'bar', label: '영업이익 YoY%', data: OP, backgroundColor: COL, borderRadius: 4, maxBarThickness: 36, order: 2, yAxisID: 'y1' }},
-          {{ type: 'line', label: '시가총액', data: MC, borderColor: '#eb6834', backgroundColor: 'rgba(235,104,52,0.08)', borderWidth: 2, pointRadius: 2, fill: true, spanGaps: false, tension: 0.15, order: 1, yAxisID: 'y' }},
-        ]
-      }},
-      options: {{
-        responsive: true, maintainAspectRatio: false,
-        plugins: {{
-          legend: {{ display: false }},
-          tooltip: {{ mode: 'index', intersect: false, filter: (c) => c.parsed.y != null, callbacks: {{ label: (c) => c.dataset.yAxisID === 'y' ? c.dataset.label + ': ' + c.parsed.y.toLocaleString() + '조원' : c.dataset.label + ': ' + (c.parsed.y >= 0 ? '+' : '') + c.parsed.y.toFixed(1) + '%' }} }}
-        }},
-        scales: {{
-          x: {{ grid: {{ display: false }}, ticks: {{ color: '#9aa0a6', maxTicksLimit: 14, maxRotation: 45 }} }},
-          y: {{ position: 'left', grid: {{ color: '#23262e' }}, ticks: {{ color: '#eb6834', callback: (v) => v.toLocaleString() + '조' }} }},
-          y1: {{ position: 'right', grid: {{ display: false }}, ticks: {{ color: '#2a78d6', callback: (v) => v + '%' }} }},
-        }},
-        interaction: {{ mode: 'index', intersect: false }}
-      }}
-    }});
+    document.getElementById('detailBody').innerHTML = d.quarters.slice().reverse().map(q => `
+      <tr>
+        <td style="text-align:left;">${{fmtPeriod(q.period)}}${{q.is_estimate ? '<span class="est-badge">추정</span>' : ''}}</td>
+        <td>${{q.op_100mil.toLocaleString()}}억</td>
+        <td>${{pctSpan(q.yoy)}}</td>
+      </tr>`).join('');
     document.getElementById('overlay').classList.add('open');
   }});
 }}
