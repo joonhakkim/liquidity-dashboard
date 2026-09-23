@@ -61,6 +61,7 @@ CORE_STEPS = [
     ("build_op_band.py", "OP밴드 트래커 빌드(data/manual/*기업*밴드*.xlsx 기반, 영업이익 x N배 밴드)"),
     ("build_op_band_v2.py", "OP밴드 v2 시험 빌드(12개월 선행 보간 분모 + 최근3년 하위퍼센타일 바텀)"),
     ("build_estimate_revision.py", "이익추정치 상향 트래커 빌드(FY1/FY2 컨센서스 1일·1주·1개월 변화율)"),
+    ("build_yoy_accel_tracker.py", "YoY 가속화 트래커 빌드(data/manual/*QoQ*.xlsx 기반, 분기 영업이익 YoY 및 가속도)"),
     ("build_risk_signals.py", "조정 경고 신호 페이지 빌드(유동성 지표 + 돌파종목수 조합, 지표별 개별 발동 표시)"),
     ("build_tv_signal.py", "거래대금 신호 페이지 빌드(파동별 거래대금 고점 하락 + 가격 신고점 탐지)"),
     ("verify_prices_vs_krx.py", "MP 트래커 가격 시계열을 KRX 공식 정규장 종가와 주기적으로 대조(자동 수정 없음, 로그만)"),
