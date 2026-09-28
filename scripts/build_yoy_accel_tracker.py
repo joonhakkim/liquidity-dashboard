@@ -422,7 +422,7 @@ TEMPLATE = """<!doctype html>
 
   <div class="cmp-bar" id="cmpBar">
     <span id="cmpLabel"></span>
-    <button id="cmpBtn">비교하기</button>
+    <button id="cmpBtn">선택한 종목만 보기</button>
     <button id="cmpClearBtn">선택 초기화</button>
   </div>
 
@@ -450,14 +450,6 @@ TEMPLATE = """<!doctype html>
     </div>
   </div>
 
-  <div class="overlay" id="cmpOverlay">
-    <div class="modal">
-      <button class="close-btn" id="cmpCloseBtn">&times;</button>
-      <h2>종목 비교(분기별 영업이익 YoY%)</h2>
-      <div class="legend" id="cmpLegend"></div>
-      <div class="chart-wrap"><canvas id="cmpChart"></canvas></div>
-    </div>
-  </div>
 
 <script>
 const ROWS = {rows_json};
@@ -535,6 +527,7 @@ document.getElementById('headRow').innerHTML = '<th></th><th class="lbl">종목�
 const MAX_COMPARE = 5;
 const selectedCodes = new Set();
 const ROWS_BY_CODE = Object.fromEntries(ROWS.map(r => [r.code, r]));
+let onlySelected = false;
 
 function updateCmpBar() {{
   const bar = document.getElementById('cmpBar');
@@ -542,7 +535,9 @@ function updateCmpBar() {{
   bar.classList.toggle('show', n > 0);
   document.getElementById('cmpLabel').textContent = `${{n}}/${{MAX_COMPARE}} 선택됨` +
     (n > 0 ? ': ' + [...selectedCodes].map(c => ROWS_BY_CODE[c].name).join(', ') : '');
-  document.getElementById('cmpBtn').disabled = n < 2;
+  document.getElementById('cmpBtn').disabled = n < 1;
+  document.getElementById('cmpBtn').textContent = onlySelected ? '전체 다시 보기' : '선택한 종목만 보기';
+  if (n === 0) onlySelected = false;
 }}
 
 function applyFilters() {{
@@ -556,6 +551,7 @@ function applyFilters() {{
   const sort = document.getElementById('fSort').value;
 
   let rows = ROWS.filter(r => {{
+    if (onlySelected) return selectedCodes.has(r.code);
     if (q && !(r.name.toLowerCase().includes(q) || r.code.toLowerCase().includes(q))) return false;
     if (sec && r.sector !== sec) return false;
     if (!isNaN(yoyMin) && (r.latest_yoy == null || r.latest_yoy < yoyMin)) return false;
@@ -660,51 +656,19 @@ document.getElementById('overlay').addEventListener('click', e => {{
   if (e.target.id === 'overlay') document.getElementById('overlay').classList.remove('open');
 }});
 
-// 종목 비교 차트 - 절대금액(시가총액)은 회사 규모가 달라서 직접 비교가 안 되므로,
-// 규모와 무관하게 비교 가능한 분기별 영업이익 YoY%만 선끼리 겹쳐서 보여준다.
-const CMP_COLORS = ['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4'];
-let cmpChart = null;
-function openCompare() {{
-  const codes = [...selectedCodes];
-  document.getElementById('cmpLegend').innerHTML = codes.map((c, i) => `
-    <span><span class="sw" style="background:${{CMP_COLORS[i]}}"></span>${{ROWS_BY_CODE[c].name}}</span>`).join('');
-  const datasets = codes.map((c, i) => {{
-    const r = ROWS_BY_CODE[c];
-    return {{
-      label: r.name,
-      data: PERIODS.map(p => r.yoy_by_period[p] ?? null),
-      borderColor: CMP_COLORS[i], backgroundColor: CMP_COLORS[i],
-      borderWidth: 2, pointRadius: 3, spanGaps: false, tension: 0.1,
-    }};
-  }});
-  if (cmpChart) cmpChart.destroy();
-  cmpChart = new Chart(document.getElementById('cmpChart').getContext('2d'), {{
-    type: 'line',
-    data: {{ labels: PERIODS.map(p => fmtPeriodShort(parseInt(p))), datasets }},
-    options: {{
-      responsive: true, maintainAspectRatio: false,
-      plugins: {{
-        legend: {{ display: false }},
-        tooltip: {{ mode: 'index', intersect: false, filter: (c) => c.parsed.y != null, callbacks: {{ label: (c) => c.dataset.label + ': ' + (c.parsed.y >= 0 ? '+' : '') + c.parsed.y.toFixed(1) + '%' }} }}
-      }},
-      scales: {{
-        x: {{ grid: {{ display: false }}, ticks: {{ color: '#9aa0a6' }} }},
-        y: {{ grid: {{ color: '#23262e' }}, ticks: {{ color: '#9aa0a6', callback: (v) => v + '%' }} }},
-      }},
-      interaction: {{ mode: 'index', intersect: false }}
-    }}
-  }});
-  document.getElementById('cmpOverlay').classList.add('open');
-}}
-document.getElementById('cmpBtn').addEventListener('click', openCompare);
-document.getElementById('cmpClearBtn').addEventListener('click', () => {{
-  selectedCodes.clear();
+// 비교는 별도 차트 팝업 대신 표 자체를 선택한 종목으로만 좁혀서 보여준다(2026-09-28
+// 사용자 요청 - "차트로 비교창 안띄어도되고 그냥 선택한 기업만 남게"). 히트맵/가속도 등
+// 기존 컬럼을 그대로 나란히 볼 수 있어서 차트보다 오히려 비교가 더 잘 된다.
+document.getElementById('cmpBtn').addEventListener('click', () => {{
+  onlySelected = !onlySelected;
   updateCmpBar();
   applyFilters();
 }});
-document.getElementById('cmpCloseBtn').addEventListener('click', () => document.getElementById('cmpOverlay').classList.remove('open'));
-document.getElementById('cmpOverlay').addEventListener('click', e => {{
-  if (e.target.id === 'cmpOverlay') document.getElementById('cmpOverlay').classList.remove('open');
+document.getElementById('cmpClearBtn').addEventListener('click', () => {{
+  selectedCodes.clear();
+  onlySelected = false;
+  updateCmpBar();
+  applyFilters();
 }});
 
 applyFilters();
