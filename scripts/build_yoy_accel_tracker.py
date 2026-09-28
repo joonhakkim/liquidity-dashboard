@@ -362,6 +362,11 @@ TEMPLATE = """<!doctype html>
   .est-badge {{ display:inline-block; background:#a9c8ec33; color:#4dabf7; border:1px solid #4dabf7; border-radius:4px; font-size:10px; padding:1px 4px; margin-left:5px; }}
   .sub {{ color:#6b7280; font-size:11px; }}
   .count {{ color:#63e6be; font-size:12px; margin-bottom:8px; }}
+  .cmp-bar {{ display:none; align-items:center; gap:12px; background:#1a1d24; border:1px solid #2a2e37; border-radius:8px; padding:8px 14px; margin-bottom:10px; font-size:13px; color:#9aa0a6; }}
+  .cmp-bar.show {{ display:flex; }}
+  .cmp-bar button {{ background:#1a1d24; border:1px solid #4dabf7; color:#4dabf7; border-radius:6px; padding:5px 12px; cursor:pointer; font-size:12px; font-family:inherit; }}
+  .cmp-bar button:disabled {{ opacity:0.4; cursor:not-allowed; }}
+  .cmp-chk {{ cursor:pointer; }}
   tbody tr {{ cursor:pointer; }}
   tbody tr:hover {{ background:#1a1d24; }}
   .overlay {{ display:none; position:fixed; inset:0; background:rgba(0,0,0,0.75); z-index:200; overflow:auto; padding:40px 20px; }}
@@ -415,6 +420,12 @@ TEMPLATE = """<!doctype html>
   </div>
   <div class="count" id="count"></div>
 
+  <div class="cmp-bar" id="cmpBar">
+    <span id="cmpLabel"></span>
+    <button id="cmpBtn">비교하기</button>
+    <button id="cmpClearBtn">선택 초기화</button>
+  </div>
+
   <div class="table-wrap">
   <table>
     <thead><tr id="headRow"></tr></thead>
@@ -436,6 +447,15 @@ TEMPLATE = """<!doctype html>
         <thead><tr><th style="text-align:left;">시기</th><th>영업이익(억원)</th><th>YoY%</th></tr></thead>
         <tbody id="detailBody"></tbody>
       </table>
+    </div>
+  </div>
+
+  <div class="overlay" id="cmpOverlay">
+    <div class="modal">
+      <button class="close-btn" id="cmpCloseBtn">&times;</button>
+      <h2>종목 비교(분기별 영업이익 YoY%)</h2>
+      <div class="legend" id="cmpLegend"></div>
+      <div class="chart-wrap"><canvas id="cmpChart"></canvas></div>
     </div>
   </div>
 
@@ -506,9 +526,24 @@ function heatCell(r, period) {{
   return `<td class="hm ${{cls}}">${{Math.round(v)}}%</td>`;
 }}
 
-document.getElementById('headRow').innerHTML = '<th class="lbl">종목명</th>'
+document.getElementById('headRow').innerHTML = '<th></th><th class="lbl">종목명</th>'
   + PERIODS.map(p => `<th>${{fmtPeriodShort(parseInt(p))}}</th>`).join('')
   + '<th>시가총액</th><th>가속도(%p)</th><th>세자리 유지</th><th>가속화 유지</th><th class="lbl">코드</th><th class="lbl">섹터</th>';
+
+// 종목끼리 비교(2026-09-28 사용자 요청 "5개까지 선택해서 볼 수 있게") - 체크한 코드 집합을
+// 필터/정렬이 바뀌어도(재검색 등) 유지한다.
+const MAX_COMPARE = 5;
+const selectedCodes = new Set();
+const ROWS_BY_CODE = Object.fromEntries(ROWS.map(r => [r.code, r]));
+
+function updateCmpBar() {{
+  const bar = document.getElementById('cmpBar');
+  const n = selectedCodes.size;
+  bar.classList.toggle('show', n > 0);
+  document.getElementById('cmpLabel').textContent = `${{n}}/${{MAX_COMPARE}} 선택됨` +
+    (n > 0 ? ': ' + [...selectedCodes].map(c => ROWS_BY_CODE[c].name).join(', ') : '');
+  document.getElementById('cmpBtn').disabled = n < 2;
+}}
 
 function applyFilters() {{
   const q = document.getElementById('fSearch').value.trim().toLowerCase();
@@ -537,9 +572,13 @@ function applyFilters() {{
   else if (sort === 'accel_streak_desc') rows.sort((a, b) => b.accel_streak - a.accel_streak);
   else rows.sort((a, b) => (b.latest_mktcap ?? 0) - (a.latest_mktcap ?? 0));
 
-  document.getElementById('count').textContent = rows.length + '종목 (행 클릭하면 표)';
-  document.getElementById('tbody').innerHTML = rows.slice(0, 400).map(r => `
+  document.getElementById('count').textContent = rows.length + '종목 (행 클릭하면 표, 왼쪽 체크박스로 최대 ' + MAX_COMPARE + '개 비교)';
+  document.getElementById('tbody').innerHTML = rows.slice(0, 400).map(r => {{
+    const checked = selectedCodes.has(r.code);
+    const disabled = !checked && selectedCodes.size >= MAX_COMPARE;
+    return `
     <tr data-code="${{r.code}}">
+      <td><input type="checkbox" class="cmp-chk" data-code="${{r.code}}" ${{checked ? 'checked' : ''}} ${{disabled ? 'disabled' : ''}}></td>
       <td class="lbl">${{r.name}}</td>
       ${{PERIODS.map(p => heatCell(r, p)).join('')}}
       <td>${{fmtMktcap(r.latest_mktcap)}}</td>
@@ -547,9 +586,28 @@ function applyFilters() {{
       <td class="sub">${{r.triple_digit_streak > 0 ? r.triple_digit_streak + '분기' : '-'}}</td>
       <td class="sub">${{r.accel_streak > 0 ? r.accel_streak + '분기' : '-'}}</td>
       <td class="lbl sub">${{r.code}}</td><td class="lbl sub">${{r.sector || '-'}}</td>
-    </tr>`).join('');
+    </tr>`;
+  }}).join('');
   document.querySelectorAll('#tbody tr').forEach(tr =>
-    tr.addEventListener('click', () => openDetail(tr.dataset.code)));
+    tr.addEventListener('click', (e) => {{
+      if (e.target.classList.contains('cmp-chk')) return;
+      openDetail(tr.dataset.code);
+    }}));
+  document.querySelectorAll('.cmp-chk').forEach(chk =>
+    chk.addEventListener('click', (e) => e.stopPropagation()));
+  document.querySelectorAll('.cmp-chk').forEach(chk =>
+    chk.addEventListener('change', (e) => {{
+      const code = e.target.dataset.code;
+      if (e.target.checked) {{
+        if (selectedCodes.size >= MAX_COMPARE) {{ e.target.checked = false; return; }}
+        selectedCodes.add(code);
+      }} else {{
+        selectedCodes.delete(code);
+      }}
+      updateCmpBar();
+      applyFilters();
+    }}));
+  updateCmpBar();
 }}
 
 ['fSearch','fSector','fYoyMin','fMktcapMin','fAccelOnly','fTripleOnly','fAccelStreakOnly','fSort'].forEach(id => {{
@@ -600,6 +658,53 @@ function openDetail(code) {{
 document.getElementById('closeBtn').addEventListener('click', () => document.getElementById('overlay').classList.remove('open'));
 document.getElementById('overlay').addEventListener('click', e => {{
   if (e.target.id === 'overlay') document.getElementById('overlay').classList.remove('open');
+}});
+
+// 종목 비교 차트 - 절대금액(시가총액)은 회사 규모가 달라서 직접 비교가 안 되므로,
+// 규모와 무관하게 비교 가능한 분기별 영업이익 YoY%만 선끼리 겹쳐서 보여준다.
+const CMP_COLORS = ['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4'];
+let cmpChart = null;
+function openCompare() {{
+  const codes = [...selectedCodes];
+  document.getElementById('cmpLegend').innerHTML = codes.map((c, i) => `
+    <span><span class="sw" style="background:${{CMP_COLORS[i]}}"></span>${{ROWS_BY_CODE[c].name}}</span>`).join('');
+  const datasets = codes.map((c, i) => {{
+    const r = ROWS_BY_CODE[c];
+    return {{
+      label: r.name,
+      data: PERIODS.map(p => r.yoy_by_period[p] ?? null),
+      borderColor: CMP_COLORS[i], backgroundColor: CMP_COLORS[i],
+      borderWidth: 2, pointRadius: 3, spanGaps: false, tension: 0.1,
+    }};
+  }});
+  if (cmpChart) cmpChart.destroy();
+  cmpChart = new Chart(document.getElementById('cmpChart').getContext('2d'), {{
+    type: 'line',
+    data: {{ labels: PERIODS.map(p => fmtPeriodShort(parseInt(p))), datasets }},
+    options: {{
+      responsive: true, maintainAspectRatio: false,
+      plugins: {{
+        legend: {{ display: false }},
+        tooltip: {{ mode: 'index', intersect: false, filter: (c) => c.parsed.y != null, callbacks: {{ label: (c) => c.dataset.label + ': ' + (c.parsed.y >= 0 ? '+' : '') + c.parsed.y.toFixed(1) + '%' }} }}
+      }},
+      scales: {{
+        x: {{ grid: {{ display: false }}, ticks: {{ color: '#9aa0a6' }} }},
+        y: {{ grid: {{ color: '#23262e' }}, ticks: {{ color: '#9aa0a6', callback: (v) => v + '%' }} }},
+      }},
+      interaction: {{ mode: 'index', intersect: false }}
+    }}
+  }});
+  document.getElementById('cmpOverlay').classList.add('open');
+}}
+document.getElementById('cmpBtn').addEventListener('click', openCompare);
+document.getElementById('cmpClearBtn').addEventListener('click', () => {{
+  selectedCodes.clear();
+  updateCmpBar();
+  applyFilters();
+}});
+document.getElementById('cmpCloseBtn').addEventListener('click', () => document.getElementById('cmpOverlay').classList.remove('open'));
+document.getElementById('cmpOverlay').addEventListener('click', e => {{
+  if (e.target.id === 'cmpOverlay') document.getElementById('cmpOverlay').classList.remove('open');
 }});
 
 applyFilters();
