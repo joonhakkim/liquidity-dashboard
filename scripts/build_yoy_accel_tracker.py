@@ -205,12 +205,21 @@ def build_row_and_detail(code, data, sector_map, naver_sector_map):
         accel_streak += 1
         i -= 1
 
-    # 가속도(%p) = 최신 분기 YoY% - 전분기 YoY%(2026-09-28 사용자 확정 - OP 절대금액/비율
-    # 기반으로 바꿨다가 "그냥 영업이익 계산 말고 %P로 계산해주라"고 원래 방식으로 되돌림).
-    # 둘 다 실제 YoY 숫자가 있어야 계산되고(흑전/적전/적자로 라벨만 있는 분기는 숫자가
-    # 없으므로 그 경우 None - 지어내지 않는다), 전분기가 latest_i 바로 앞 분기가 아니면
-    # (연속이 아니면) 비교 자체가 성립하지 않으니 그때도 None.
-    accel = round(latest_yoy - prev_yoy, 1) if latest_yoy is not None and prev_yoy is not None else None
+    # 가속도(%p) = (확정 실적 분기의 2분기 뒤 추정치 YoY%) - (확정 실적 분기의 YoY%)
+    # (2026-09-28 사용자 정정 - "2분기 뒤인 26년 4분기 추정치 YoY - 확정된 수치 26년 2분기
+    # 수치 YoY = 가속도로 했어??" - 이전엔 latest_i를 "YoY가 있는 가장 마지막 분기"로 잡아서
+    # 그냥 바로 전분기와 비교했는데, latest_i가 이미 먼 미래 추정 분기(예: 27Q4)일 수 있어서
+    # "확정 실적 대비 2분기 뒤"라는 의도와 안 맞았다. is_estimate=False인 가장 최근 분기를
+    # 기준(base)으로 잡고, 그 2분기 뒤(target)의 YoY와 비교한다. 둘 다 실제 숫자가 있어야
+    # 계산되고(흑전/적전/적자 라벨만 있으면 None - 지어내지 않는다), 2분기 뒤 데이터 자체가
+    # 없으면(시계열이 짧은 종목) 그때도 None.
+    latest_actual_i = next((i for i in range(len(quarters) - 1, -1, -1) if not quarters[i]["is_estimate"]), None)
+    accel = None
+    if latest_actual_i is not None and latest_actual_i + 2 < len(quarters):
+        base_yoy = yoy[latest_actual_i]
+        target_yoy = yoy[latest_actual_i + 2]
+        if base_yoy is not None and target_yoy is not None:
+            accel = round(target_yoy - base_yoy, 1)
 
     # 요약표에 분기별 YoY를 한 줄로 쭉 나열해서 보여주기 위한 맵(2026-09-28 사용자 요청 -
     # "각 분기별 YoY를 넣어주고 그게 양수면 초록색칸, 음수면 빨간색칸으로, 흑전/적전은
@@ -377,9 +386,9 @@ TEMPLATE = """<!doctype html>
 
   <div class="exp">
     <b>무엇을 보는 페이지인가</b><br>
-    기본 정렬은 <b>가속도(%p) = 최신 분기 YoY% − 전분기 YoY%</b> 큰순입니다 - YoY 증가율
-    자체가 전분기보다 더 가속되고 있는지를 봅니다(2026-09-28, OP 절대금액/비율 기준으로
-    바꿔봤다가 "그냥 영업이익 계산 말고 %P로 계산해주라"고 원래 방식으로 확정).
+    기본 정렬은 <b>가속도(%p) = (확정 실적 분기의 2분기 뒤 컨센서스 분기 YoY%) − (그 확정
+    실적 분기의 YoY%)</b> 큰순입니다 - 예를 들어 26년 2분기가 가장 최근 확정 실적이면
+    26년 4분기(추정) YoY%에서 26년 2분기 YoY%를 뺀 값입니다(2026-09-28 확정).
     그 외에 분기별 영업이익(실적+애널리스트 컨센서스 추정치)의 <b>전년동기대비(YoY) 증감률</b>도
     표에 바로 색칠된 칸으로 나열됩니다 - <b>밝은 초록=추정 양수, 어두운 초록=실적 양수, 밝은
     빨강=추정 음수, 어두운 빨강=실적 음수</b>(양수는 그 안에서도 값이 클수록 더 진하게).
