@@ -182,23 +182,36 @@ def build_row_and_detail(code, data, sector_map, naver_sector_map):
         accel_streak += 1
         i -= 1
 
-    # 가속도 = "2분기 뒤 추정치 - 가장 최근에 확정된 실적"(억원, 2026-09-28 사용자 확정 -
-    # 처음엔 YoY%끼리의 전분기 대비 증감(%p)으로 했었는데 "그렇게 하지말고 확정된 OP 기준
-    # 2분기 뒤 추정치와의 차이로 하자"고 정정함). YoY(비율)와 달리 절대 금액(억원) 차이라
-    # 부호 문제가 없어서 라벨 없이 그냥 뺄셈으로 계산한다. "확정된 실적"은 컨센서스 추정
-    # (E121500.M)이 아니라 실제 발표된 실적(M121500.M)이어야 하므로, is_estimate=False인
-    # 가장 최근 분기를 기준으로 잡는다.
+    # 가속도 = "2분기 뒤 추정치가 가장 최근 확정 실적 대비 몇 % 늘거나 줄지"(2026-09-28
+    # 사용자 확정 - 처음엔 YoY%끼리의 전분기 대비 증감(%p)이었다가 확정 실적 기준 절대금액
+    # (억원) 차이로 바꿨었는데, "가속도를 %로 해야지"라고 다시 정정함). "확정된 실적"은
+    # 컨센서스 추정(E121500.M)이 아니라 실제 발표된 실적(M121500.M)이어야 하므로,
+    # is_estimate=False인 가장 최근 분기를 기준으로 잡는다. 비율이라 YoY와 같은 원칙으로
+    # 부호가 섞이거나(흑자<->적자 전환) 둘 다 적자(적자 지속)면 숫자 대신 라벨(흑전/적전/
+    # 적자)을 붙인다 - 절대금액(억원)도 참고용으로 같이 들고 있는다.
     latest_actual_i = next((i for i in range(len(quarters) - 1, -1, -1) if not quarters[i]["is_estimate"]), None)
+    accel2_pct = None
+    accel2_label = None
     accel2_100mil = None
     accel2_base_period = accel2_target_period = None
     accel2_target_is_estimate = None
     if latest_actual_i is not None and latest_actual_i + 2 < len(quarters):
         base_q = quarters[latest_actual_i]
         target_q = quarters[latest_actual_i + 2]
-        accel2_100mil = round((target_q["op_won"] - base_q["op_won"]) / 1e8, 1)
+        base_op, target_op = base_q["op_won"], target_q["op_won"]
+        accel2_100mil = round((target_op - base_op) / 1e8, 1)
         accel2_base_period = base_q["period"]
         accel2_target_period = target_q["period"]
         accel2_target_is_estimate = target_q["is_estimate"]
+        if base_op != 0 and target_op != 0:
+            if base_op > 0 and target_op > 0:
+                accel2_pct = round((target_op / base_op - 1) * 100, 1)
+            elif base_op < 0 and target_op > 0:
+                accel2_label = "흑전"
+            elif base_op > 0 and target_op < 0:
+                accel2_label = "적전"
+            else:
+                accel2_label = "적자"
 
     # 요약표에 분기별 YoY를 한 줄로 쭉 나열해서 보여주기 위한 맵(2026-09-28 사용자 요청 -
     # "각 분기별 YoY를 넣어주고 그게 양수면 초록색칸, 음수면 빨간색칸으로, 흑전/적전은
@@ -216,6 +229,7 @@ def build_row_and_detail(code, data, sector_map, naver_sector_map):
         "latest_yoy": latest_yoy, "latest_label": latest_label, "prev_yoy": prev_yoy,
         "n_quarters": len(quarters), "triple_digit_streak": triple_digit_streak,
         "accel_streak": accel_streak,
+        "accel2_pct": accel2_pct, "accel2_label": accel2_label,
         "accel2_100mil": accel2_100mil, "accel2_base_period": accel2_base_period,
         "accel2_target_period": accel2_target_period, "accel2_target_is_estimate": accel2_target_is_estimate,
         "yoy_by_period": yoy_by_period, "label_by_period": label_by_period, "est_by_period": est_by_period,
@@ -333,10 +347,12 @@ TEMPLATE = """<!doctype html>
 
   <div class="exp">
     <b>무엇을 보는 페이지인가</b><br>
-    기본 정렬은 <b>가속도 = (가장 최근 확정 실적 분기의 2분기 뒤 컨센서스 영업이익) − (가장
-    최근 확정 실적)</b>(억원) 큰순입니다 - 지금 막 확정된 실적 대비 컨센서스가 2분기 앞을
-    얼마나 더 좋게(또는 나쁘게) 보고 있는지를 절대금액으로 봅니다(2026-09-28 확정 - 처음엔
-    YoY끼리의 전분기 대비 증감률(%p)로 했었는데, 확정 실적 기준 절대금액 비교로 바꿨습니다).
+    기본 정렬은 <b>가속도 = (가장 최근 확정 실적 분기의 2분기 뒤 컨센서스 영업이익) ÷ (가장
+    최근 확정 실적) − 1</b>(%) 큰순입니다 - 지금 막 확정된 실적 대비 컨센서스가 2분기 앞을
+    비율로 얼마나 더 좋게(또는 나쁘게) 보고 있는지를 봅니다(2026-09-28 확정 - YoY%끼리의
+    전분기 대비 증감(%p) → 확정실적 기준 절대금액(억원) → 확정실적 기준 비율(%) 순으로
+    정정). YoY와 같은 원칙으로 적자/흑자가 뒤바뀌거나 둘 다 적자면 비율 대신 흑전/적전/적자
+    라벨로 표시합니다.
     그 외에 분기별 영업이익(실적+애널리스트 컨센서스 추정치)의 <b>전년동기대비(YoY) 증감률</b>도
     표에 바로 색칠된 칸으로 나열됩니다 - <b>진한 초록=실적 양수, 연한 초록=추정 양수, 진한
     빨강=실적 음수, 연한 빨강=추정 음수</b>. 종목명을 클릭하면 분기별 시기/영업이익/YoY% 표를
@@ -353,7 +369,7 @@ TEMPLATE = """<!doctype html>
     <label><input type="checkbox" id="fAccelStreakOnly"> 가속화 3분기 이상 유지(전분기 대비 YoY 계속 상승)</label>
     <label>시총 최소(억) <input type="number" id="fMktcapMin" step="100"></label>
     <label>정렬 <select id="fSort">
-      <option value="accel2_desc" selected>가속도(2Q뒤 추정-확정실적, 억원) 큰순</option>
+      <option value="accel2_desc" selected>가속도(2Q뒤 추정 vs 확정실적, %) 큰순</option>
       <option value="yoy_desc">최신 YoY% 큰순</option>
       <option value="streak_desc">세자리 유지 분기수 큰순</option>
       <option value="accel_streak_desc">가속화 유지 분기수 큰순</option>
@@ -412,13 +428,24 @@ function pctOrLabelSpan(v, lbl) {{
   if (lbl != null) return `<span class="${{lbl === '흑전' ? 'up' : 'down'}}">${{lbl}}</span>`;
   return pctSpan(v);
 }}
+function accel2SortVal(r) {{
+  // 흑전(적자->흑자)은 숫자 비율이 없지만 가장 좋은 케이스니 맨 위로, 적전/적자(흑자->적자,
+  // 적자 지속)는 어떤 음수 %보다도 아래로 보낸다 - 정렬용 임의 큰/작은 값.
+  if (r.accel2_label === '흑전') return 1e9;
+  if (r.accel2_label != null) return -1e9;
+  return r.accel2_pct ?? -9e9;
+}}
 function fmtAccel2(r) {{
-  if (r.accel2_100mil == null) return '<span class="sub">-</span>';
-  const v = r.accel2_100mil;
+  const est = r.accel2_target_is_estimate ? '<span class="est-badge">추정</span>' : '';
+  if (r.accel2_label != null) {{
+    const cls = r.accel2_label === '흑전' ? 'up' : 'down';
+    return `<span class="${{cls}}">${{r.accel2_label}}</span>${{est}}`;
+  }}
+  if (r.accel2_pct == null) return '<span class="sub">-</span>';
+  const v = r.accel2_pct;
   const cls = v > 0 ? 'up' : v < 0 ? 'down' : '';
   const sign = v > 0 ? '+' : '';
-  const est = r.accel2_target_is_estimate ? '<span class="est-badge">추정</span>' : '';
-  return `<span class="${{cls}}">${{sign}}${{v.toLocaleString()}}억</span>${{est}}`;
+  return `<span class="${{cls}}">${{sign}}${{v.toFixed(1)}}%</span>${{est}}`;
 }}
 function heatCell(r, period) {{
   const v = r.yoy_by_period[period];
@@ -435,7 +462,7 @@ function heatCell(r, period) {{
   return `<td class="hm ${{cls}}">${{Math.round(v)}}%</td>`;
 }}
 
-document.getElementById('headRow').innerHTML = '<th class="lbl">종목명</th><th>가속도(2Q뒤-확정실적)</th>'
+document.getElementById('headRow').innerHTML = '<th class="lbl">종목명</th><th>가속도(2Q뒤 vs 확정실적, %)</th>'
   + PERIODS.map(p => `<th>${{fmtPeriodShort(parseInt(p))}}</th>`).join('')
   + '<th>시가총액</th><th>세자리 유지</th><th>가속화 유지</th><th class="lbl">코드</th><th class="lbl">섹터</th>';
 
@@ -454,13 +481,16 @@ function applyFilters() {{
     if (sec && r.sector !== sec) return false;
     if (!isNaN(yoyMin) && (r.latest_yoy == null || r.latest_yoy < yoyMin)) return false;
     if (!isNaN(mktcapMin) && (r.latest_mktcap == null || r.latest_mktcap / 1e8 < mktcapMin)) return false;
-    if (accelOnly && (r.accel2_100mil == null || r.accel2_100mil <= 0)) return false;
+    if (accelOnly) {{
+      const isAccelerating = r.accel2_label === '흑전' || (r.accel2_label == null && r.accel2_pct != null && r.accel2_pct > 0);
+      if (!isAccelerating) return false;
+    }}
     if (tripleOnly && r.triple_digit_streak < 3) return false;
     if (accelStreakOnly && r.accel_streak < 3) return false;
     return true;
   }});
 
-  if (sort === 'accel2_desc') rows.sort((a, b) => (b.accel2_100mil ?? -9e9) - (a.accel2_100mil ?? -9e9));
+  if (sort === 'accel2_desc') rows.sort((a, b) => accel2SortVal(b) - accel2SortVal(a));
   else if (sort === 'yoy_desc') rows.sort((a, b) => (b.latest_yoy ?? -9e9) - (a.latest_yoy ?? -9e9));
   else if (sort === 'streak_desc') rows.sort((a, b) => b.triple_digit_streak - a.triple_digit_streak);
   else if (sort === 'accel_streak_desc') rows.sort((a, b) => b.accel_streak - a.accel_streak);
