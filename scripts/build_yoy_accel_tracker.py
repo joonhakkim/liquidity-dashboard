@@ -294,10 +294,10 @@ TEMPLATE = """<!doctype html>
   .up {{ color:#63e6be; }}
   .down {{ color:#ff8787; }}
   td.hm {{ padding:4px 6px; text-align:center; font-size:11px; }}
-  .hm-pos {{ background:#1e6b46; color:#d4f7e6; border-radius:4px; }}
-  .hm-pos-est {{ background:#1e6b4655; color:#8fd9b8; border-radius:4px; }}
-  .hm-neg {{ background:#8a2f2f; color:#ffe0e0; border-radius:4px; }}
-  .hm-neg-est {{ background:#8a2f2f55; color:#f0b3b3; border-radius:4px; }}
+  .hm-pos {{ background:#1e6b4655; color:#8fd9b8; border-radius:4px; }}
+  .hm-pos-est {{ background:#1e6b46; color:#d4f7e6; border-radius:4px; }}
+  .hm-neg {{ background:#8a2f2f55; color:#f0b3b3; border-radius:4px; }}
+  .hm-neg-est {{ background:#8a2f2f; color:#ffe0e0; border-radius:4px; }}
   .hm-empty {{ color:#3a3d45; }}
   .est-badge {{ display:inline-block; background:#a9c8ec33; color:#4dabf7; border:1px solid #4dabf7; border-radius:4px; font-size:10px; padding:1px 4px; margin-left:5px; }}
   .sub {{ color:#6b7280; font-size:11px; }}
@@ -324,8 +324,9 @@ TEMPLATE = """<!doctype html>
     자체가 전분기보다 더 가속되고 있는지를 봅니다(2026-09-28, OP 절대금액/비율 기준으로
     바꿔봤다가 "그냥 영업이익 계산 말고 %P로 계산해주라"고 원래 방식으로 확정).
     그 외에 분기별 영업이익(실적+애널리스트 컨센서스 추정치)의 <b>전년동기대비(YoY) 증감률</b>도
-    표에 바로 색칠된 칸으로 나열됩니다 - <b>진한 초록=실적 양수, 연한 초록=추정 양수, 진한
-    빨강=실적 음수, 연한 빨강=추정 음수</b>. 종목명을 클릭하면 분기별 시기/영업이익/YoY% 표를
+    표에 바로 색칠된 칸으로 나열됩니다 - <b>밝은 초록=추정 양수, 어두운 초록=실적 양수, 밝은
+    빨강=추정 음수, 어두운 빨강=실적 음수</b>(양수는 그 안에서도 값이 클수록 더 진하게).
+    종목명을 클릭하면 분기별 시기/영업이익/YoY% 표를
     볼 수 있습니다. 적자/흑자가 뒤바뀌는 구간은 YoY%가 왜곡되므로 계산하지 않습니다(빈 칸).
     FnGuide 컨센서스(추정치)가 하나도 없는 종목은 애초에 포함하지 않습니다.
   </div>
@@ -400,13 +401,14 @@ function pctOrLabelSpan(v, lbl) {{
 }}
 // 양수 YoY는 값이 클수록 초록이 진하게, 작을수록 연하게(2026-09-28 사용자 요청 - "숫자가
 // 크면 진하고, 작아지면 연해지는 느낌으로"). 값 범위가 0%~수만%까지 걸쳐 있어서 로그
-// 스케일로 압축하고(CAP% 이상은 전부 가장 진한 색으로 포화), 추정치는 알파를 낮춰
-// "연한 초록=추정"이라는 기존 구분과 겹쳐서 유지한다.
+// 스케일로 압축하고(CAP% 이상은 전부 가장 진한 색으로 포화), 확정치(실적)는 알파를 낮춰
+// 어둡게, 추정치는 알파를 그대로 둬서 밝게(2026-09-28 사용자 요청 - "추정치가 어두워서
+// 비교하기 어려우니까 추정치 부분이 밝게 확정치가 어둡게" - 명도 스케일 자체는 그대로).
 const POS_CAP = 500;
 function posCellStyle(v, isEst) {{
   const t = Math.min(1, Math.log10(1 + Math.max(0, v)) / Math.log10(1 + POS_CAP));
   const light = Math.round(80 - t * 55);  // 80%(연함) ~ 25%(진함)
-  const alpha = isEst ? 0.55 : 1;
+  const alpha = isEst ? 1 : 0.55;
   const textColor = light < 50 ? '#eafff5' : '#0b3d24';
   return `background:hsla(150, 55%, ${{light}}%, ${{alpha}}); color:${{textColor}}; border-radius:4px;`;
 }}
