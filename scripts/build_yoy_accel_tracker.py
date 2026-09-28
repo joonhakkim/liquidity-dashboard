@@ -18,6 +18,13 @@ YYYYMM 라벨이 헤더12행에 붙어 있음)을 뽑아, 전년동기대비(YoY
 
 부호가 섞이면(적자<->흑자 전환) 단순 비율이 정반대로 오해를 부르므로(OP밴드 v2/이익추정치
 상향 트래커와 동일 원칙) 그 구간은 YoY%를 계산하지 않고 None으로 둔다.
+
+밸류에이션 등급(상/중상/중/중하/하) - "싼지 비싼지"를 OP밴드가 이미 계산해둔 "3년 하위
+10% 바텀 대비 %"(data/screening/op_band_summary.csv의 gap_3y_p10)를 기준으로 얹었다
+(2026-09-28 사용자 요청). YoY 가속화 대상 종목(이 파일의 654종목)들끼리만 5분위로
+나눈다(전체 시장 2,400여 종목 기준이 아니라 - "YoY가속화 대상으로 해보자") - gap이
+작을수록(바텀에 가깝다) "상", 클수록(바텀에서 멀다=비싸다) "하". OP밴드 자체가 없는
+종목(흑자였던 적이 없어 밴드 계산이 안 되는 등)은 등급 없음(None)으로 두고 지어내지 않는다.
 """
 import calendar
 import glob
@@ -59,6 +66,21 @@ def add_month(y, m):
         m2 = 1
         y2 += 1
     return y2, m2
+
+
+def load_op_band_gaps():
+    """OP밴드(build_op_band_v2.py)의 op_band_summary.csv에서 "3년 하위 10% 바텀 대비 %"
+    (gap_3y_p10)만 code 기준으로 뽑아온다 - 값이 작을수록(0%에 가깝거나 음수) 바텀에
+    가깝다는 뜻(저평가), 클수록 바텀에서 멀다(고평가). OP밴드 파일이 없거나 그 종목에
+    흑자 구간이 아예 없어 바텀 자체가 안 잡히면 조용히 빈 dict/결측으로 둔다."""
+    path = os.path.join(SCREEN_DIR, "op_band_summary.csv")
+    if not os.path.exists(path):
+        return {}
+    df = pd.read_csv(path, dtype={"code": str})
+    if "gap_3y_p10" not in df.columns:
+        return {}
+    df = df.dropna(subset=["gap_3y_p10"])
+    return {code: float(v) for code, v in zip(df["code"], df["gap_3y_p10"])}
 
 
 def find_workbook():
@@ -311,6 +333,26 @@ def main():
 
     print(f"결과 {len(rows)}종목(YoY 계산 가능 + 컨센서스 보유)")
 
+    # 밸류에이션 등급(상/중상/중/중하/하) - OP밴드의 "3년 하위 10% 바텀 대비 %"를 이 654종목
+    # 안에서만 5분위로 나눈다(2026-09-28 사용자 확정 - "3년 하위 10%를 기준으로 나눠보고
+    # YoY가속화 대상으로 해보자"). qcut은 동률이 몰리면 구간을 못 나눠서 에러가 나므로
+    # duplicates="drop"으로 방어 - 그러면 5개보다 적은 등급이 나올 수 있는데, 값을 억지로
+    # 우겨넣는 것보다 그게 정직하다.
+    gap_map = load_op_band_gaps()
+    for r in rows:
+        r["valuation_gap"] = gap_map.get(r["code"])
+    gap_series = pd.Series({r["code"]: r["valuation_gap"] for r in rows if r["valuation_gap"] is not None})
+    grade_labels = ["상", "중상", "중", "중하", "하"]
+    if len(gap_series) >= 5:
+        grade_cat = pd.qcut(gap_series, 5, labels=grade_labels, duplicates="drop")
+        grade_by_code = {code: (str(g) if pd.notna(g) else None) for code, g in grade_cat.items()}
+    else:
+        grade_by_code = {}
+    for r in rows:
+        r["valuation_grade"] = grade_by_code.get(r["code"])
+    n_graded = sum(1 for r in rows if r["valuation_grade"] is not None)
+    print(f"밸류에이션 등급 부여: {n_graded}/{len(rows)}종목(OP밴드 바텀 계산 가능한 종목만)")
+
     # 요약표 히트맵 열 기준(분기 축) - 실제로 YoY가 하나라도 계산된 종목이 있는 분기만
     # 모아서 쓴다(2026-09-28 사용자 요청 "분기별 YoY를 넣어주고 ... 쭉 나열").
     all_periods = sorted({p for r in rows for p in r["yoy_by_period"]} | {p for r in rows for p in r["label_by_period"]})
@@ -360,6 +402,12 @@ TEMPLATE = """<!doctype html>
   .hm-neg-est {{ background:hsl(0,45%,55%); color:#4a0f0f; border-radius:4px; }}
   .hm-empty {{ color:#3a3d45; }}
   .est-badge {{ display:inline-block; background:#a9c8ec33; color:#4dabf7; border:1px solid #4dabf7; border-radius:4px; font-size:10px; padding:1px 4px; margin-left:5px; }}
+  .grade-badge {{ display:inline-block; border-radius:4px; font-size:11px; padding:2px 7px; font-weight:bold; }}
+  .grade-상 {{ background:#1e6b4655; color:#8fd9b8; }}
+  .grade-중상 {{ background:#1e6b4630; color:#a8d9c2; }}
+  .grade-중 {{ background:#2a2e37; color:#9aa0a6; }}
+  .grade-중하 {{ background:#8a2f2f30; color:#e0b3b3; }}
+  .grade-하 {{ background:#8a2f2f55; color:#f0b3b3; }}
   .sub {{ color:#6b7280; font-size:11px; }}
   .count {{ color:#63e6be; font-size:12px; margin-bottom:8px; }}
   .cmp-bar {{ display:none; align-items:center; gap:12px; background:#1a1d24; border:1px solid #2a2e37; border-radius:8px; padding:8px 14px; margin-bottom:10px; font-size:13px; color:#9aa0a6; }}
@@ -399,7 +447,11 @@ TEMPLATE = """<!doctype html>
     빨강=추정 음수, 어두운 빨강=실적 음수</b>(양수는 그 안에서도 값이 클수록 더 진하게).
     종목명을 클릭하면 분기별 시기/영업이익/YoY% 표를
     볼 수 있습니다. 적자/흑자가 뒤바뀌는 구간은 YoY%가 왜곡되므로 계산하지 않습니다(빈 칸).
-    FnGuide 컨센서스(추정치)가 하나도 없는 종목은 애초에 포함하지 않습니다.
+    FnGuide 컨센서스(추정치)가 하나도 없는 종목은 애초에 포함하지 않습니다.<br>
+    <b>밸류에이션 등급</b>은 OP밴드에서 계산한 "3년 하위 10% 바텀 대비 %"를 이 페이지
+    대상 종목들 안에서만 5분위로 나눈 것입니다 - <b>상</b>=바텀에 가장 가까움(상대적으로
+    저평가), <b>하</b>=바텀에서 가장 멀음(상대적으로 고평가). OP밴드 자체가 없는 종목
+    (흑자였던 적이 없는 등)은 등급이 비어 있습니다(지어내지 않음).
   </div>
 
   <div class="filters">
@@ -410,12 +462,21 @@ TEMPLATE = """<!doctype html>
     <label><input type="checkbox" id="fTripleOnly"> 세자리 YoY(100%+) 3분기 이상 유지</label>
     <label><input type="checkbox" id="fAccelStreakOnly"> 가속화 3분기 이상 유지(전분기 대비 YoY 계속 상승)</label>
     <label>시총 최소(억) <input type="number" id="fMktcapMin" step="100"></label>
+    <label>밸류에이션 등급 <select id="fGrade">
+      <option value="">전체</option>
+      <option value="상">상(바텀 근접)</option>
+      <option value="중상">중상</option>
+      <option value="중">중</option>
+      <option value="중하">중하</option>
+      <option value="하">하(바텀에서 멀음)</option>
+    </select></label>
     <label>정렬 <select id="fSort">
       <option value="accel2_desc" selected>가속도(%p) 큰순</option>
       <option value="yoy_desc">최신 YoY% 큰순</option>
       <option value="streak_desc">세자리 유지 분기수 큰순</option>
       <option value="accel_streak_desc">가속화 유지 분기수 큰순</option>
       <option value="mktcap_desc">시가총액 큰순</option>
+      <option value="valuation_asc">밸류에이션(바텀 대비 %) 낮은순</option>
     </select></label>
   </div>
   <div class="count" id="count"></div>
@@ -463,6 +524,11 @@ function fmtMktcap(v) {{
   if (v == null) return '-';
   const eok = v / 1e8;
   return eok >= 10000 ? (eok / 10000).toFixed(2) + '조' : Math.round(eok).toLocaleString() + '억';
+}}
+function fmtGrade(r) {{
+  if (r.valuation_grade == null) return '<span class="sub">-</span>';
+  const gapTxt = r.valuation_gap == null ? '' : ` (${{r.valuation_gap > 0 ? '+' : ''}}${{r.valuation_gap.toFixed(0)}}%)`;
+  return `<span class="grade-badge grade-${{r.valuation_grade}}">${{r.valuation_grade}}</span><span class="sub">${{gapTxt}}</span>`;
 }}
 function fmtPeriod(p) {{
   const y = Math.floor(p / 100), m = p % 100;
@@ -520,7 +586,7 @@ function heatCell(r, period) {{
 
 document.getElementById('headRow').innerHTML = '<th></th><th class="lbl">종목명</th>'
   + PERIODS.map(p => `<th>${{fmtPeriodShort(parseInt(p))}}</th>`).join('')
-  + '<th>시가총액</th><th>가속도(%p)</th><th>세자리 유지</th><th>가속화 유지</th><th class="lbl">코드</th><th class="lbl">섹터</th>';
+  + '<th>시가총액</th><th>가속도(%p)</th><th>밸류에이션</th><th>세자리 유지</th><th>가속화 유지</th><th class="lbl">코드</th><th class="lbl">섹터</th>';
 
 // 종목끼리 비교(2026-09-28 사용자 요청 "5개까지 선택해서 볼 수 있게") - 체크한 코드 집합을
 // 필터/정렬이 바뀌어도(재검색 등) 유지한다.
@@ -548,6 +614,7 @@ function applyFilters() {{
   const accelOnly = document.getElementById('fAccelOnly').checked;
   const tripleOnly = document.getElementById('fTripleOnly').checked;
   const accelStreakOnly = document.getElementById('fAccelStreakOnly').checked;
+  const grade = document.getElementById('fGrade').value;
   const sort = document.getElementById('fSort').value;
 
   let rows = ROWS.filter(r => {{
@@ -559,6 +626,7 @@ function applyFilters() {{
     if (accelOnly && (r.accel == null || r.accel <= 0)) return false;
     if (tripleOnly && r.triple_digit_streak < 3) return false;
     if (accelStreakOnly && r.accel_streak < 3) return false;
+    if (grade && r.valuation_grade !== grade) return false;
     return true;
   }});
 
@@ -566,6 +634,7 @@ function applyFilters() {{
   else if (sort === 'yoy_desc') rows.sort((a, b) => (b.latest_yoy ?? -9e9) - (a.latest_yoy ?? -9e9));
   else if (sort === 'streak_desc') rows.sort((a, b) => b.triple_digit_streak - a.triple_digit_streak);
   else if (sort === 'accel_streak_desc') rows.sort((a, b) => b.accel_streak - a.accel_streak);
+  else if (sort === 'valuation_asc') rows.sort((a, b) => (a.valuation_gap ?? 9e9) - (b.valuation_gap ?? 9e9));
   else rows.sort((a, b) => (b.latest_mktcap ?? 0) - (a.latest_mktcap ?? 0));
 
   document.getElementById('count').textContent = rows.length + '종목 (행 클릭하면 표, 왼쪽 체크박스로 최대 ' + MAX_COMPARE + '개 비교)';
@@ -579,6 +648,7 @@ function applyFilters() {{
       ${{PERIODS.map(p => heatCell(r, p)).join('')}}
       <td>${{fmtMktcap(r.latest_mktcap)}}</td>
       <td>${{pctSpan(r.accel)}}</td>
+      <td>${{fmtGrade(r)}}</td>
       <td class="sub">${{r.triple_digit_streak > 0 ? r.triple_digit_streak + '분기' : '-'}}</td>
       <td class="sub">${{r.accel_streak > 0 ? r.accel_streak + '분기' : '-'}}</td>
       <td class="lbl sub">${{r.code}}</td><td class="lbl sub">${{r.sector || '-'}}</td>
@@ -606,7 +676,7 @@ function applyFilters() {{
   updateCmpBar();
 }}
 
-['fSearch','fSector','fYoyMin','fMktcapMin','fAccelOnly','fTripleOnly','fAccelStreakOnly','fSort'].forEach(id => {{
+['fSearch','fSector','fYoyMin','fMktcapMin','fAccelOnly','fTripleOnly','fAccelStreakOnly','fGrade','fSort'].forEach(id => {{
   document.getElementById(id).addEventListener('input', applyFilters);
   document.getElementById(id).addEventListener('change', applyFilters);
 }});
