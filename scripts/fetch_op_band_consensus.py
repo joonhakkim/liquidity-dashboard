@@ -59,7 +59,7 @@ def fetch_op_by_year(code):
 
 def main():
     if not os.path.exists(SUMMARY_PATH):
-        print("op_band_summary.csv가 없습니다. build_op_band.py를 먼저 실행하세요.")
+        print("op_band_summary.csv가 없습니다. build_op_band_v2.py를 먼저 실행하세요.")
         return
     summary = pd.read_csv(SUMMARY_PATH, dtype={"code": str})
     codes = summary["code"].tolist()

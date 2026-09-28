@@ -1,17 +1,21 @@
 """
-OP밴드 v2 (시험용, 2026-09-10) - docs/op_band_v2.html
+OP밴드 트래커 - docs/op_band.html (2026-09-10 v2로 시작, 2026-09-28 구v1 삭제 후 이 파일이
+op_band.html/op_band_data/op_band_summary.csv 경로를 그대로 이어받아 유일한 OP밴드
+트래커가 됨 - "OP밴드 V2가 나쁘지 않은 거 같다 그러니까 기존 OP밴드 트래커는 삭제하도록
+하자". build_op_band.py는 이제 페이지를 안 만들고 이 파일(과 build_estimate_revision.py)이
+공유하는 워크북 파싱/섹터/FnGuide 유틸리티만 남아있다.
 
-기존 OP밴드(build_op_band.py)와 두 가지가 다르다:
+기존(v1, 삭제됨) 대비 두 가지가 달랐다:
 
 1) 분모를 "12개월 선행 보간(12M forward)"으로 계산한다.
-   기존은 6월 스위칭(1~6월=당해, 7~12월=차년)이라 7/1에 분모가 한꺼번에 갈아끼워지면서
+   v1은 6월 스위칭(1~6월=당해, 7~12월=차년)이라 7/1에 분모가 한꺼번에 갈아끼워지면서
    배수가 계단으로 뚝 떨어졌다(2026-09-10 실측: 6/30->7/1 하루에 중앙값 -7.3%, 597종목 중
    56%가 5% 넘게 급락). 그래서 "역대 최저 배수"가 죄다 7월에 찍히는 착시가 생겼다.
        선행OP(t) = w x 당해연도(NFY1) + (1-w) x 차년도(NFY2),  w = (13 - 월) / 12
    1월이면 w=1(당해 100%), 7월이면 w=0.5(반반), 12월이면 w=1/12(거의 차년).
    이렇게 하면 분모가 매일 조금씩 굴러가서 절벽이 사라지고, "OP가 늘어서 배수가 낮아지는"
    흐름이 특정 하루에 몰리지 않고 자연스럽게 반영된다.
-   (NFY2가 없으면 NFY1만, 둘 다 없으면 TTM - 기존 우선순위와 동일)
+   (NFY2가 없으면 NFY1만, 둘 다 없으면 TTM - v1과 동일 우선순위)
 
 2) "바텀"을 단일 최저값이 아니라 최근 N년 하위 퍼센타일로 잡는다.
    하루짜리 이상치(거래정지 후 재개, 데이터 오류)에 최저값이 좌우되는 걸 막고, 실제로 여러 번
@@ -42,9 +46,9 @@ REV_LOOKBACKS = [("1w", 5), ("1m", 21)]
 DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data")
 DOCS_DIR = os.path.join(os.path.dirname(__file__), "..", "docs")
 SCREEN_DIR = os.path.join(DATA_DIR, "screening")
-SUMMARY_PATH = os.path.join(SCREEN_DIR, "op_band_v2_summary.csv")
-PAGE_OUT_PATH = os.path.join(DOCS_DIR, "op_band_v2.html")
-DETAIL_OUT_DIR = os.path.join(DOCS_DIR, "op_band_v2_data")
+SUMMARY_PATH = os.path.join(SCREEN_DIR, "op_band_summary.csv")
+PAGE_OUT_PATH = os.path.join(DOCS_DIR, "op_band.html")
+DETAIL_OUT_DIR = os.path.join(DOCS_DIR, "op_band_data")
 
 # 바텀 계산에 쓰는 최근 기간 - 화면에서 골라볼 수 있게 여러 개 다 계산해둔다.
 # 2015년까지 시계열이 늘어나면서(2026-09-10) 5년/전체 구간도 의미가 생겼다.
@@ -403,7 +407,7 @@ TEMPLATE = """<!doctype html>
 <html lang="ko">
 <head>
 <meta charset="utf-8">
-<title>OP밴드 v2 (시험) - 12개월 선행 보간 + 바텀 퍼센타일</title>
+<title>OP밴드 트래커 - 12개월 선행 보간 + 바텀 퍼센타일</title>
 <style>
   body {{ font-family: -apple-system, "Malgun Gothic", sans-serif; background:#0f1115; color:#e6e6e6; margin:0; padding:24px; }}
   a.back {{ color:#4dabf7; font-size:13px; text-decoration:none; margin-right:12px; }}
@@ -446,8 +450,7 @@ TEMPLATE = """<!doctype html>
 </head>
 <body>
   <a class="back" href="index.html">&larr; 홈</a>
-  <a class="back" href="op_band.html">기존 OP밴드 &rarr;</a>
-  <h1>OP밴드 v2 <span style="font-size:13px;color:#ffa94d">(시험 버전)</span></h1>
+  <h1>OP밴드 트래커</h1>
   <div class="updated">최종 갱신: {updated_at} &middot; {n_stocks}종목 &middot; 기준일 {latest_date} &middot; 시계열 {earliest} ~ {latest_date}</div>
 
   <div class="exp">
@@ -715,7 +718,7 @@ function currentBands() {{
 }}
 
 function openDetail(code) {{
-  fetch(`op_band_v2_data/${{code}}.json`).then(r => r.json()).then(data => {{
+  fetch(`op_band_data/${{code}}.json`).then(r => r.json()).then(data => {{
     currentDetail = data;
     const n = data.mktcapEok.length - 1;
     const latest = data.opEok[n] ? data.mktcapEok[n] / data.opEok[n] : null;

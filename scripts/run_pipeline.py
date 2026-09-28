@@ -58,8 +58,7 @@ CORE_STEPS = [
     ("optimize_percentile_window.py", "통합차트 백분위 지표 최적 기간 재탐색(데이터 누적에 따라 자동 조정)"),
     ("build_dashboard.py", "유동성 대시보드 빌드"),
     ("fetch_naver_sector.py", "네이버 업종분류 수집(OP밴드/이익추정치 상향 트래커 섹터 필터용, 종목코드 기준 전종목)"),
-    ("build_op_band.py", "OP밴드 트래커 빌드(data/manual/*기업*밴드*.xlsx 기반, 영업이익 x N배 밴드)"),
-    ("build_op_band_v2.py", "OP밴드 v2 시험 빌드(12개월 선행 보간 분모 + 최근3년 하위퍼센타일 바텀)"),
+    ("build_op_band_v2.py", "OP밴드 트래커 빌드(12개월 선행 보간 분모 + 최근3년 하위퍼센타일 바텀 - 2026-09-28부로 이 파일이 유일한 OP밴드 트래커, 구v1은 삭제됨)"),
     ("build_estimate_revision.py", "이익추정치 상향 트래커 빌드(FY1/FY2 컨센서스 1일·1주·1개월 변화율)"),
     ("build_yoy_accel_tracker.py", "YoY 가속화 트래커 빌드(data/manual/*QoQ*.xlsx 기반, 분기 영업이익 YoY 및 가속도)"),
     ("build_risk_signals.py", "조정 경고 신호 페이지 빌드(유동성 지표 + 돌파종목수 조합, 지표별 개별 발동 표시)"),
@@ -79,7 +78,7 @@ SLOW_STEPS = [
     ("fetch_kosdaq_per_tracker.py", "코스닥 선행 PER 트래커: 시총상위50 컨센서스 PER 집계(하루 1행 누적)"),
     ("build_per_tracker_page.py", "코스피·코스닥 선행 PER 트래커 페이지 빌드"),
     ("fetch_op_band_consensus.py", "OP밴드: 전종목 FnGuide 컨센서스 교차검증 수집(종목당 API 호출, 느림)"),
-    ("build_op_band.py", "OP밴드 트래커 재빌드(FnGuide 교차검증 반영)"),
+    ("build_op_band_v2.py", "OP밴드 트래커 재빌드(FnGuide 교차검증 반영)"),
     ("build_home.py", "홈페이지 빌드(PER 트래커 최신 링크 반영용으로 한 번 더)"),
 ]
 
