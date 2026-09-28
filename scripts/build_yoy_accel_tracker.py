@@ -123,32 +123,45 @@ def process_sheet(ws):
 
 def compute_yoy(quarters):
     """quarters: [{period, is_estimate, op_won}] 기간순 정렬됨. 4분기(=1년) 전과 비교해
-    YoY% 리스트를 같은 길이로 반환(앞 4개는 None). 부호가 섞이면(적자<->흑자) None."""
+    YoY% 리스트와 라벨 리스트를 같은 길이로 반환(앞 4개는 None). 둘 다 흑자일 때만 숫자를
+    계산하고, 부호가 섞이거나(적자<->흑자 전환) 둘 다 적자(적자 지속)면 숫자 대신 라벨을
+    붙인다(2026-09-28 사용자 요청 "흑전이나 적전은 글자로 써주고 ... 적자지속이면 적자로") -
+    단순 비율로 계산하면 부호 때문에 실제와 반대로 보일 수 있어서(예: 적자 -100->-50으로
+    개선됐는데 계산상 "-50%"로 나와 악화된 것처럼 보임) 숫자 자체를 안 만든다."""
     yoy = [None] * len(quarters)
+    label = [None] * len(quarters)
     for i in range(4, len(quarters)):
         cur = quarters[i]["op_won"]
         prev = quarters[i - 4]["op_won"]
-        if cur is None or prev is None or prev == 0:
+        if cur is None or prev is None or prev == 0 or cur == 0:
             continue
-        if (cur > 0) != (prev > 0):
-            continue
-        yoy[i] = round((cur / prev - 1) * 100, 1)
-    return yoy
+        if cur > 0 and prev > 0:
+            yoy[i] = round((cur / prev - 1) * 100, 1)
+        elif cur > 0 and prev < 0:
+            label[i] = "흑전"
+        elif cur < 0 and prev > 0:
+            label[i] = "적전"
+        else:
+            label[i] = "적자"
+    return yoy, label
 
 
 def build_row_and_detail(code, data, sector_map, naver_sector_map):
     quarters = data["quarters"]
-    yoy = compute_yoy(quarters)
-    if not any(v is not None for v in yoy):
+    yoy, label = compute_yoy(quarters)
+    if not any(v is not None for v in yoy) and not any(label):
         return None, None
 
-    # 최신 YoY / 직전 YoY -> 가속 여부(YoY 자체가 전분기보다 더 높아지고 있는지)
-    idxs_with_yoy = [i for i, v in enumerate(yoy) if v is not None]
-    latest_i = idxs_with_yoy[-1]
+    # 최신 YoY / 직전 YoY -> 가속 여부(YoY 자체가 전분기보다 더 높아지고 있는지). 라벨(흑전/
+    # 적전/적자)만 있고 숫자가 없는 분기도 "그 분기 자체는 값이 있다"고 취급해서 최신 분기로
+    # 잡되, 숫자 비교(가속도 등)는 숫자가 있을 때만 계산된다.
+    idxs_with_entry = [i for i, (v, l) in enumerate(zip(yoy, label)) if v is not None or l is not None]
+    latest_i = idxs_with_entry[-1]
     latest_yoy = yoy[latest_i]
+    latest_label = label[latest_i]
     latest_q = quarters[latest_i]
-    prev_yoy = yoy[idxs_with_yoy[-2]] if len(idxs_with_yoy) >= 2 and idxs_with_yoy[-2] == latest_i - 1 else None
-    accel = round(latest_yoy - prev_yoy, 1) if prev_yoy is not None else None
+    prev_yoy = yoy[latest_i - 1] if latest_i - 1 >= 0 else None
+    accel = round(latest_yoy - prev_yoy, 1) if latest_yoy is not None and prev_yoy is not None else None
 
     # 세자리 YoY(100%+) 유지 분기 수 - 최신 분기부터 거꾸로 훑어서 100% 이상이 끊기지 않고
     # 몇 분기째 이어지는지(2026-09-23 사용자 요청 "세자리 YoY가 3분기 이상 유지되는 걸로
@@ -172,9 +185,11 @@ def build_row_and_detail(code, data, sector_map, naver_sector_map):
         i -= 1
 
     # 요약표에 분기별 YoY를 한 줄로 쭉 나열해서 보여주기 위한 맵(2026-09-28 사용자 요청 -
-    # "각 분기별 YoY를 넣어주고 그게 양수면 초록색칸, 음수면 빨간색칸으로"). 값이 없는
-    # 분기(부호전환 등으로 계산 자체를 안 한 경우)는 그냥 키를 안 넣어서 빈칸으로 둔다.
+    # "각 분기별 YoY를 넣어주고 그게 양수면 초록색칸, 음수면 빨간색칸으로, 흑전/적전은
+    # 글자로, 적자지속이면 적자로 빨강"). 숫자 대신 라벨이 붙은 분기는 label_by_period에
+    # 따로 담아서 히트맵에서 텍스트로 보여준다.
     yoy_by_period = {str(q["period"]): yoy[i] for i, q in enumerate(quarters) if yoy[i] is not None}
+    label_by_period = {str(q["period"]): label[i] for i, q in enumerate(quarters) if label[i] is not None}
     est_by_period = {str(q["period"]): q["is_estimate"] for q in quarters}
 
     row = {
@@ -182,10 +197,10 @@ def build_row_and_detail(code, data, sector_map, naver_sector_map):
         "sector": naver_sector_map.get(code.lstrip("A")) or sector_map.get(data["name"]),
         "latest_mktcap": data["latest_mktcap"],
         "latest_period": latest_q["period"], "latest_is_estimate": latest_q["is_estimate"],
-        "latest_yoy": latest_yoy, "prev_yoy": prev_yoy, "accel": accel,
+        "latest_yoy": latest_yoy, "latest_label": latest_label, "prev_yoy": prev_yoy, "accel": accel,
         "n_quarters": len(quarters), "triple_digit_streak": triple_digit_streak,
         "accel_streak": accel_streak,
-        "yoy_by_period": yoy_by_period, "est_by_period": est_by_period,
+        "yoy_by_period": yoy_by_period, "label_by_period": label_by_period, "est_by_period": est_by_period,
     }
 
     # 클릭 시 보여줄 표 - 시기/영업이익/YoY만(2026-09-23 사용자 요청, 차트 대신 숫자 표).
@@ -193,7 +208,7 @@ def build_row_and_detail(code, data, sector_map, naver_sector_map):
         "code": code, "name": data["name"],
         "quarters": [
             {"period": q["period"], "op_100mil": round(q["op_won"] / 1e8, 1),
-             "yoy": yoy[i], "is_estimate": q["is_estimate"]}
+             "yoy": yoy[i], "label": label[i], "is_estimate": q["is_estimate"]}
             for i, q in enumerate(quarters)
         ],
     }
@@ -233,7 +248,7 @@ def main():
 
     # 요약표 히트맵 열 기준(분기 축) - 실제로 YoY가 하나라도 계산된 종목이 있는 분기만
     # 모아서 쓴다(2026-09-28 사용자 요청 "분기별 YoY를 넣어주고 ... 쭉 나열").
-    all_periods = sorted({p for r in rows for p in r["yoy_by_period"]})
+    all_periods = sorted({p for r in rows for p in r["yoy_by_period"]} | {p for r in rows for p in r["label_by_period"]})
 
     os.makedirs(SCREEN_DIR, exist_ok=True)
     pd.DataFrame(rows).to_csv(SUMMARY_PATH, index=False, encoding="utf-8-sig")
@@ -373,10 +388,21 @@ function pctSpan(v) {{
   const cls = v > 0 ? 'up' : v < 0 ? 'down' : '';
   return `<span class="${{cls}}">${{v > 0 ? '+' : ''}}${{v.toFixed(1)}}%</span>`;
 }}
+function pctOrLabelSpan(v, lbl) {{
+  if (lbl != null) return `<span class="${{lbl === '흑전' ? 'up' : 'down'}}">${{lbl}}</span>`;
+  return pctSpan(v);
+}}
 function heatCell(r, period) {{
   const v = r.yoy_by_period[period];
-  if (v == null) return '<td class="hm hm-empty">-</td>';
+  const lbl = r.label_by_period[period];
   const est = r.est_by_period[period];
+  if (v == null && lbl == null) return '<td class="hm hm-empty">-</td>';
+  if (lbl != null) {{
+    // 흑전(적자->흑자)=초록, 적전/적자(흑자->적자, 적자 지속)=빨강 - 숫자 대신 글자로
+    // 보여준다(2026-09-28 사용자 요청 - 단순 비율로는 부호 때문에 실제와 반대로 보일 수 있음).
+    const cls = lbl === '흑전' ? (est ? 'hm-pos-est' : 'hm-pos') : (est ? 'hm-neg-est' : 'hm-neg');
+    return `<td class="hm ${{cls}}">${{lbl}}</td>`;
+  }}
   const cls = v >= 0 ? (est ? 'hm-pos-est' : 'hm-pos') : (est ? 'hm-neg-est' : 'hm-neg');
   return `<td class="hm ${{cls}}">${{Math.round(v)}}%</td>`;
 }}
@@ -439,7 +465,7 @@ function openDetail(code) {{
       <tr>
         <td style="text-align:left;">${{fmtPeriod(q.period)}}${{q.is_estimate ? '<span class="est-badge">추정</span>' : ''}}</td>
         <td>${{q.op_100mil.toLocaleString()}}억</td>
-        <td>${{pctSpan(q.yoy)}}</td>
+        <td>${{pctOrLabelSpan(q.yoy, q.label)}}</td>
       </tr>`).join('');
     document.getElementById('overlay').classList.add('open');
   }});
