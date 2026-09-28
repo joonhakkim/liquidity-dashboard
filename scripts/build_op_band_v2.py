@@ -135,6 +135,28 @@ def apply_year_override_v2(code, data, override_map, current_use_year, effective
     return data
 
 
+def ffill_short_gaps(values, limit):
+    """values(리스트, 결측=None)에서 최근 값을 최대 limit거래일까지만 이월해서 채운다 -
+    그보다 길게 끊기면 채우지 않고 None 그대로 둔다(진짜 끊긴 걸로 보고 지어내지 않음).
+    데이터소스가 며칠씩 일시적으로 컨센서스를 안 주는 경우(2026-09-28, 테크윙 NFY1/NFY2가
+    9/9부터 갑자기 통째로 비어서 OP밴드가 TTM으로 확 떨어지는 착시가 생김 - 사용자 확인)를
+    방어하기 위한 것. TTM 폴백보다 이 이월을 먼저 적용해서, 실제로는 살아있는 추정치가
+    소스 쪽 일시적 결측 때문에 배수를 훅 왜곡시키지 않게 한다."""
+    out = list(values)
+    last = None
+    run = 0
+    for i, v in enumerate(out):
+        if v is not None:
+            last = v
+            run = 0
+        elif last is not None and run < limit:
+            out[i] = last
+            run += 1
+        else:
+            run += 1
+    return out
+
+
 def process_sheet_v2(ws):
     max_col = ws.max_column
     max_row = ws.max_row
@@ -176,6 +198,17 @@ def process_sheet_v2(ws):
             continue
 
         name = row_names[start] if start < len(row_names) else code
+
+        # OP 계산용(배수/밴드)은 20거래일(약 1개월) 이하의 짧은 결측이면 직전 추정치를
+        # 이월해서 쓴다 - 소스가 며칠~몇 주씩 일시적으로 컨센서스를 안 주는 경우 TTM으로
+        # 확 떨어지는 착시를 막는다. "상향추세" 판정용 원본 시계열(series_fy1_raw 등)은
+        # 이 이월과 무관하게 아래에서 항상 원본 그대로 따로 채운다(지어내지 않음).
+        FY_FFILL_LIMIT = 20
+        fy1_all = [row_vals[nfy1_idx] if nfy1_idx is not None else None for row_vals in data_rows]
+        fy2_all = [row_vals[nfy2_idx] if nfy2_idx is not None else None for row_vals in data_rows]
+        fy1_filled = ffill_short_gaps(fy1_all, FY_FFILL_LIMIT)
+        fy2_filled = ffill_short_gaps(fy2_all, FY_FFILL_LIMIT)
+
         series_dates, series_mult, series_op, series_mktcap = [], [], [], []
         series_fy1_raw, series_fy2_raw = [], []  # 상향추세용 원본값(보간/이월 없이 그대로,
         # build_estimate_revision.py와 동일 원칙 - 지어내지 않는다)
@@ -183,12 +216,14 @@ def process_sheet_v2(ws):
         latest_has_estimate = False
         latest_fy2_present = False  # NFY2(=다음 연도, 지금 시점 기준 2027년) 컨센서스가
         # TTM 폴백이 아니라 실제로 잡히는 종목만 거르는 필터용(2026-09-16 사용자 요청)
-        for row_vals, d in zip(data_rows, dates):
+        for i, (row_vals, d) in enumerate(zip(data_rows, dates)):
             mktcap = row_vals[mktcap_idx]
             if mktcap is None:
                 continue
-            fy1 = row_vals[nfy1_idx] if nfy1_idx is not None else None
-            fy2 = row_vals[nfy2_idx] if nfy2_idx is not None else None
+            fy1_raw = row_vals[nfy1_idx] if nfy1_idx is not None else None
+            fy2_raw = row_vals[nfy2_idx] if nfy2_idx is not None else None
+            fy1 = fy1_filled[i]
+            fy2 = fy2_filled[i]
             is_estimate = fy1 is not None or fy2 is not None
             w = forward_weight(d)
             if fy1 is not None and fy2 is not None:
@@ -219,8 +254,8 @@ def process_sheet_v2(ws):
             series_op.append(round(op_won, 0))
             series_mktcap.append(round(mktcap, 0))
             series_mult.append(round(mktcap / op_won, 4))
-            series_fy1_raw.append(fy1)
-            series_fy2_raw.append(fy2)
+            series_fy1_raw.append(fy1_raw)
+            series_fy2_raw.append(fy2_raw)
 
         if series_dates:
             results[code] = {"name": name, "dates": series_dates, "mult": series_mult,
