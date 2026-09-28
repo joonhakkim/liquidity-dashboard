@@ -11,17 +11,19 @@ YYYYMM 라벨이 헤더12행에 붙어 있음)을 뽑아, 전년동기대비(YoY
 ("컨센서스가 있는 종목들만 선택해서") 그대로. 추정치가 전혀 없으면 이 트래커가 보려는
 "앞으로도 이어질 성장세인지"를 가늠할 근거 자체가 없다.
 
-처음엔 시가총액과 함께 차트로 보여줬는데, 종목을 클릭했을 때 숫자 자체를 바로 보고 싶다는
-요청(2026-09-23, "그냥 숫자자체를 보여줄 수 있게 그래프는 지워도 좋아")으로 차트를 빼고
-분기별 시기/영업이익/YoY 표로 바꿨다.
+종목 클릭 시 상세는 시가총액(선) + 분기 영업이익 YoY%(막대) 차트로 시작했다가, 숫자 자체를
+바로 보고 싶다는 요청(2026-09-23, "그냥 숫자자체를 보여줄 수 있게 그래프는 지워도 좋아")으로
+분기별 시기/영업이익/YoY 표로 바꿨고, 다시 차트를 보고 싶다는 요청(2026-09-28, "저번에
+만들었던 시가총액이랑 막대그래프랑 같이 나오는 거 다시 해보자")으로 표 위에 차트를 복원했다.
 
 부호가 섞이면(적자<->흑자 전환) 단순 비율이 정반대로 오해를 부르므로(OP밴드 v2/이익추정치
 상향 트래커와 동일 원칙) 그 구간은 YoY%를 계산하지 않고 None으로 둔다.
 """
+import calendar
 import glob
 import json
 import os
-from datetime import datetime
+from datetime import date, datetime
 
 import openpyxl
 import pandas as pd
@@ -42,6 +44,21 @@ MKTCAP_ITEM = "S102100"
 OP_ACTUAL_ITEM = "M121500.M"
 OP_EST_ITEM = "E121500.M"
 MIN_QUARTERS_FOR_YOY = 5  # 최소 5분기(작년 동기 1개 비교 가능) 있어야 대상에 포함
+MKTCAP_CHART_START = date(2025, 1, 1)  # 차트가 2023년말부터 다 그리면 눌려 보여서(2026-09-23
+# 세션 초반 확인) 최근 구간만 남긴다 - 종목 클릭 시 차트 다시 보여달라는 요청(2026-09-28)으로 복원.
+
+
+def month_end(y, m):
+    return date(y, m, calendar.monthrange(y, m)[1])
+
+
+def add_month(y, m):
+    m2 = m + 1
+    y2 = y
+    if m2 > 12:
+        m2 = 1
+        y2 += 1
+    return y2, m2
 
 
 def find_workbook():
@@ -91,13 +108,19 @@ def process_sheet(ws):
 
         name = row_names[start] if start < len(row_names) else code
 
-        # 표(숫자) 위주 페이지라 시가총액은 요약표의 참고용 "최신값"만 있으면 된다(2026-09-23
-        # 사용자 요청 - 차트를 표로 대체, 시계열 전체는 더 이상 안 씀).
+        # 시가총액은 월별로 다운샘플링(그 달의 마지막 거래일 값만)해서 상세 차트에 쓴다 -
+        # 일별 그대로 쓰면 카테고리 수가 너무 많아져서 분기 막대가 눌린 실선처럼 안 보이는
+        # 문제가 있었다(2026-09-23 세션 초반 확인). 종목 클릭 시 차트 복원 요청(2026-09-28
+        # "저번에 만들었던 시가총액이랑 막대그래프랑 같이 나오는 거 다시 해보자")으로
+        # 요약표용 latest_mktcap과 별개로 이 월별 시계열도 다시 모은다.
         latest_mktcap = None
+        mc_by_month = {}
         for row_vals, d in zip(data_rows, dates):
             v = row_vals[mktcap_idx]
             if v is not None:
                 latest_mktcap = v
+                if d.date() >= MKTCAP_CHART_START:
+                    mc_by_month[(d.year, d.month)] = v
 
         quarters = []
         for col_idx, period, is_est in sorted(quarter_cols, key=lambda x: x[1]):
@@ -116,7 +139,7 @@ def process_sheet(ws):
             continue
 
         results[code] = {
-            "name": name, "latest_mktcap": latest_mktcap, "quarters": quarters,
+            "name": name, "latest_mktcap": latest_mktcap, "mc_by_month": mc_by_month, "quarters": quarters,
         }
     return results
 
@@ -208,9 +231,37 @@ def build_row_and_detail(code, data, sector_map, naver_sector_map):
         "yoy_by_period": yoy_by_period, "label_by_period": label_by_period, "est_by_period": est_by_period,
     }
 
-    # 클릭 시 보여줄 표 - 시기/영업이익/YoY만(2026-09-23 사용자 요청, 차트 대신 숫자 표).
+    # 종목 클릭 시 보여줄 상세 - 시기/영업이익/YoY% 표(2026-09-23)에 시가총액 선 + 분기
+    # 영업이익 YoY% 막대 차트를 다시 추가(2026-09-28 사용자 요청 - "저번에 만들었던
+    # 시가총액이랑 막대그래프랑 같이 나오는 거 다시 해보자"). 분기 막대는 분기말이 아니라
+    # "분기말+1개월"(실적 발표 시점 근사)에 둬서 아직 발표도 안 된 시점에 막대가 서는
+    # 착시를 피한다. 시가총액 데이터가 끊긴 뒤에도 추정 분기가 남아있으면 그만큼 격자를
+    # 늘려서 막대는 계속 보여준다.
+    mc_by_month = data["mc_by_month"]
+    bars = [(month_end(*add_month(q["period"] // 100, q["period"] % 100)), yoy[i], label[i], q["is_estimate"])
+            for i, q in enumerate(quarters) if yoy[i] is not None or label[i] is not None]
+
+    grid_end = max([b[0] for b in bars], default=MKTCAP_CHART_START)
+    if mc_by_month:
+        grid_end = max(grid_end, month_end(*max(mc_by_month)))
+    y, m = MKTCAP_CHART_START.year, MKTCAP_CHART_START.month
+    grid = []
+    while (y, m) <= (grid_end.year, grid_end.month):
+        grid.append(month_end(y, m))
+        y, m = add_month(y, m)
+
+    mc_map = {month_end(y2, m2): round(v / 1e8, 1) for (y2, m2), v in mc_by_month.items()}
+    bar_yoy_map = {d: v for d, v, _l, _e in bars}
+    bar_label_map = {d: l for d, _v, l, _e in bars if l is not None}
+    bar_est_map = {d: e for d, _v, _l, e in bars}
+
     detail = {
         "code": code, "name": data["name"],
+        "labels": [str(d) for d in grid],
+        "mc_eok": [mc_map.get(d) for d in grid],
+        "bar_yoy": [bar_yoy_map.get(d) for d in grid],
+        "bar_label": [bar_label_map.get(d) for d in grid],
+        "bar_is_estimate": [bool(bar_est_map.get(d, False)) for d in grid],
         "quarters": [
             {"period": q["period"], "op_100mil": round(q["op_won"] / 1e8, 1),
              "yoy": yoy[i], "label": label[i], "is_estimate": q["is_estimate"]}
@@ -306,12 +357,18 @@ TEMPLATE = """<!doctype html>
   tbody tr:hover {{ background:#1a1d24; }}
   .overlay {{ display:none; position:fixed; inset:0; background:rgba(0,0,0,0.75); z-index:200; overflow:auto; padding:40px 20px; }}
   .overlay.open {{ display:block; }}
-  .modal {{ background:#12151b; border:1px solid #23262e; border-radius:14px; max-width:520px; margin:0 auto; padding:22px 26px; }}
+  .modal {{ background:#12151b; border:1px solid #23262e; border-radius:14px; max-width:720px; margin:0 auto; padding:22px 26px; }}
   .modal h2 {{ font-size:17px; margin:0 0 12px 0; }}
   .close-btn {{ float:right; background:none; border:none; color:#9aa0a6; font-size:22px; cursor:pointer; line-height:1; }}
-  .detail-table {{ width:100%; }}
+  .detail-table {{ width:100%; margin-top:16px; }}
   .detail-table th {{ position:static; }}
+  .legend {{ display:flex; gap:16px; flex-wrap:wrap; font-size:12px; color:#9aa0a6; margin-bottom:8px; }}
+  .legend span {{ display:flex; align-items:center; gap:4px; }}
+  .sw {{ width:12px; height:2px; display:inline-block; }}
+  .sq {{ width:10px; height:10px; border-radius:2px; display:inline-block; }}
+  .chart-wrap {{ height:320px; position:relative; }}
 </style>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
 </head>
 <body>
   <a class="back" href="index.html">&larr; 홈</a>
@@ -360,6 +417,12 @@ TEMPLATE = """<!doctype html>
     <div class="modal">
       <button class="close-btn" id="closeBtn">&times;</button>
       <h2 id="detailName"></h2>
+      <div class="legend">
+        <span><span class="sw" style="background:#eb6834"></span>시가총액(조원, 왼쪽 축)</span>
+        <span><span class="sq" style="background:#2a78d6"></span>영업이익 YoY%(실적, 오른쪽 축)</span>
+        <span><span class="sq" style="background:#a9c8ec"></span>영업이익 YoY%(추정, 오른쪽 축)</span>
+      </div>
+      <div class="chart-wrap"><canvas id="detailChart"></canvas></div>
       <table class="detail-table">
         <thead><tr><th style="text-align:left;">시기</th><th>영업이익(억원)</th><th>YoY%</th></tr></thead>
         <tbody id="detailBody"></tbody>
@@ -485,6 +548,7 @@ function applyFilters() {{
   document.getElementById(id).addEventListener('change', applyFilters);
 }});
 
+let detailChart = null;
 function openDetail(code) {{
   fetch(`yoy_accel_tracker_data/${{code}}.json`).then(r => r.json()).then(d => {{
     document.getElementById('detailName').textContent = `${{d.name}} (${{d.code}})`;
@@ -494,6 +558,33 @@ function openDetail(code) {{
         <td>${{q.op_100mil.toLocaleString()}}억</td>
         <td>${{pctOrLabelSpan(q.yoy, q.label)}}</td>
       </tr>`).join('');
+
+    const MC = d.mc_eok.map(v => v == null ? null : v / 10000);
+    const OP = d.bar_yoy;
+    const COL = d.bar_is_estimate.map(e => e ? '#a9c8ec' : '#2a78d6');
+    if (detailChart) detailChart.destroy();
+    detailChart = new Chart(document.getElementById('detailChart').getContext('2d'), {{
+      data: {{
+        labels: d.labels,
+        datasets: [
+          {{ type: 'bar', label: '영업이익 YoY%', data: OP, backgroundColor: COL, borderRadius: 4, maxBarThickness: 36, order: 2, yAxisID: 'y1' }},
+          {{ type: 'line', label: '시가총액', data: MC, borderColor: '#eb6834', backgroundColor: 'rgba(235,104,52,0.08)', borderWidth: 2, pointRadius: 2, fill: true, spanGaps: false, tension: 0.15, order: 1, yAxisID: 'y' }},
+        ]
+      }},
+      options: {{
+        responsive: true, maintainAspectRatio: false,
+        plugins: {{
+          legend: {{ display: false }},
+          tooltip: {{ mode: 'index', intersect: false, filter: (c) => c.parsed.y != null, callbacks: {{ label: (c) => c.dataset.yAxisID === 'y' ? c.dataset.label + ': ' + c.parsed.y.toLocaleString() + '조원' : c.dataset.label + ': ' + (c.parsed.y >= 0 ? '+' : '') + c.parsed.y.toFixed(1) + '%' }} }}
+        }},
+        scales: {{
+          x: {{ grid: {{ display: false }}, ticks: {{ color: '#9aa0a6', maxTicksLimit: 14, maxRotation: 45 }} }},
+          y: {{ position: 'left', grid: {{ color: '#23262e' }}, ticks: {{ color: '#eb6834', callback: (v) => v.toLocaleString() + '조' }} }},
+          y1: {{ position: 'right', grid: {{ display: false }}, ticks: {{ color: '#2a78d6', callback: (v) => v + '%' }} }},
+        }},
+        interaction: {{ mode: 'index', intersect: false }}
+      }}
+    }});
     document.getElementById('overlay').classList.add('open');
   }});
 }}
