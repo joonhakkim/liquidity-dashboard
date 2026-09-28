@@ -171,6 +171,12 @@ def build_row_and_detail(code, data, sector_map, naver_sector_map):
         accel_streak += 1
         i -= 1
 
+    # 요약표에 분기별 YoY를 한 줄로 쭉 나열해서 보여주기 위한 맵(2026-09-28 사용자 요청 -
+    # "각 분기별 YoY를 넣어주고 그게 양수면 초록색칸, 음수면 빨간색칸으로"). 값이 없는
+    # 분기(부호전환 등으로 계산 자체를 안 한 경우)는 그냥 키를 안 넣어서 빈칸으로 둔다.
+    yoy_by_period = {str(q["period"]): yoy[i] for i, q in enumerate(quarters) if yoy[i] is not None}
+    est_by_period = {str(q["period"]): q["is_estimate"] for q in quarters}
+
     row = {
         "code": code, "name": data["name"],
         "sector": naver_sector_map.get(code.lstrip("A")) or sector_map.get(data["name"]),
@@ -179,6 +185,7 @@ def build_row_and_detail(code, data, sector_map, naver_sector_map):
         "latest_yoy": latest_yoy, "prev_yoy": prev_yoy, "accel": accel,
         "n_quarters": len(quarters), "triple_digit_streak": triple_digit_streak,
         "accel_streak": accel_streak,
+        "yoy_by_period": yoy_by_period, "est_by_period": est_by_period,
     }
 
     # 클릭 시 보여줄 표 - 시기/영업이익/YoY만(2026-09-23 사용자 요청, 차트 대신 숫자 표).
@@ -224,6 +231,10 @@ def main():
 
     print(f"결과 {len(rows)}종목(YoY 계산 가능 + 컨센서스 보유)")
 
+    # 요약표 히트맵 열 기준(분기 축) - 실제로 YoY가 하나라도 계산된 종목이 있는 분기만
+    # 모아서 쓴다(2026-09-28 사용자 요청 "분기별 YoY를 넣어주고 ... 쭉 나열").
+    all_periods = sorted({p for r in rows for p in r["yoy_by_period"]})
+
     os.makedirs(SCREEN_DIR, exist_ok=True)
     pd.DataFrame(rows).to_csv(SUMMARY_PATH, index=False, encoding="utf-8-sig")
 
@@ -231,6 +242,7 @@ def main():
         updated_at=datetime.now().strftime("%Y-%m-%d %H:%M"),
         n_stocks=len(rows),
         rows_json=json.dumps(rows, ensure_ascii=False),
+        periods_json=json.dumps(all_periods),
     )
     os.makedirs(DOCS_DIR, exist_ok=True)
     with open(PAGE_OUT_PATH, "w", encoding="utf-8") as f:
@@ -256,11 +268,17 @@ TEMPLATE = """<!doctype html>
   .filters input[type="number"] {{ width:80px; }}
   .table-wrap {{ overflow-x:auto; }}
   table {{ border-collapse:collapse; width:100%; font-size:13px; }}
-  th, td {{ padding:8px 12px; text-align:right; border-bottom:1px solid #23262e; white-space:nowrap; }}
-  th:first-child, td:first-child, th:nth-child(3), td:nth-child(3) {{ text-align:left; }}
+  th, td {{ padding:8px 10px; text-align:right; border-bottom:1px solid #23262e; white-space:nowrap; }}
+  th.lbl, td.lbl {{ text-align:left; }}
   th {{ color:#9aa0a6; font-weight:normal; font-size:12px; position:sticky; top:0; background:#0f1115; }}
   .up {{ color:#63e6be; }}
   .down {{ color:#ff8787; }}
+  td.hm {{ padding:4px 6px; text-align:center; font-size:11px; }}
+  .hm-pos {{ background:#1e6b46; color:#d4f7e6; border-radius:4px; }}
+  .hm-pos-est {{ background:#1e6b4655; color:#8fd9b8; border-radius:4px; }}
+  .hm-neg {{ background:#8a2f2f; color:#ffe0e0; border-radius:4px; }}
+  .hm-neg-est {{ background:#8a2f2f55; color:#f0b3b3; border-radius:4px; }}
+  .hm-empty {{ color:#3a3d45; }}
   .est-badge {{ display:inline-block; background:#a9c8ec33; color:#4dabf7; border:1px solid #4dabf7; border-radius:4px; font-size:10px; padding:1px 4px; margin-left:5px; }}
   .sub {{ color:#6b7280; font-size:11px; }}
   .count {{ color:#63e6be; font-size:12px; margin-bottom:8px; }}
@@ -284,9 +302,11 @@ TEMPLATE = """<!doctype html>
     <b>무엇을 보는 페이지인가</b><br>
     분기별 영업이익(실적+애널리스트 컨센서스 추정치)의 <b>전년동기대비(YoY) 증감률</b>과,
     그 YoY 증감률 자체가 <b>전분기보다 더 가속되고 있는지</b>(가속도 = 이번 분기 YoY − 전분기 YoY)를
-    같이 봅니다. 종목명을 클릭하면 분기별 시기/영업이익/YoY% 표를 볼 수 있습니다.
-    적자/흑자가 뒤바뀌는 구간은 YoY%가 왜곡되므로 계산하지 않습니다(표에서 제외).
-    FnGuide 컨센서스(추정치)가 하나도 없는 종목은 애초에 포함하지 않습니다.
+    같이 봅니다. 분기별 YoY는 표에 바로 색칠된 칸으로 나열됩니다 - <b>진한 초록=실적 양수,
+    연한 초록=추정 양수, 진한 빨강=실적 음수, 연한 빨강=추정 음수</b>. 종목명을 클릭하면
+    분기별 시기/영업이익/YoY% 표를 볼 수 있습니다. 적자/흑자가 뒤바뀌는 구간은 YoY%가
+    왜곡되므로 계산하지 않습니다(빈 칸). FnGuide 컨센서스(추정치)가 하나도 없는 종목은
+    애초에 포함하지 않습니다.
   </div>
 
   <div class="filters">
@@ -309,9 +329,7 @@ TEMPLATE = """<!doctype html>
 
   <div class="table-wrap">
   <table>
-    <thead><tr>
-      <th>종목명</th><th>코드</th><th>섹터</th><th>시가총액</th><th>최신 분기</th><th>최신 YoY%</th><th>전분기 YoY%</th><th>가속도(%p)</th><th>세자리 유지</th><th>가속화 유지</th>
-    </tr></thead>
+    <thead><tr id="headRow"></tr></thead>
     <tbody id="tbody"></tbody>
   </table>
   </div>
@@ -329,6 +347,7 @@ TEMPLATE = """<!doctype html>
 
 <script>
 const ROWS = {rows_json};
+const PERIODS = {periods_json};
 
 const sectors = [...new Set(ROWS.map(r => r.sector).filter(Boolean))].sort();
 const selSector = document.getElementById('fSector');
@@ -344,11 +363,27 @@ function fmtPeriod(p) {{
   const q = {{3:'Q1',6:'Q2',9:'Q3',12:'Q4'}}[m] || m;
   return y + ' ' + q;
 }}
+function fmtPeriodShort(p) {{
+  const y = Math.floor(p / 100) % 100, m = p % 100;
+  const q = {{3:'Q1',6:'Q2',9:'Q3',12:'Q4'}}[m] || m;
+  return "'" + y + ' ' + q;
+}}
 function pctSpan(v) {{
   if (v == null) return '<span class="sub">-</span>';
   const cls = v > 0 ? 'up' : v < 0 ? 'down' : '';
   return `<span class="${{cls}}">${{v > 0 ? '+' : ''}}${{v.toFixed(1)}}%</span>`;
 }}
+function heatCell(r, period) {{
+  const v = r.yoy_by_period[period];
+  if (v == null) return '<td class="hm hm-empty">-</td>';
+  const est = r.est_by_period[period];
+  const cls = v >= 0 ? (est ? 'hm-pos-est' : 'hm-pos') : (est ? 'hm-neg-est' : 'hm-neg');
+  return `<td class="hm ${{cls}}">${{Math.round(v)}}%</td>`;
+}}
+
+document.getElementById('headRow').innerHTML = '<th class="lbl">종목명</th>'
+  + PERIODS.map(p => `<th>${{fmtPeriodShort(parseInt(p))}}</th>`).join('')
+  + '<th>시가총액</th><th>가속도(%p)</th><th>세자리 유지</th><th>가속화 유지</th><th class="lbl">코드</th><th class="lbl">섹터</th>';
 
 function applyFilters() {{
   const q = document.getElementById('fSearch').value.trim().toLowerCase();
@@ -380,14 +415,13 @@ function applyFilters() {{
   document.getElementById('count').textContent = rows.length + '종목 (행 클릭하면 표)';
   document.getElementById('tbody').innerHTML = rows.slice(0, 400).map(r => `
     <tr data-code="${{r.code}}">
-      <td>${{r.name}}</td><td class="sub">${{r.code}}</td><td class="sub">${{r.sector || '-'}}</td>
+      <td class="lbl">${{r.name}}</td>
+      ${{PERIODS.map(p => heatCell(r, p)).join('')}}
       <td>${{fmtMktcap(r.latest_mktcap)}}</td>
-      <td class="sub">${{fmtPeriod(r.latest_period)}}${{r.latest_is_estimate ? '<span class="est-badge">추정</span>' : ''}}</td>
-      <td>${{pctSpan(r.latest_yoy)}}</td>
-      <td>${{pctSpan(r.prev_yoy)}}</td>
       <td>${{pctSpan(r.accel)}}</td>
       <td class="sub">${{r.triple_digit_streak > 0 ? r.triple_digit_streak + '분기' : '-'}}</td>
       <td class="sub">${{r.accel_streak > 0 ? r.accel_streak + '분기' : '-'}}</td>
+      <td class="lbl sub">${{r.code}}</td><td class="lbl sub">${{r.sector || '-'}}</td>
     </tr>`).join('');
   document.querySelectorAll('#tbody tr').forEach(tr =>
     tr.addEventListener('click', () => openDetail(tr.dataset.code)));
