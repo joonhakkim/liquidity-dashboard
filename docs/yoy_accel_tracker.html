@@ -43,7 +43,7 @@
 <body>
   <a class="back" href="index.html">&larr; 홈</a>
   <h1>YoY 가속화 트래커</h1>
-  <div class="updated">최종 갱신: 2026-09-28 11:21 &middot; 654종목(컨센서스 보유)</div>
+  <div class="updated">최종 갱신: 2026-09-28 11:24 &middot; 654종목(컨센서스 보유)</div>
 
   <div class="exp">
     <b>무엇을 보는 페이지인가</b><br>
@@ -149,6 +149,18 @@ function fmtAccel2(r) {
   const sign = v > 0 ? '+' : '';
   return `<span class="${cls}">${sign}${v.toFixed(1)}%</span>${est}`;
 }
+// 양수 YoY는 값이 클수록 초록이 진하게, 작을수록 연하게(2026-09-28 사용자 요청 - "숫자가
+// 크면 진하고, 작아지면 연해지는 느낌으로"). 값 범위가 0%~수만%까지 걸쳐 있어서 로그
+// 스케일로 압축하고(CAP% 이상은 전부 가장 진한 색으로 포화), 추정치는 알파를 낮춰
+// "연한 초록=추정"이라는 기존 구분과 겹쳐서 유지한다.
+const POS_CAP = 500;
+function posCellStyle(v, isEst) {
+  const t = Math.min(1, Math.log10(1 + Math.max(0, v)) / Math.log10(1 + POS_CAP));
+  const light = Math.round(80 - t * 55);  // 80%(연함) ~ 25%(진함)
+  const alpha = isEst ? 0.55 : 1;
+  const textColor = light < 50 ? '#eafff5' : '#0b3d24';
+  return `background:hsla(150, 55%, ${light}%, ${alpha}); color:${textColor}; border-radius:4px;`;
+}
 function heatCell(r, period) {
   const v = r.yoy_by_period[period];
   const lbl = r.label_by_period[period];
@@ -160,13 +172,16 @@ function heatCell(r, period) {
     const cls = lbl === '흑전' ? (est ? 'hm-pos-est' : 'hm-pos') : (est ? 'hm-neg-est' : 'hm-neg');
     return `<td class="hm ${cls}">${lbl}</td>`;
   }
-  const cls = v >= 0 ? (est ? 'hm-pos-est' : 'hm-pos') : (est ? 'hm-neg-est' : 'hm-neg');
+  if (v >= 0) {
+    return `<td class="hm" style="${posCellStyle(v, est)}">${Math.round(v)}%</td>`;
+  }
+  const cls = est ? 'hm-neg-est' : 'hm-neg';
   return `<td class="hm ${cls}">${Math.round(v)}%</td>`;
 }
 
-document.getElementById('headRow').innerHTML = '<th class="lbl">종목명</th><th>가속도(2Q뒤 vs 확정실적, %)</th>'
+document.getElementById('headRow').innerHTML = '<th class="lbl">종목명</th>'
   + PERIODS.map(p => `<th>${fmtPeriodShort(parseInt(p))}</th>`).join('')
-  + '<th>시가총액</th><th>세자리 유지</th><th>가속화 유지</th><th class="lbl">코드</th><th class="lbl">섹터</th>';
+  + '<th>시가총액</th><th>가속도(2Q뒤 vs 확정실적, %)</th><th>세자리 유지</th><th>가속화 유지</th><th class="lbl">코드</th><th class="lbl">섹터</th>';
 
 function applyFilters() {
   const q = document.getElementById('fSearch').value.trim().toLowerCase();
@@ -202,9 +217,9 @@ function applyFilters() {
   document.getElementById('tbody').innerHTML = rows.slice(0, 400).map(r => `
     <tr data-code="${r.code}">
       <td class="lbl">${r.name}</td>
-      <td>${fmtAccel2(r)}</td>
       ${PERIODS.map(p => heatCell(r, p)).join('')}
       <td>${fmtMktcap(r.latest_mktcap)}</td>
+      <td>${fmtAccel2(r)}</td>
       <td class="sub">${r.triple_digit_streak > 0 ? r.triple_digit_streak + '분기' : '-'}</td>
       <td class="sub">${r.accel_streak > 0 ? r.accel_streak + '분기' : '-'}</td>
       <td class="lbl sub">${r.code}</td><td class="lbl sub">${r.sector || '-'}</td>
