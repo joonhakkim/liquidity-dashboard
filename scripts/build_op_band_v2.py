@@ -52,7 +52,7 @@ DETAIL_OUT_DIR = os.path.join(DOCS_DIR, "op_band_data")
 
 # 바텀 계산에 쓰는 최근 기간 - 화면에서 골라볼 수 있게 여러 개 다 계산해둔다.
 # 2015년까지 시계열이 늘어나면서(2026-09-10) 5년/전체 구간도 의미가 생겼다.
-BOTTOM_WINDOWS = [("3y", 3, "3년"), ("5y", 5, "5년"), ("all", None, "전체")]
+BOTTOM_WINDOWS = [("1y", 1, "1년"), ("3y", 3, "3년"), ("5y", 5, "5년"), ("all", None, "전체")]
 PERCENTILES = [10, 15, 20]
 MIN_OBS = 60   # 이보다 표본이 적은 구간은 값을 안 낸다(신규상장 등)
 
@@ -506,6 +506,7 @@ TEMPLATE = """<!doctype html>
     <label>검색 <input type="text" id="fSearch" placeholder="종목명/코드"></label>
     <label>섹터 <select id="fSector"><option value="">전체</option></select></label>
     <label>바텀 구간 <select id="fWin">
+      <option value="1y">최근 1년</option>
       <option value="3y" selected>최근 3년</option>
       <option value="5y">최근 5년</option>
       <option value="all">전체(2015~)</option>
@@ -602,7 +603,7 @@ function applyFilters() {{
   const revWin = document.getElementById('fRevWin').value;
   const revUpOnly = document.getElementById('fRevUp').checked;
   const bKey = 'b_' + win + '_p' + pct, gKey = 'gap_' + win + '_p' + pct, nKey = 'n_' + win;
-  const winLabel = {{'3y':'3년','5y':'5년','all':'전체'}}[win];
+  const winLabel = {{'1y':'1년','3y':'3년','5y':'5년','all':'전체'}}[win];
 
   let rows = ROWS.filter(r => {{
     if (revUpOnly) {{ const rv = revInfo(r, revWin).value; if (rv == null || rv <= 0) return false; }}
@@ -689,7 +690,7 @@ function renderChart(bandMultiples) {{
   // 목록에서 고른 바텀 구간/퍼센타일을 차트에도 그대로 반영
   const win = document.getElementById('fWin').value;
   const pct = document.getElementById('fPct').value;
-  const winLabel = {{'3y':'3년','5y':'5년','all':'전체'}}[win];
+  const winLabel = {{'1y':'1년','3y':'3년','5y':'5년','all':'전체'}}[win];
   const bottom = d.bottoms[win + '_p' + pct];
 
   document.getElementById('detailSub').textContent = bottom == null
