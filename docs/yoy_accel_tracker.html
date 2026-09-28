@@ -43,7 +43,7 @@
 <body>
   <a class="back" href="index.html">&larr; 홈</a>
   <h1>YoY 가속화 트래커</h1>
-  <div class="updated">최종 갱신: 2026-09-28 11:18 &middot; 654종목(컨센서스 보유)</div>
+  <div class="updated">최종 갱신: 2026-09-28 11:21 &middot; 654종목(컨센서스 보유)</div>
 
   <div class="exp">
     <b>무엇을 보는 페이지인가</b><br>
@@ -129,11 +129,13 @@ function pctOrLabelSpan(v, lbl) {
   return pctSpan(v);
 }
 function accel2SortVal(r) {
-  // 흑전(적자->흑자)은 숫자 비율이 없지만 가장 좋은 케이스니 맨 위로, 적전/적자(흑자->적자,
-  // 적자 지속)는 어떤 음수 %보다도 아래로 보낸다 - 정렬용 임의 큰/작은 값.
-  if (r.accel2_label === '흑전') return 1e9;
-  if (r.accel2_label != null) return -1e9;
-  return r.accel2_pct ?? -9e9;
+  // 실제 % 값이 있는 종목을 먼저 순위 매기고(2026-09-28 사용자 정정 - "가속화 순위는
+  // 흑전보다는 %를 먼저"), 라벨(흑전/적전/적자)만 있는 종목은 전부 그 뒤로 - 그 중에서는
+  // 흑전(적자->흑자)이 적전/적자(흑자->적자, 적자 지속)보다 위.
+  if (r.accel2_pct != null) return r.accel2_pct;
+  if (r.accel2_label === '흑전') return -1e9;
+  if (r.accel2_label != null) return -2e9;
+  return -3e9;
 }
 function fmtAccel2(r) {
   const est = r.accel2_target_is_estimate ? '<span class="est-badge">추정</span>' : '';
