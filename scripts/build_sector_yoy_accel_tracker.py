@@ -167,6 +167,22 @@ def build_sector(sector, members, gap_map):
         label_opsum.append(lbl)
         n_opsum.append(len(common_codes))
 
+    # 맨 앞쪽 분기(들)는 YoY 계산에 4분기치 이전 데이터가 필요해서(compute_yoy) 세 방식
+    # 모두 값이 하나도 없는 "워밍업" 구간일 수 있다 - 원본 워크북 히스토리가 2024년부터라
+    # 그 빈 2024년 칸들이 차트 앞에 계속 나와서 불편하다는 요청(2026-09-29 "차트에서
+    # 24년도 나오니까 불편해"). 세 방식 중 하나라도 값(숫자 또는 흑전/적전/적자 라벨)이
+    # 있는 첫 분기부터만 남긴다 - 지어내는 게 아니라 정말 아무 값도 없는 구간을 그냥 자르는
+    # 것뿐이다.
+    start_idx = next((i for i in range(len(all_periods))
+                       if vals_by_period[all_periods[i]] or yoy_opsum[i] is not None or label_opsum[i] is not None),
+                      0)
+    if start_idx > 0:
+        all_periods = all_periods[start_idx:]
+        yoy_simple, yoy_trimmed, label_none = yoy_simple[start_idx:], yoy_trimmed[start_idx:], label_none[start_idx:]
+        est_arr = est_arr[start_idx:]
+        yoy_opsum, label_opsum, n_opsum = yoy_opsum[start_idx:], label_opsum[start_idx:], n_opsum[start_idx:]
+        n_by_period = {str(p): len(vals_by_period[p]) for p in all_periods}
+
     series_by_method = {
         "simple": (yoy_simple, label_none, n_by_period),
         "trimmed": (yoy_trimmed, label_none, n_by_period),
