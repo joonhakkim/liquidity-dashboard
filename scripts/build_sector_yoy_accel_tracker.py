@@ -15,8 +15,9 @@ build_yoy_accel_tracker.py와 같은 원본(data/manual/QoQ 계산.xlsx)에서 �
 (특히 적자 근처에서 조금만 좋아져도 %가 수천%로 튀는 베이스효과)에 너무 휘둘린다는
 문제를 같이 짚은 뒤 나온 요청):
   1) simple  - 그 분기에 숫자(%)가 있는 종목 전체의 단순평균(기존 방식)
-  2) trimmed - 그 분기 값들을 정렬해서 위아래 10%씩 잘라내고 남은 것만 평균(절사평균) -
-     표본이 10개 미만이면 10%가 1개도 안 잘리므로 사실상 simple과 같다(지어내지 않음).
+  2) trimmed - 그 분기 값들을 정렬해서 아래 5% / 위 15%를 잘라내고 남은 것만 평균(절사평균,
+     비대칭) - 표본이 작으면 그만큼 덜(또는 안) 잘리므로 사실상 simple과 같아질 수 있다
+     (지어내지 않음). 왜 대칭이 아닌 5%/15%인지는 trimmed_mean() 주석 참고.
   3) opsum   - "그 분기 섹터 소속 종목들의 영업이익(원) 합계"끼리 전년동기대비 - 개별
      종목 YoY%를 평균 내는 대신, 금액을 먼저 합산한 뒤 딱 한 번만 비율을 낸다. 큰 회사의
      실제 이익 기여도가 자연히 반영되고(암묵적 시총/이익 가중), 작은 회사의 베이스효과
@@ -54,20 +55,29 @@ PAGE_OUT_PATH = os.path.join(DOCS_DIR, "sector_yoy_accel_tracker.html")
 DETAIL_OUT_DIR = os.path.join(DOCS_DIR, "sector_yoy_accel_tracker_data")
 
 METHODS = ["simple", "trimmed", "opsum"]
-METHOD_LABEL = {"simple": "단순평균", "trimmed": "절사평균(상하위 10% 제외)", "opsum": "섹터합산 OP YoY"}
+METHOD_LABEL = {"simple": "단순평균", "trimmed": "절사평균(아래5%/위15% 제외)", "opsum": "섹터합산 OP YoY"}
 
 
 def slugify(sector):
     return "".join(c if c.isalnum() else "_" for c in sector)
 
 
-def trimmed_mean(values, trim_pct=0.1):
+# 아래 5% / 위 15% 비대칭 트림(2026-09-29 결정) - 전체 654종목×12분기 4,837개 (종목,분기)
+# YoY% 값을 다 모아서 분포를 실제로 조사해보니 skewness=16.3으로 극심한 우측 비대칭이었다.
+# 아래쪽은 -100%(흑자->적자 직전)에서 구조적으로 막혀 있는데(중앙값 -99.3%가 최솟값과 거의
+# 같음) 위쪽은 +20,000%대까지 사실상 무한히 뻗어있어서(베이스효과), 평균(+116%)이 중앙값
+# (+23%)의 5배나 튀었다. 댈러스연은 Trimmed Mean PCE가 대칭이 아니라 아래 24%/위 31%로
+# 위를 더 많이 자르는 것과 같은 이유 - 위로 길게 뻗은 분포는 대칭 트림으로 균형이 안 맞는다.
+TRIM_LO, TRIM_HI = 0.05, 0.15
+
+
+def trimmed_mean(values, trim_lo=TRIM_LO, trim_hi=TRIM_HI):
     if not values:
         return None
     vals = sorted(values)
     n = len(vals)
-    k = int(n * trim_pct)
-    core = vals[k:n - k] if (n - 2 * k) >= 1 else vals
+    k_lo, k_hi = int(n * trim_lo), int(n * trim_hi)
+    core = vals[k_lo:n - k_hi] if (n - k_lo - k_hi) >= 1 else vals
     return statistics.mean(core)
 
 
@@ -449,8 +459,10 @@ TEMPLATE = """<!doctype html>
     (섹터 정리.xlsx)로 묶은 것입니다. 섹터 정리.xlsx에 없는(미분류) 종목은 어느 섹터에도
     들어가지 않습니다. 집계 방식을 3가지 중 골라 비교할 수 있습니다 - <b>단순평균</b>은
     그 분기 숫자(%)가 있는 종목 전체를 그냥 평균(작은 회사의 베이스효과 극단치에 취약).
-    <b>절사평균</b>은 위아래 10%씩 잘라내고 평균(표본 10개 미만이면 사실상 단순평균과
-    동일). <b>섹터합산 OP YoY</b>는 종목별 %를 평균 내는 대신 영업이익 금액을 먼저 합산한
+    <b>절사평균</b>은 아래 5% / 위 15%를 잘라내고 평균 - 대칭이 아닌 이유는 실제 종목별
+    YoY% 분포를 조사해보니 아래쪽은 -100%에서 막혀있는데 위쪽은 베이스효과로 수만%까지
+    뻗어있어서(우측 극단치가 훨씬 많음), 대칭으로 자르면 균형이 안 맞기 때문입니다(표본이
+    작으면 그만큼 덜 잘림). <b>섹터합산 OP YoY</b>는 종목별 %를 평균 내는 대신 영업이익 금액을 먼저 합산한
     뒤 딱 한 번 전년동기대비를 계산(큰 회사 비중이 자연히 반영, 부호가 섞이면 흑전/적전/적자
     라벨) - 이번 분기와 작년 동기 <b>둘 다 컨센서스가 있는 종목만</b> 골라 그 종목들끼리만
     합산합니다(먼 미래 분기일수록 컨센서스 있는 종목이 줄어드는데, 각 분기를 "그때 있던
