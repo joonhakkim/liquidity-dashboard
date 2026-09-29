@@ -61,3 +61,9 @@
 2026-09-28,kosdaq_long_short_index,reduce_pct,로보티즈,108490,2.0,,2026-09-28T20:06:04.728990
 2026-09-28,kosdaq_long_short_index,new_entry_pct,코스텍시스,355150,2.0,,2026-09-28T20:06:04.728990
 2026-09-28,kosdaq_long_short_index,increase_pct,KODEX 코스닥150선물인버스,251340,10.0,,2026-09-28T20:06:04.728990
+2026-09-29,kosdaq_long_short_index,increase_pct,유니테스트,086390,1.0,,2026-09-30T07:50:21.445380
+2026-09-29,kosdaq_long_short_index,exit,실리콘투,257720,,,2026-09-30T07:50:21.445380
+2026-09-29,kosdaq_long_short_index,exit,범한퓨얼셀,382900,,,2026-09-30T07:50:21.445380
+2026-09-29,kosdaq_long_short_index,increase_pct,코스텍시스,355150,1.0,,2026-09-30T07:50:21.445380
+2026-09-29,kosdaq_long_short_index,new_entry_pct,비에이치아이,083650,2.0,,2026-09-30T07:50:21.445380
+2026-09-29,kosdaq_long_short_index,increase_pct,KODEX 코스닥150선물인버스,251340,15.0,숏 80->95%,2026-09-30T07:50:21.445380
