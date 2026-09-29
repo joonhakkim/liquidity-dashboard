@@ -477,6 +477,7 @@ TEMPLATE = """<!doctype html>
 </head>
 <body>
   <a class="back" href="index.html">&larr; 홈</a>
+  <a class="back" href="sector_yoy_accel_tracker.html">섹터별로 보기 &rarr;</a>
   <h1>YoY 가속화 트래커</h1>
   <div class="updated">최종 갱신: {updated_at} &middot; {n_stocks}종목(컨센서스 보유)</div>
 
