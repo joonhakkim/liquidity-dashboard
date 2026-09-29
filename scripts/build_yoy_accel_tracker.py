@@ -37,7 +37,7 @@ import pandas as pd
 
 from build_op_band import (
     HEADER_CODE_ROW, HEADER_NAME_ROW, HEADER_ITEM_ROW, HEADER_BASEDATE_ROW, DATA_START_ROW,
-    MANUAL_DIR, detect_blocks, load_naver_sector_map, load_sector_map,
+    MANUAL_DIR, detect_blocks,
 )
 
 DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data")
@@ -217,7 +217,7 @@ def compute_yoy(quarters):
     return yoy, label
 
 
-def build_row_and_detail(code, data, sector_map, naver_sector_map, custom_sector_map):
+def build_row_and_detail(code, data, custom_sector_map):
     quarters = data["quarters"]
     yoy, label = compute_yoy(quarters)
     if not any(v is not None for v in yoy) and not any(label):
@@ -279,8 +279,7 @@ def build_row_and_detail(code, data, sector_map, naver_sector_map, custom_sector
 
     row = {
         "code": code, "name": data["name"],
-        "sector": custom_sector_map.get(data["name"]) or naver_sector_map.get(code.lstrip("A")) or sector_map.get(data["name"]),
-        "sector_is_custom": data["name"] in custom_sector_map,
+        "sector": custom_sector_map.get(data["name"]),
         "latest_mktcap": data["latest_mktcap"],
         "latest_period": latest_q["period"], "latest_is_estimate": latest_q["is_estimate"],
         "latest_yoy": latest_yoy, "latest_label": latest_label, "prev_yoy": prev_yoy,
@@ -345,15 +344,13 @@ def main():
             all_results.setdefault(code, data)
         print(f"  {len(res)}개 종목(컨센서스 보유, 5분기 이상)")
 
-    naver_sector_map = load_naver_sector_map()
-    sector_map = load_sector_map()
     custom_sector_map = load_custom_sector_map()
     print(f"섹터 정리.xlsx 종목 {len(custom_sector_map)}개 로드")
 
     os.makedirs(DETAIL_OUT_DIR, exist_ok=True)
     rows = []
     for code, data in all_results.items():
-        row, detail = build_row_and_detail(code, data, sector_map, naver_sector_map, custom_sector_map)
+        row, detail = build_row_and_detail(code, data, custom_sector_map)
         if not row:
             continue
         rows.append(row)
@@ -362,13 +359,15 @@ def main():
 
     print(f"결과 {len(rows)}종목(YoY 계산 가능 + 컨센서스 보유)")
 
-    # 사용자가 관리하는 섹터 정리.xlsx 어디에도 없는 종목 - 조용히 기존(네이버/FnGuide)
-    # 분류로 남겨두되, 어떤 종목이 빠졌는지는 알려달라는 요청(2026-09-29)이라 콘솔에 나열한다.
-    uncustomized = sorted((r["name"], r["code"], r["sector"]) for r in rows if not r["sector_is_custom"])
+    # 사용자가 관리하는 섹터 정리.xlsx 어디에도 없는 종목 - 네이버/FnGuide 옛 분류로 섞어서
+    # 보여주면(2026-09-29 이전 방식) 사용자가 정한 42개 섹터 체계와 안 맞는 분류가 필터
+    # 목록에 같이 떠서 "뒤죽박죽"이 된다는 피드백(2026-09-29)에 따라, 옛 분류로 채우지 않고
+    # 빈 채로 둔다(섹터 없음) - 어떤 종목이 빠졌는지만 콘솔에 나열해서 사용자가 직접 채우게 한다.
+    uncustomized = sorted((r["name"], r["code"]) for r in rows if r["sector"] is None)
     if uncustomized:
-        print(f"섹터 정리.xlsx에 없는 종목 {len(uncustomized)}개(기존 분류 유지):")
-        for name, code, sector in uncustomized:
-            print(f"  {name}({code}) - 기존 분류: {sector or '없음'}")
+        print(f"섹터 정리.xlsx에 없는 종목 {len(uncustomized)}개(섹터 빈 칸):")
+        for name, code in uncustomized:
+            print(f"  {name}({code})")
 
     # 밸류에이션 등급(상/중상/중/중하/하) - OP밴드의 "3년 하위 10% 바텀 대비 %"를 이 654종목
     # 안에서만 5분위로 나눈다(2026-09-28 사용자 확정 - "3년 하위 10%를 기준으로 나눠보고
