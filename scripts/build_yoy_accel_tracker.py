@@ -419,7 +419,14 @@ TEMPLATE = """<!doctype html>
   tbody tr:hover {{ background:#1a1d24; }}
   .overlay {{ display:none; position:fixed; inset:0; background:rgba(0,0,0,0.75); z-index:200; overflow:auto; padding:40px 20px; }}
   .overlay.open {{ display:block; }}
-  .modal {{ background:#12151b; border:1px solid #23262e; border-radius:14px; max-width:720px; margin:0 auto; padding:22px 26px; }}
+  .modal {{ background:#12151b; border:1px solid #23262e; border-radius:14px; max-width:1100px; margin:0 auto; padding:22px 26px; }}
+  .range-bar {{ display:flex; gap:6px; margin:10px 0; flex-wrap:wrap; }}
+  .range-btn {{ background:#1a1d24; border:1px solid #2a2e37; color:#9aa0a6; padding:5px 12px; border-radius:999px; cursor:pointer; font-size:12px; font-family:inherit; }}
+  .range-btn.active {{ background:#4dabf7; color:#0f1115; border-color:#4dabf7; font-weight:bold; }}
+  .band-controls {{ display:flex; gap:12px; align-items:center; flex-wrap:wrap; font-size:12px; color:#9aa0a6; margin-bottom:8px; }}
+  .band-controls input {{ background:#1a1d24; border:1px solid #2a2e37; color:#e6e6e6; border-radius:6px; padding:5px 8px; font-size:12px; width:70px; }}
+  .band-controls input#bandCustom {{ width:150px; }}
+  .band-controls button {{ background:#1a1d24; border:1px solid #2a2e37; color:#9aa0a6; padding:5px 12px; border-radius:6px; cursor:pointer; font-size:12px; font-family:inherit; }}
   .modal h2 {{ font-size:17px; margin:0 0 12px 0; }}
   .close-btn {{ float:right; background:none; border:none; color:#9aa0a6; font-size:22px; cursor:pointer; line-height:1; }}
   .detail-table {{ width:100%; margin-top:16px; }}
@@ -499,7 +506,14 @@ TEMPLATE = """<!doctype html>
       <button class="close-btn" id="closeBtn">&times;</button>
       <h2 id="detailName"></h2>
       <div class="legend" id="detailLegend"></div>
-      <div id="detailSub" style="font-size:12px;color:#9aa0a6;margin-bottom:6px;"></div>
+      <div class="sub" id="detailSub" style="font-size:12px;color:#9aa0a6;"></div>
+      <div class="range-bar" id="rangeBar"></div>
+      <div class="band-controls">
+        <label>밴드 개수 <input type="number" id="bandCount" min="1" max="20" step="1" value="6"></label>
+        <label>직접 배수(콤마, 예 5,10,20) <input type="text" id="bandCustom" placeholder="비우면 자동"></label>
+        <label>세로축 최대(억원) <input type="number" id="yAxisMax" placeholder="자동"></label>
+        <button id="bandApplyBtn">적용</button>
+      </div>
       <div class="chart-wrap" id="detailChartWrap"><canvas id="detailChart"></canvas></div>
       <table class="detail-table">
         <thead><tr><th style="text-align:left;">시기</th><th>영업이익(억원)</th><th>YoY%</th></tr></thead>
@@ -681,8 +695,107 @@ function applyFilters() {{
 // 종목 클릭 시 모달 차트 - OP밴드 트래커(op_band.html)와 동일한 "시가총액 vs OP배수 밴드"
 // 차트를 그대로 가져온다(2026-09-29 사용자 요청 - "차트를 우리 OP밴드 트래커로 나오는것들로
 // 바꿀 수 있나?"). 두 페이지가 docs/ 밑에 같이 있어서 op_band_data/*.json을 그대로 fetch.
-// 바텀선은 이 페이지의 밸류에이션 등급과 같은 기준(3년 하위 10%)을 쓴다.
-let detailChart = null;
+// 밴드 개수/직접 배수/세로축 최대/기간(1년~전체) 조절 컨트롤도 OP밴드 트래커와 동일하게
+// 넣었다(2026-09-29 "OP차트 내가 조절하는거 넣어주라 밴드 숫자 등등"). 바텀선은 이 페이지의
+// 밸류에이션 등급과 같은 기준(3년 하위 10%)으로 고정 - 창을 또 두면 등급 기준과 어긋나 보인다.
+const NICE_STEPS = [1, 2, 5, 10, 15, 20, 25, 30, 50, 100, 200, 250, 500, 1000];
+const RANGE_OPTIONS = [
+  {{ label: '1년', days: 365 }}, {{ label: '2년', days: 730 }},
+  {{ label: '3년', days: 1095 }}, {{ label: '전체', days: null }},
+];
+let detailChart = null, currentBand = null, currentRange = {{ days: null }};
+
+function pickBandMultiples(mults, targetLines) {{
+  const positive = mults.filter(m => m != null && m > 0);
+  if (!positive.length) return [];
+  const end = Math.ceil(Math.max(...positive)) + 1;
+  const step = NICE_STEPS.find(s => s >= end / targetLines) ?? NICE_STEPS[NICE_STEPS.length - 1];
+  const out = [];
+  for (let v = step; v <= end; v += step) out.push(v);
+  return out.length ? out : [step];
+}}
+
+function sliceRange(dates) {{
+  if (currentRange.days == null) return 0;
+  const cutoff = new Date(dates[dates.length - 1]);
+  cutoff.setDate(cutoff.getDate() - currentRange.days);
+  const i = dates.findIndex(dt => new Date(dt) >= cutoff);
+  return i < 0 ? 0 : i;
+}}
+
+function currentBands() {{
+  const txt = document.getElementById('bandCustom').value.trim();
+  if (txt) return txt.split(',').map(s => parseFloat(s.trim())).filter(v => !isNaN(v) && v > 0).sort((a, b) => a - b);
+  const n = parseInt(document.getElementById('bandCount').value, 10) || 6;
+  const mults = currentBand.mktcapEok.map((v, i) => {{
+    const o = currentBand.opEok[i];
+    return o ? v / o : null;
+  }});
+  return pickBandMultiples(mults, n);
+}}
+
+function renderBandChart(bandMultiples) {{
+  const b = currentBand;
+  const s = sliceRange(b.dates);
+  const dates = b.dates.slice(s), op = b.opEok.slice(s), mktcap = b.mktcapEok.slice(s);
+  const bottom = b.bottoms ? b.bottoms['3y_p10'] : null;
+
+  const datasets = bandMultiples.map((m, i) => ({{
+    label: `${{m}}x`, data: op.map(v => v == null ? null : v * m),
+    borderColor: `hsl(${{200 + i * 30}}, 60%, 55%)`, backgroundColor: 'transparent',
+    borderWidth: 1, borderDash: [4, 3], pointRadius: 0, tension: 0,
+  }}));
+  if (bottom != null) datasets.push({{
+    label: `바텀 ${{bottom}}x`, data: op.map(v => v == null ? null : v * bottom),
+    borderColor: '#ff2ec4', backgroundColor: 'transparent',
+    borderWidth: 2, pointRadius: 0, tension: 0,
+  }});
+  datasets.push({{
+    label: '시가총액(실제, 억원)', data: mktcap,
+    borderColor: '#e6e6e6', backgroundColor: 'transparent',
+    borderWidth: 2.5, pointRadius: 0, tension: 0, order: 0,
+  }});
+  document.getElementById('detailLegend').innerHTML = `<span><span class="sw" style="background:#e6e6e6"></span>시가총액</span><span><span class="sw" style="background:#ff2ec4"></span>바텀(3년 하위10%)</span><span><span class="sw" style="background:hsl(200,60%,55%)"></span>OP배수 밴드선</span>`;
+  document.getElementById('detailSub').textContent = bottom == null
+    ? `밴드선: ${{bandMultiples.map(m => m + 'x').join(', ')}} (바텀 표본 부족)`
+    : `밴드선: ${{bandMultiples.map(m => m + 'x').join(', ')}} · 바텀(3년 하위10%) ${{bottom}}x`;
+
+  const vals = mktcap.filter(v => v != null);
+  const bottomVals = bottom != null ? op.map(v => v == null ? null : v * bottom).filter(v => v != null && v > 0) : [];
+  const yOverrideTxt = document.getElementById('yAxisMax').value.trim();
+  const yOverride = yOverrideTxt ? parseFloat(yOverrideTxt) : null;
+  const autoMax = Math.max(vals.length ? Math.max(...vals) : 0, bottomVals.length ? Math.max(...bottomVals) : 0) * 1.25;
+  const yMax = (yOverride && !isNaN(yOverride)) ? yOverride : (autoMax > 0 ? autoMax : undefined);
+  const minV = vals.length ? Math.min(...vals) : 0;
+
+  if (detailChart) detailChart.destroy();
+  detailChart = new Chart(document.getElementById('detailChart').getContext('2d'), {{
+    type: 'line',
+    data: {{ labels: dates, datasets }},
+    options: {{
+      responsive: true, maintainAspectRatio: false,
+      plugins: {{ legend: {{ display: false }} }},
+      scales: {{
+        x: {{ ticks: {{ color: '#9aa0a6', maxTicksLimit: 10 }}, grid: {{ color: '#23262e' }} }},
+        y: {{ min: minV < 0 ? minV * 1.5 : 0, max: yMax, ticks: {{ color: '#9aa0a6' }}, grid: {{ color: '#23262e' }} }},
+      }}
+    }}
+  }});
+}}
+
+const rangeBar = document.getElementById('rangeBar');
+RANGE_OPTIONS.forEach(o => {{
+  const btn = document.createElement('button');
+  btn.className = 'range-btn'; btn.textContent = o.label; btn.dataset.days = String(o.days);
+  btn.onclick = () => {{
+    currentRange = {{ days: o.days }};
+    document.querySelectorAll('.range-btn').forEach(x => x.classList.toggle('active', x === btn));
+    renderBandChart(currentBands());
+  }};
+  rangeBar.appendChild(btn);
+}});
+document.getElementById('bandApplyBtn').addEventListener('click', () => renderBandChart(currentBands()));
+
 function openDetail(code) {{
   fetch(`yoy_accel_tracker_data/${{code}}.json`).then(r => r.json()).then(d => {{
     document.getElementById('detailName').textContent = `${{d.name}} (${{d.code}})`;
@@ -694,49 +807,18 @@ function openDetail(code) {{
       </tr>`).join('');
 
     if (detailChart) {{ detailChart.destroy(); detailChart = null; }}
+    currentBand = null;
     document.getElementById('detailLegend').innerHTML = '';
     document.getElementById('detailSub').textContent = '';
+    document.getElementById('bandCustom').value = '';
+    document.getElementById('yAxisMax').value = '';
+    currentRange = {{ days: null }};
+    document.querySelectorAll('.range-btn').forEach(x => x.classList.toggle('active', x.dataset.days === 'null'));
 
     fetch(`op_band_data/${{code}}.json`).then(r => {{ if (!r.ok) throw new Error('no band data'); return r.json(); }}).then(b => {{
-      const realBands = b.bandMultiples ?? [];
-      const bottom = b.bottoms ? b.bottoms['3y_p10'] : null;
-      const datasets = realBands.map((m, i) => ({{
-        label: `${{m}}x`, data: b.opEok.map(v => v == null ? null : v * m),
-        borderColor: `hsl(${{200 + i * 30}}, 60%, 55%)`, backgroundColor: 'transparent',
-        borderWidth: 1, borderDash: [4, 3], pointRadius: 0, tension: 0,
-      }}));
-      if (bottom != null) datasets.push({{
-        label: `바텀 ${{bottom}}x`, data: b.opEok.map(v => v == null ? null : v * bottom),
-        borderColor: '#ff2ec4', backgroundColor: 'transparent',
-        borderWidth: 2, pointRadius: 0, tension: 0,
-      }});
-      datasets.push({{
-        label: '시가총액(실제, 억원)', data: b.mktcapEok,
-        borderColor: '#e6e6e6', backgroundColor: 'transparent',
-        borderWidth: 2.5, pointRadius: 0, tension: 0, order: 0,
-      }});
-      document.getElementById('detailLegend').innerHTML = `<span><span class="sw" style="background:#e6e6e6"></span>시가총액</span><span><span class="sw" style="background:#ff2ec4"></span>바텀(3년 하위10%)</span><span><span class="sw" style="background:hsl(200,60%,55%)"></span>OP배수 밴드선</span>`;
-      document.getElementById('detailSub').textContent = bottom == null
-        ? `밴드선: ${{realBands.map(m => m + 'x').join(', ')}} (바텀 표본 부족)`
-        : `밴드선: ${{realBands.map(m => m + 'x').join(', ')}} · 바텀(3년 하위10%) ${{bottom}}x`;
-
-      const vals = b.mktcapEok.filter(v => v != null);
-      const bottomVals = bottom != null ? b.opEok.map(v => v == null ? null : v * bottom).filter(v => v != null && v > 0) : [];
-      const autoMax = Math.max(vals.length ? Math.max(...vals) : 0, bottomVals.length ? Math.max(...bottomVals) : 0) * 1.25;
-      const minV = vals.length ? Math.min(...vals) : 0;
-
-      detailChart = new Chart(document.getElementById('detailChart').getContext('2d'), {{
-        type: 'line',
-        data: {{ labels: b.dates, datasets }},
-        options: {{
-          responsive: true, maintainAspectRatio: false,
-          plugins: {{ legend: {{ display: false }} }},
-          scales: {{
-            x: {{ ticks: {{ color: '#9aa0a6', maxTicksLimit: 10 }}, grid: {{ color: '#23262e' }} }},
-            y: {{ min: minV < 0 ? minV * 1.5 : 0, max: autoMax > 0 ? autoMax : undefined, ticks: {{ color: '#9aa0a6' }}, grid: {{ color: '#23262e' }} }},
-          }}
-        }}
-      }});
+      currentBand = b;
+      document.getElementById('bandCount').value = b.bandMultiples.length || 6;
+      renderBandChart(b.bandMultiples ?? []);
     }}).catch(() => {{
       document.getElementById('detailSub').textContent = 'OP밴드 데이터 없음(흑자 구간이 없어 밴드 계산이 안 되는 종목 등)';
     }});
