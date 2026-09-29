@@ -21,7 +21,11 @@ build_yoy_accel_tracker.py와 같은 원본(data/manual/QoQ 계산.xlsx)에서 �
      종목 YoY%를 평균 내는 대신, 금액을 먼저 합산한 뒤 딱 한 번만 비율을 낸다. 큰 회사의
      실제 이익 기여도가 자연히 반영되고(암묵적 시총/이익 가중), 작은 회사의 베이스효과
      극단치에 덜 휘둘린다. 부호가 섞이면(합계가 적자<->흑자 전환) 개별 종목과 같은 원칙으로
-     숫자 대신 흑전/적전/적자 라벨을 쓴다.
+     숫자 대신 흑전/적전/적자 라벨을 쓴다. 두 분기 모두 컨센서스가 있는 종목만 골라 그
+     종목들끼리만 두 분기를 합산한다(2026-09-29 사용자 지적 - "분기추정치가 없어지면서
+     음수로 변하는게 너무 크다") - 먼 미래 분기일수록 컨센서스 있는 종목 수가 줄어드는데,
+     이번 분기/작년 동기를 각각 "그때 있던 종목 전부"로 따로 합산하면 모집단 자체가
+     달라져서 실제로는 안 줄었는데 합계가 확 줄어드는 착시가 생겼었다.
 
 세 방식 모두 가속도(%p)/세자리유지/가속화유지는 섹터를 하나의 가상 종목처럼 취급해서
 종목별 페이지와 동일한 정의를 그 방식의 YoY 시계열에 그대로 적용한다. 실적/추정 구분은
@@ -120,20 +124,27 @@ def series_stats(all_periods, yoy_arr, label_arr, est_arr):
 def build_sector(sector, members, gap_map):
     all_periods = sorted({q["period"] for m in members for q in m["quarters"]})
 
-    vals_by_period, est_votes_by_period, op_by_period = {}, {}, {}
+    # 종목별 op_won을 {code: {period: op_won}}로도 따로 잡아둔다 - opsum 방식에서 "이번
+    # 분기 있는 종목 전부 합"과 "작년 동기 있는 종목 전부 합"을 각각 따로 더하면, 먼 미래
+    # 분기일수록 컨센서스 있는 종목 수가 줄면서 모집단 자체가 달라져(예: 작년엔 10개 종목
+    # 합계, 올해는 컨센서스 있는 2개 종목 합계) 실제로는 줄지 않았는데 합계가 확 줄어드는
+    # 착시가 생긴다(2026-09-29 사용자 지적 - "분기추정치가 없어지면서 음수로 변하는게 너무
+    # 크다"). 그래서 비교하는 두 분기 모두에 데이터가 있는 종목만 골라 그 종목들끼리만
+    # 두 분기를 더하는 "동일 종목 집합" 방식으로 고친다.
+    op_by_member_period = {m["code"]: {q["period"]: q["op_won"] for q in m["quarters"]} for m in members}
+
+    vals_by_period, est_votes_by_period = {}, {}
     for p in all_periods:
-        vals, est_votes, ops = [], [], []
+        vals, est_votes = [], []
         for m in members:
             for i, q in enumerate(m["quarters"]):
                 if q["period"] != p:
                     continue
                 est_votes.append(q["is_estimate"])
-                ops.append(q["op_won"])
                 if m["yoy"][i] is not None:
                     vals.append(m["yoy"][i])
         vals_by_period[p] = vals
         est_votes_by_period[p] = est_votes
-        op_by_period[p] = sum(ops) if ops else None
 
     est_arr = [(sum(est_votes_by_period[p]) / len(est_votes_by_period[p])) >= 0.5 if est_votes_by_period[p] else False
                for p in all_periods]
@@ -145,13 +156,16 @@ def build_sector(sector, members, gap_map):
 
     yoy_opsum, label_opsum, n_opsum = [], [], []
     for p in all_periods:
-        cur = op_by_period.get(p)
-        prev = op_by_period.get(p - 100)
+        common_codes = [code for code, by_p in op_by_member_period.items() if p in by_p and (p - 100) in by_p]
+        if common_codes:
+            cur = sum(op_by_member_period[code][p] for code in common_codes)
+            prev = sum(op_by_member_period[code][p - 100] for code in common_codes)
+        else:
+            cur = prev = None
         v, lbl = sign_aware_ratio(cur, prev)
         yoy_opsum.append(v)
         label_opsum.append(lbl)
-        n_opsum.append(sum(1 for m in members if any(q["period"] == p for q in m["quarters"])
-                           and any(q["period"] == p - 100 for q in m["quarters"])))
+        n_opsum.append(len(common_codes))
 
     series_by_method = {
         "simple": (yoy_simple, label_none, n_by_period),
@@ -241,9 +255,21 @@ def build_sector(sector, members, gap_map):
         detail_methods[method]["bar_label"] = [bar_label_map.get(d) for d in grid_dates]
         detail_methods[method]["bar_is_estimate"] = [bool(bar_est_map.get(d, False)) for d in grid_dates]
 
+    # 종목별 분포(분산형 점 + min~max 범위) - "섹터 평균이 실제로 대표성 있는지" 눈으로
+    # 바로 보기 위해(2026-09-29 사용자 요청 "1번[종목별 분포]을 한번 해볼까"). 집계 방식과
+    # 무관하게 개별 종목의 실제 YoY%(sign_aware_ratio 라벨이 아니라 숫자가 있는 것만)를
+    # 그대로 내보낸다 - 집계 방식 버튼을 바꿔도 이 점들은 안 움직이고, 그 위에 겹쳐 그리는
+    # 굵은 평균선만 방식에 따라 움직인다.
+    members_series = [
+        {"name": m["name"], "yoy_by_period": {str(q["period"]): m["yoy"][i] for i, q in enumerate(m["quarters"]) if m["yoy"][i] is not None}}
+        for m in members
+    ]
+
     detail = {
         "sector": sector, "n_stocks": len(members),
         "member_names": sorted(m["name"] for m in members),
+        "quarter_periods": all_periods,
+        "members_series": members_series,
         "labels": [str(d) for d in grid_dates],
         "mc_eok": [mc_map.get(d) for d in grid_dates],
         "methods": detail_methods,
@@ -410,8 +436,11 @@ TEMPLATE = """<!doctype html>
     <b>절사평균</b>은 위아래 10%씩 잘라내고 평균(표본 10개 미만이면 사실상 단순평균과
     동일). <b>섹터합산 OP YoY</b>는 종목별 %를 평균 내는 대신 영업이익 금액을 먼저 합산한
     뒤 딱 한 번 전년동기대비를 계산(큰 회사 비중이 자연히 반영, 부호가 섞이면 흑전/적전/적자
-    라벨). 히트맵 칸에 마우스를 올리면 몇 개 종목이 들어갔는지(n) 나오고, <b>n이 3 미만인
-    칸은 흐리게</b> 표시해 표본이 적어 신뢰도가 낮다는 걸 표시합니다.<br>
+    라벨) - 이번 분기와 작년 동기 <b>둘 다 컨센서스가 있는 종목만</b> 골라 그 종목들끼리만
+    합산합니다(먼 미래 분기일수록 컨센서스 있는 종목이 줄어드는데, 각 분기를 "그때 있던
+    종목 전부"로 따로 더하면 모집단이 달라져 실제로는 안 줄었는데 합계가 확 줄어드는 착시가
+    생기기 때문). 히트맵 칸에 마우스를 올리면 몇 개 종목이 들어갔는지(n) 나오고, <b>n이 3
+    미만인 칸은 흐리게</b> 표시해 표본이 적어 신뢰도가 낮다는 걸 표시합니다.<br>
     가속도(%p)/세자리유지/가속화유지는 섹터를 하나의 가상 종목처럼 취급해 종목별 페이지와
     같은 정의를 그대로 적용합니다. <b>밸류에이션 등급</b>(OP밴드 바텀 대비 %, 섹터 소속
     종목 평균을 다시 섹터끼리 5분위)과 <b>시가총액</b>(섹터 합산)은 집계 방식과 무관하게
@@ -458,9 +487,9 @@ TEMPLATE = """<!doctype html>
       <button class="close-btn" id="closeBtn">&times;</button>
       <h2 id="detailName"></h2>
       <div class="legend">
-        <span><span class="sw" style="background:#eb6834"></span>시가총액(조원, 섹터합산, 왼쪽 축)</span>
-        <span><span class="sq" style="background:#2a78d6"></span>YoY%(실적, 오른쪽 축)</span>
-        <span><span class="sq" style="background:#a9c8ec"></span>YoY%(추정, 오른쪽 축)</span>
+        <span><span class="sq" style="background:rgba(77,171,247,0.5)"></span>개별 종목 YoY%(점)</span>
+        <span><span class="sw" style="background:#4a4e58"></span>최소~최대 범위</span>
+        <span><span class="sw" style="background:#ff8f3f"></span>현재 집계방식 평균선</span>
       </div>
       <div class="sub" id="detailMethodSub" style="margin-bottom:6px;"></div>
       <div class="chart-wrap"><canvas id="detailChart"></canvas></div>
@@ -610,7 +639,7 @@ let detailChart = null;
 function renderDetailChart() {{
   const d = currentDetail;
   const md = d.methods[currentMethod];
-  document.getElementById('detailMethodSub').textContent = '집계 방식: ' + METHOD_LABEL[currentMethod];
+  document.getElementById('detailMethodSub').textContent = '집계 방식: ' + METHOD_LABEL[currentMethod] + ' (굵은 선만 이동, 점/범위는 방식과 무관하게 항상 실제 개별 종목 YoY%)';
   document.getElementById('detailBody').innerHTML = md.quarters.slice().reverse().map(q => `
     <tr>
       <td style="text-align:left;">${{fmtPeriod(q.period)}}${{q.is_estimate ? ' <span class="sub">(추정)</span>' : ''}}</td>
@@ -618,30 +647,56 @@ function renderDetailChart() {{
       <td>${{pctOrLabelSpan(q.yoy, q.label)}}</td>
     </tr>`).join('');
 
-  const MC = d.mc_eok.map(v => v == null ? null : v / 10000);
-  const OP = md.bar_yoy;
-  const COL = md.bar_is_estimate.map(e => e ? '#a9c8ec' : '#2a78d6');
+  const periods = d.quarter_periods;
+  const labels = periods.map(p => fmtPeriodShort(p));
+
+  // 종목별 분포 - 그 분기에 그 섹터 종목들의 실제 YoY%가 흩어진 정도를 점으로, 범위를
+  // 옅은 막대로 같이 보여준다(2026-09-29 "1번[종목별 분포]을 한번 해볼까"). 평균 하나만
+  // 보면 극단치 하나 때문에 숫자가 튀는 건지 다들 고르게 좋은 건지 구분이 안 됐다.
+  const byPeriod = periods.map(p => d.members_series.map(m => m.yoy_by_period[String(p)]).filter(v => v != null));
+  const rangeData = byPeriod.map(vs => vs.length ? [Math.min(...vs), Math.max(...vs)] : null);
+
+  const pointDatasets = d.members_series.map(m => ({{
+    type: 'line', label: m.name, showLine: false,
+    data: periods.map(p => {{ const v = m.yoy_by_period[String(p)]; return v == null ? null : v; }}),
+    pointRadius: 4, pointHoverRadius: 6,
+    pointBackgroundColor: 'rgba(77,171,247,0.45)', pointBorderWidth: 0,
+    order: 2,
+  }}));
+
+  const avgByPeriod = {{}};
+  md.quarters.forEach(q => {{ if (q.yoy != null) avgByPeriod[q.period] = q.yoy; }});
+  const avgLine = periods.map(p => avgByPeriod[p] ?? null);
+
   if (detailChart) detailChart.destroy();
   detailChart = new Chart(document.getElementById('detailChart').getContext('2d'), {{
     data: {{
-      labels: d.labels,
+      labels,
       datasets: [
-        {{ type: 'bar', label: 'YoY%', data: OP, backgroundColor: COL, borderRadius: 4, maxBarThickness: 36, order: 2, yAxisID: 'y1' }},
-        {{ type: 'line', label: '시가총액', data: MC, borderColor: '#eb6834', backgroundColor: 'rgba(235,104,52,0.08)', borderWidth: 2, pointRadius: 2, fill: true, spanGaps: false, tension: 0.15, order: 1, yAxisID: 'y' }},
+        {{ type: 'bar', label: '최소~최대', data: rangeData, backgroundColor: 'rgba(74,78,88,0.35)', borderRadius: 3, maxBarThickness: 28, order: 3 }},
+        ...pointDatasets,
+        {{ type: 'line', label: '평균(' + METHOD_LABEL[currentMethod] + ')', data: avgLine, borderColor: '#ff8f3f', backgroundColor: 'transparent', borderWidth: 3, pointRadius: 0, tension: 0.1, spanGaps: false, order: 1 }},
       ]
     }},
     options: {{
       responsive: true, maintainAspectRatio: false,
       plugins: {{
         legend: {{ display: false }},
-        tooltip: {{ mode: 'index', intersect: false, filter: (c) => c.parsed.y != null, callbacks: {{ label: (c) => c.dataset.yAxisID === 'y' ? c.dataset.label + ': ' + c.parsed.y.toLocaleString() + '조원' : c.dataset.label + ': ' + (c.parsed.y >= 0 ? '+' : '') + c.parsed.y.toFixed(1) + '%' }} }}
+        tooltip: {{
+          callbacks: {{
+            label: (c) => {{
+              if (c.dataset.label === '최소~최대') {{ const [lo, hi] = c.raw ?? [null, null]; return lo == null ? null : `범위: ${{lo.toFixed(1)}}% ~ ${{hi.toFixed(1)}}%`; }}
+              if (c.parsed.y == null) return null;
+              return c.dataset.label + ': ' + (c.parsed.y >= 0 ? '+' : '') + c.parsed.y.toFixed(1) + '%';
+            }}
+          }}
+        }}
       }},
       scales: {{
         x: {{ grid: {{ display: false }}, ticks: {{ color: '#9aa0a6', maxTicksLimit: 14, maxRotation: 45 }} }},
-        y: {{ position: 'left', grid: {{ color: '#23262e' }}, ticks: {{ color: '#eb6834', callback: (v) => v.toLocaleString() + '조' }} }},
-        y1: {{ position: 'right', grid: {{ display: false }}, ticks: {{ color: '#2a78d6', callback: (v) => v + '%' }} }},
+        y: {{ grid: {{ color: '#23262e' }}, ticks: {{ color: '#9aa0a6', callback: (v) => v + '%' }} }},
       }},
-      interaction: {{ mode: 'index', intersect: false }}
+      interaction: {{ mode: 'nearest', intersect: true }}
     }}
   }});
 }}
