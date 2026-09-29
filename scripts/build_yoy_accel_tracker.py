@@ -91,6 +91,32 @@ def find_workbook():
     return max(candidates, key=os.path.getmtime)
 
 
+def load_custom_sector_map():
+    """data/manual/섹터 정리.xlsx(사용자가 직접 관리하는 섹터 분류표, 2026-09-29 요청 - "섹터
+    구분도 내가 정해둔 섹터로 바꿔주고")를 종목명 -> 섹터 dict로 읽는다. 2행이 섹터명 헤더(C열부터),
+    그 아래로 각 열에 그 섹터 소속 종목명이 한 줄에 하나씩 나열돼 있다. 같은 종목이 두 섹터 열에
+    겹쳐 있으면(예: 한전KPS가 유틸리티/원전에 둘 다) 오른쪽 열(더 세부 분류)이 이긴다 - 이 파일의
+    실제 배치가 "넓은 분류 -> 세부 분류" 순서라 그렇게 두는 게 사용자 의도에 맞다."""
+    candidates = glob.glob(os.path.join(MANUAL_DIR, "섹터*정리*.xls*"))
+    candidates = [c for c in candidates if not os.path.basename(c).startswith("~$")]
+    if not candidates:
+        return {}
+    path = max(candidates, key=os.path.getmtime)
+    wb = openpyxl.load_workbook(path, data_only=True)
+    ws = wb[wb.sheetnames[0]]
+    header = next(ws.iter_rows(min_row=2, max_row=2, values_only=True))
+    name_to_sector = {}
+    for c in range(2, len(header)):
+        sector = header[c]
+        if not sector:
+            continue
+        for row in ws.iter_rows(min_row=3, max_row=ws.max_row, min_col=c + 1, max_col=c + 1, values_only=True):
+            name = row[0]
+            if name:
+                name_to_sector[name] = sector
+    return name_to_sector
+
+
 def process_sheet(ws):
     max_col = ws.max_column
     max_row = ws.max_row
@@ -191,7 +217,7 @@ def compute_yoy(quarters):
     return yoy, label
 
 
-def build_row_and_detail(code, data, sector_map, naver_sector_map):
+def build_row_and_detail(code, data, sector_map, naver_sector_map, custom_sector_map):
     quarters = data["quarters"]
     yoy, label = compute_yoy(quarters)
     if not any(v is not None for v in yoy) and not any(label):
@@ -253,7 +279,8 @@ def build_row_and_detail(code, data, sector_map, naver_sector_map):
 
     row = {
         "code": code, "name": data["name"],
-        "sector": naver_sector_map.get(code.lstrip("A")) or sector_map.get(data["name"]),
+        "sector": custom_sector_map.get(data["name"]) or naver_sector_map.get(code.lstrip("A")) or sector_map.get(data["name"]),
+        "sector_is_custom": data["name"] in custom_sector_map,
         "latest_mktcap": data["latest_mktcap"],
         "latest_period": latest_q["period"], "latest_is_estimate": latest_q["is_estimate"],
         "latest_yoy": latest_yoy, "latest_label": latest_label, "prev_yoy": prev_yoy,
@@ -320,11 +347,13 @@ def main():
 
     naver_sector_map = load_naver_sector_map()
     sector_map = load_sector_map()
+    custom_sector_map = load_custom_sector_map()
+    print(f"섹터 정리.xlsx 종목 {len(custom_sector_map)}개 로드")
 
     os.makedirs(DETAIL_OUT_DIR, exist_ok=True)
     rows = []
     for code, data in all_results.items():
-        row, detail = build_row_and_detail(code, data, sector_map, naver_sector_map)
+        row, detail = build_row_and_detail(code, data, sector_map, naver_sector_map, custom_sector_map)
         if not row:
             continue
         rows.append(row)
@@ -332,6 +361,14 @@ def main():
             json.dump(detail, f, ensure_ascii=False)
 
     print(f"결과 {len(rows)}종목(YoY 계산 가능 + 컨센서스 보유)")
+
+    # 사용자가 관리하는 섹터 정리.xlsx 어디에도 없는 종목 - 조용히 기존(네이버/FnGuide)
+    # 분류로 남겨두되, 어떤 종목이 빠졌는지는 알려달라는 요청(2026-09-29)이라 콘솔에 나열한다.
+    uncustomized = sorted((r["name"], r["code"], r["sector"]) for r in rows if not r["sector_is_custom"])
+    if uncustomized:
+        print(f"섹터 정리.xlsx에 없는 종목 {len(uncustomized)}개(기존 분류 유지):")
+        for name, code, sector in uncustomized:
+            print(f"  {name}({code}) - 기존 분류: {sector or '없음'}")
 
     # 밸류에이션 등급(상/중상/중/중하/하) - OP밴드의 "3년 하위 10% 바텀 대비 %"를 이 654종목
     # 안에서만 5분위로 나눈다(2026-09-28 사용자 확정 - "3년 하위 10%를 기준으로 나눠보고
