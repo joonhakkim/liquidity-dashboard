@@ -498,12 +498,9 @@ TEMPLATE = """<!doctype html>
     <div class="modal">
       <button class="close-btn" id="closeBtn">&times;</button>
       <h2 id="detailName"></h2>
-      <div class="legend">
-        <span><span class="sw" style="background:#eb6834"></span>시가총액(조원, 왼쪽 축)</span>
-        <span><span class="sq" style="background:#2a78d6"></span>영업이익 YoY%(실적, 오른쪽 축)</span>
-        <span><span class="sq" style="background:#a9c8ec"></span>영업이익 YoY%(추정, 오른쪽 축)</span>
-      </div>
-      <div class="chart-wrap"><canvas id="detailChart"></canvas></div>
+      <div class="legend" id="detailLegend"></div>
+      <div id="detailSub" style="font-size:12px;color:#9aa0a6;margin-bottom:6px;"></div>
+      <div class="chart-wrap" id="detailChartWrap"><canvas id="detailChart"></canvas></div>
       <table class="detail-table">
         <thead><tr><th style="text-align:left;">시기</th><th>영업이익(억원)</th><th>YoY%</th></tr></thead>
         <tbody id="detailBody"></tbody>
@@ -681,6 +678,10 @@ function applyFilters() {{
   document.getElementById(id).addEventListener('change', applyFilters);
 }});
 
+// 종목 클릭 시 모달 차트 - OP밴드 트래커(op_band.html)와 동일한 "시가총액 vs OP배수 밴드"
+// 차트를 그대로 가져온다(2026-09-29 사용자 요청 - "차트를 우리 OP밴드 트래커로 나오는것들로
+// 바꿀 수 있나?"). 두 페이지가 docs/ 밑에 같이 있어서 op_band_data/*.json을 그대로 fetch.
+// 바텀선은 이 페이지의 밸류에이션 등급과 같은 기준(3년 하위 10%)을 쓴다.
 let detailChart = null;
 function openDetail(code) {{
   fetch(`yoy_accel_tracker_data/${{code}}.json`).then(r => r.json()).then(d => {{
@@ -692,32 +693,54 @@ function openDetail(code) {{
         <td>${{pctOrLabelSpan(q.yoy, q.label)}}</td>
       </tr>`).join('');
 
-    const MC = d.mc_eok.map(v => v == null ? null : v / 10000);
-    const OP = d.bar_yoy;
-    const COL = d.bar_is_estimate.map(e => e ? '#a9c8ec' : '#2a78d6');
-    if (detailChart) detailChart.destroy();
-    detailChart = new Chart(document.getElementById('detailChart').getContext('2d'), {{
-      data: {{
-        labels: d.labels,
-        datasets: [
-          {{ type: 'bar', label: '영업이익 YoY%', data: OP, backgroundColor: COL, borderRadius: 4, maxBarThickness: 36, order: 2, yAxisID: 'y1' }},
-          {{ type: 'line', label: '시가총액', data: MC, borderColor: '#eb6834', backgroundColor: 'rgba(235,104,52,0.08)', borderWidth: 2, pointRadius: 2, fill: true, spanGaps: false, tension: 0.15, order: 1, yAxisID: 'y' }},
-        ]
-      }},
-      options: {{
-        responsive: true, maintainAspectRatio: false,
-        plugins: {{
-          legend: {{ display: false }},
-          tooltip: {{ mode: 'index', intersect: false, filter: (c) => c.parsed.y != null, callbacks: {{ label: (c) => c.dataset.yAxisID === 'y' ? c.dataset.label + ': ' + c.parsed.y.toLocaleString() + '조원' : c.dataset.label + ': ' + (c.parsed.y >= 0 ? '+' : '') + c.parsed.y.toFixed(1) + '%' }} }}
-        }},
-        scales: {{
-          x: {{ grid: {{ display: false }}, ticks: {{ color: '#9aa0a6', maxTicksLimit: 14, maxRotation: 45 }} }},
-          y: {{ position: 'left', grid: {{ color: '#23262e' }}, ticks: {{ color: '#eb6834', callback: (v) => v.toLocaleString() + '조' }} }},
-          y1: {{ position: 'right', grid: {{ display: false }}, ticks: {{ color: '#2a78d6', callback: (v) => v + '%' }} }},
-        }},
-        interaction: {{ mode: 'index', intersect: false }}
-      }}
+    if (detailChart) {{ detailChart.destroy(); detailChart = null; }}
+    document.getElementById('detailLegend').innerHTML = '';
+    document.getElementById('detailSub').textContent = '';
+
+    fetch(`op_band_data/${{code}}.json`).then(r => {{ if (!r.ok) throw new Error('no band data'); return r.json(); }}).then(b => {{
+      const realBands = b.bandMultiples ?? [];
+      const bottom = b.bottoms ? b.bottoms['3y_p10'] : null;
+      const datasets = realBands.map((m, i) => ({{
+        label: `${{m}}x`, data: b.opEok.map(v => v == null ? null : v * m),
+        borderColor: `hsl(${{200 + i * 30}}, 60%, 55%)`, backgroundColor: 'transparent',
+        borderWidth: 1, borderDash: [4, 3], pointRadius: 0, tension: 0,
+      }}));
+      if (bottom != null) datasets.push({{
+        label: `바텀 ${{bottom}}x`, data: b.opEok.map(v => v == null ? null : v * bottom),
+        borderColor: '#ff2ec4', backgroundColor: 'transparent',
+        borderWidth: 2, pointRadius: 0, tension: 0,
+      }});
+      datasets.push({{
+        label: '시가총액(실제, 억원)', data: b.mktcapEok,
+        borderColor: '#e6e6e6', backgroundColor: 'transparent',
+        borderWidth: 2.5, pointRadius: 0, tension: 0, order: 0,
+      }});
+      document.getElementById('detailLegend').innerHTML = `<span><span class="sw" style="background:#e6e6e6"></span>시가총액</span><span><span class="sw" style="background:#ff2ec4"></span>바텀(3년 하위10%)</span><span><span class="sw" style="background:hsl(200,60%,55%)"></span>OP배수 밴드선</span>`;
+      document.getElementById('detailSub').textContent = bottom == null
+        ? `밴드선: ${{realBands.map(m => m + 'x').join(', ')}} (바텀 표본 부족)`
+        : `밴드선: ${{realBands.map(m => m + 'x').join(', ')}} · 바텀(3년 하위10%) ${{bottom}}x`;
+
+      const vals = b.mktcapEok.filter(v => v != null);
+      const bottomVals = bottom != null ? b.opEok.map(v => v == null ? null : v * bottom).filter(v => v != null && v > 0) : [];
+      const autoMax = Math.max(vals.length ? Math.max(...vals) : 0, bottomVals.length ? Math.max(...bottomVals) : 0) * 1.25;
+      const minV = vals.length ? Math.min(...vals) : 0;
+
+      detailChart = new Chart(document.getElementById('detailChart').getContext('2d'), {{
+        type: 'line',
+        data: {{ labels: b.dates, datasets }},
+        options: {{
+          responsive: true, maintainAspectRatio: false,
+          plugins: {{ legend: {{ display: false }} }},
+          scales: {{
+            x: {{ ticks: {{ color: '#9aa0a6', maxTicksLimit: 10 }}, grid: {{ color: '#23262e' }} }},
+            y: {{ min: minV < 0 ? minV * 1.5 : 0, max: autoMax > 0 ? autoMax : undefined, ticks: {{ color: '#9aa0a6' }}, grid: {{ color: '#23262e' }} }},
+          }}
+        }}
+      }});
+    }}).catch(() => {{
+      document.getElementById('detailSub').textContent = 'OP밴드 데이터 없음(흑자 구간이 없어 밴드 계산이 안 되는 종목 등)';
     }});
+
     document.getElementById('overlay').classList.add('open');
   }});
 }}
