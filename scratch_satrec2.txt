@@ -1,2 +1,0 @@
- triple_digit_streak  accel_streak
-                   2             0
