@@ -1,0 +1,6 @@
+simple name  n_stocks  accel  latest_yoy  triple_digit_streak  accel_streak
+  우주        10  134.5        83.0                    0             0
+trimmed name  n_stocks  accel  latest_yoy  triple_digit_streak  accel_streak
+  우주        10  134.5        83.0                    0             0
+opsum name  n_stocks  accel  latest_yoy  triple_digit_streak  accel_streak
+  우주        10    NaN        49.0                    0             0
