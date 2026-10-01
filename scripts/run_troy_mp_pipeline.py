@@ -34,10 +34,12 @@ PYTHON = sys.executable
 # 지저분해짐). 환경변수로 자식의 출력 인코딩 자체를 UTF-8로 고정하는 게 근본 수정.
 CHILD_ENV = {**os.environ, "PYTHONIOENCODING": "utf-8"}
 
+ORDER_STEP = ("process_mp_orders.py", "MP 트래커: 사용자가 직접 적어둔 지시서(mp_orders.csv) 오늘자 처리 - "
+              "그날 확정 종가로 정확한 수량 계산해서 매매일지에 기록(2026-09-16 추가)")
+
 STEPS = [
     ("fetch_troy_mp_prices.py", "MP 트래커: 편입 종목 일별 종가 수집(네이버 차트 API)"),
-    ("process_mp_orders.py", "MP 트래커: 사용자가 직접 적어둔 지시서(mp_orders.csv) 오늘자 처리 - "
-     "그날 확정 종가로 정확한 수량 계산해서 매매일지에 기록(2026-09-16 추가)"),
+    ORDER_STEP,
     ("fetch_troy_mp_prices.py", "MP 트래커: 지시서로 신규 편입된 종목 가격 이력도 받기(재실행)"),
     ("fetch_market_sector_weights.py", "MP 트래커: 섹터별 OW/UW 비교용 코스피/코스닥 전종목 시총 수집"),
     ("build_troy_mp_page.py", "MP 트래커 페이지 빌드(트로이 MP/모멘텀 MP/코스닥 롱숏 2종)"),
@@ -50,6 +52,15 @@ STEPS = [
 
 
 def main():
+    # --skip-orders: 정규장 마감 직후(15:30~16:00) 중간 갱신용 - 이 시점엔 지시서를 처리하면
+    # 신규편입/swap의 매수가가 아직 확정 전 스냅샷으로 매매일지에 영구 고정되는 문제가 있다
+    # (2026-10-01, 토모큐브 신규편입을 장중에 먼저 돌렸다가 확정 종가(34,750)보다 50원 낮은
+    # 가격(34,700)으로 박제돼서 "편입 당일인데 수익이 난 것처럼" 보인 사고 - 가격은 그 뒤
+    # 재실행에서 갱신돼도 매매 기록은 처리완료 표시 때문에 재실행 안 됨). 그래서 중간 갱신은
+    # 가격/페이지만 새로고침하고, 지시서 처리는 애프터마켓 확정(20:05) 실행에만 맡긴다.
+    skip_orders = "--skip-orders" in sys.argv
+    steps = [s for s in STEPS if not (skip_orders and s is ORDER_STEP)]
+
     LOGS_DIR.mkdir(exist_ok=True)
     today = datetime.now().strftime("%Y-%m-%d")
     log_path = LOGS_DIR / f"{today}-troy-mp.log"
@@ -64,8 +75,9 @@ def main():
                 print(line.encode(enc, errors="replace").decode(enc, errors="replace"))
             log_f.write(line + "\n")
 
-        write(f"\n===== 트로이 MP 파이프라인 실행 시작: {datetime.now().isoformat()} =====")
-        for script, label in STEPS:
+        write(f"\n===== 트로이 MP 파이프라인 실행 시작: {datetime.now().isoformat()}"
+              f"{' (중간갱신, 지시서 미처리)' if skip_orders else ''} =====")
+        for script, label in steps:
             write(f"\n--- {label} ({script}) ---")
             result = subprocess.run(
                 [PYTHON, str(SCRIPTS_DIR / script)],
@@ -93,7 +105,8 @@ def main():
             if diff.returncode == 0:
                 write("변경 사항 없음, 커밋 스킵")
             else:
-                commit_msg = f"MP 트래커 자동 갱신 {today}"
+                commit_msg = f"MP 트래커 자동 갱신(정규장 마감 직후 중간갱신, 지시서 미처리) {today}" if skip_orders \
+                    else f"MP 트래커 자동 갱신 {today}"
                 subprocess.run(["git", "commit", "-m", commit_msg], cwd=BASE_DIR, check=True, capture_output=True, text=True, **g_kw)
                 push = subprocess.run(["git", "push"], cwd=BASE_DIR, capture_output=True, text=True, **g_kw)
                 if push.returncode == 0:
