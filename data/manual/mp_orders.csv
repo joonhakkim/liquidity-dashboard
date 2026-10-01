@@ -70,3 +70,10 @@
 2026-09-30,troy_mp,new_entry_pct,토모큐브,475960,3.0,,2026-09-30T18:03:46.746914
 2026-09-30,troy_mp,exit,타이거일렉,219130,,,2026-09-30T18:03:46.746914
 2026-10-01,troy_mp,new_entry_pct,한전기술,052690,2.0,,2026-10-01T15:32:26.373597
+2026-10-01,kosdaq_long_short_index,increase_pct,에스티팜,237690,2,,
+2026-10-01,kosdaq_long_short_index,exit,티씨머티리얼즈,125020,,,
+2026-10-01,kosdaq_long_short_index,reduce_pct,KODEX 코스닥150선물인버스,251340,11,숏 96->85%,
+2026-10-01,mingu_mp,exit,아이티센글로벌,124500,,,
+2026-10-01,mingu_mp,increase_pct,에프에스티,036810,3,,
+2026-10-01,mingu_mp,increase_pct,RF머트리얼즈,327260,6,,
+2026-10-01,mingu_mp,new_entry_pct,엘티씨,170920,6,,
