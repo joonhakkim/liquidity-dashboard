@@ -312,10 +312,13 @@ def main():
     wb = openpyxl.load_workbook(wb_path, read_only=True, data_only=True)
 
     all_results = {}
+    data_as_of = None
     for sn in wb.sheetnames:
-        res = process_sheet(wb[sn])
+        res, sheet_latest = process_sheet(wb[sn])
         for code, data in res.items():
             all_results.setdefault(code, data)
+        if sheet_latest is not None and (data_as_of is None or sheet_latest > data_as_of):
+            data_as_of = sheet_latest
 
     custom_sector_map = load_custom_sector_map()
     gap_map = load_op_band_gaps()
@@ -377,6 +380,7 @@ def main():
 
     html = TEMPLATE.format(
         updated_at=datetime.now().strftime("%Y-%m-%d %H:%M"),
+        data_as_of=data_as_of.strftime("%Y-%m-%d") if data_as_of is not None else "알 수 없음",
         n_sectors=len(rows_by_method["simple"]),
         rows_by_method_json=json.dumps(rows_by_method, ensure_ascii=False),
         periods_by_method_json=json.dumps(periods_by_method),
@@ -451,7 +455,7 @@ TEMPLATE = """<!doctype html>
   <a class="back" href="index.html">&larr; 홈</a>
   <a class="back" href="yoy_accel_tracker.html">종목별 YoY 가속화 트래커 &rarr;</a>
   <h1>섹터별 YoY 가속화 트래커</h1>
-  <div class="updated">최종 갱신: {updated_at} &middot; {n_sectors}개 섹터</div>
+  <div class="updated">최종 갱신: {updated_at} &middot; 데이터 기준일: {data_as_of} &middot; {n_sectors}개 섹터</div>
 
   <div class="exp">
     <b>무엇을 보는 페이지인가</b><br>

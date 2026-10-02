@@ -138,6 +138,7 @@ def process_sheet(ws):
             continue
         dates.append(d)
         data_rows.append(row)
+    sheet_latest_date = max(dates) if dates else None
 
     results = {}
     for code, start, end in blocks:
@@ -189,7 +190,7 @@ def process_sheet(ws):
         results[code] = {
             "name": name, "latest_mktcap": latest_mktcap, "mc_by_month": mc_by_month, "quarters": quarters,
         }
-    return results
+    return results, sheet_latest_date
 
 
 def compute_yoy(quarters):
@@ -337,11 +338,14 @@ def main():
     wb = openpyxl.load_workbook(wb_path, read_only=True, data_only=True)
 
     all_results = {}
+    data_as_of = None
     for sn in wb.sheetnames:
         print(f"처리 중: {sn} ...")
-        res = process_sheet(wb[sn])
+        res, sheet_latest = process_sheet(wb[sn])
         for code, data in res.items():
             all_results.setdefault(code, data)
+        if sheet_latest is not None and (data_as_of is None or sheet_latest > data_as_of):
+            data_as_of = sheet_latest
         print(f"  {len(res)}개 종목(컨센서스 보유, 5분기 이상)")
 
     custom_sector_map = load_custom_sector_map()
@@ -398,6 +402,7 @@ def main():
 
     html = TEMPLATE.format(
         updated_at=datetime.now().strftime("%Y-%m-%d %H:%M"),
+        data_as_of=data_as_of.strftime("%Y-%m-%d") if data_as_of is not None else "알 수 없음",
         n_stocks=len(rows),
         rows_json=json.dumps(rows, ensure_ascii=False),
         periods_json=json.dumps(all_periods),
@@ -479,7 +484,7 @@ TEMPLATE = """<!doctype html>
   <a class="back" href="index.html">&larr; 홈</a>
   <a class="back" href="sector_yoy_accel_tracker.html">섹터별로 보기 &rarr;</a>
   <h1>YoY 가속화 트래커</h1>
-  <div class="updated">최종 갱신: {updated_at} &middot; {n_stocks}종목(컨센서스 보유)</div>
+  <div class="updated">최종 갱신: {updated_at} &middot; 데이터 기준일: {data_as_of} &middot; {n_stocks}종목(컨센서스 보유)</div>
 
   <div class="exp">
     <b>무엇을 보는 페이지인가</b><br>
