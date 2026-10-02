@@ -534,8 +534,8 @@ TEMPLATE = """<!doctype html>
 const ROWS_BY_METHOD = {rows_by_method_json};
 const PERIODS_BY_METHOD = {periods_by_method_json};
 const METHOD_LABEL = {method_label_json};
-const METHODS = ['simple', 'trimmed', 'opsum'];
-let currentMethod = 'simple';
+const METHODS = ['trimmed', 'simple', 'opsum'];
+let currentMethod = 'trimmed';
 let currentDetail = null;
 
 const methodBar = document.getElementById('methodBar');
