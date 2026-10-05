@@ -124,3 +124,7 @@
 2026-10-05,my_mp,exit,타이거일렉,219130,,,2026-10-05T18:11:06.124826
 2026-10-05,my_mp,new_entry_pct,윈팩,097800,5.0,,2026-10-05T18:11:06.124826
 2026-10-05,my_mp,increase_pct,엘앤씨바이오,290650,5.0,,2026-10-05T18:11:06.124826
+2026-10-05,kosdaq_long_short_index,increase_pct,라이콤,388790,2,,
+2026-10-05,kosdaq_long_short_index,reduce_pct,동국제약,086450,3,,
+2026-10-05,kosdaq_long_short_index,swap,인텔리안테크,189300,,알멕|354320,
+2026-10-05,kosdaq_long_short_index,increase_pct,코스텍시스,355150,1,,
