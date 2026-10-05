@@ -516,7 +516,7 @@ TEMPLATE = """<!doctype html>
       <option value="15" selected>하위 15%</option>
       <option value="20">하위 20%</option>
     </select></label>
-    <label>바텀대비 이내 <input type="number" id="fGap" value="10" step="1">%</label>
+    <label>바텀대비 이내 <input type="number" id="fGap" placeholder="예 10" step="1">%</label>
     <label>현재배수 최소 <input type="number" id="fMultMin" step="0.5"></label>
     <label>현재배수 최대 <input type="number" id="fMultMax" step="0.5"></label>
     <label><input type="checkbox" id="fIncludeNeg"> 적자(마이너스 배수) 포함</label>
