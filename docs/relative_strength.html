@@ -26,8 +26,10 @@
   .filters input[type="number"] { width:70px; }
   .filters input[type="text"] { width:150px; }
   .filters button { background:#1a1d24; border:1px solid #4dabf7; color:#4dabf7; border-radius:6px; padding:6px 12px; cursor:pointer; font-size:12px; font-family:inherit; }
-  .hz-chk { display:flex; gap:8px; align-items:center; }
-  .hz-chk label { color:#c9ccd1; cursor:pointer; }
+  .hz-chk { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+  .hz-chk label { color:#e6e6e6; cursor:pointer; background:#1a1d24; border:1px solid #2a2e37; border-radius:6px; padding:5px 10px; white-space:nowrap; }
+  .perbar { background:#141720; border:1px solid #2a2e37; border-radius:10px; padding:10px 14px; margin-bottom:12px; }
+  .perbar .pl { color:#ffa94d; font-weight:bold; }
   .count { color:#63e6be; font-size:12px; margin:8px 0; }
   .note { color:#6b7280; font-size:12px; margin:4px 0 10px 0; line-height:1.7; }
   .table-wrap { overflow:auto; max-height:76vh; border:1px solid #23262e; border-radius:8px; }
@@ -62,36 +64,26 @@
   #moreBtn { display:none; margin:12px auto; background:#1a1d24; border:1px solid #2a2e37; color:#c9ccd1; border-radius:6px; padding:8px 20px; cursor:pointer; font-family:inherit; }
   .legend { display:flex; gap:14px; font-size:12px; color:#9aa0a6; margin:6px 0 10px 0; align-items:center; flex-wrap:wrap; }
   .sq { width:14px; height:10px; border-radius:2px; display:inline-block; }
-  table.board { border-collapse:separate; border-spacing:0; width:100%; font-size:13px; }
-  table.board th { color:#9aa0a6; font-weight:normal; font-size:12px; position:sticky; top:0; background:#141720; z-index:2; padding:6px 9px; text-align:left; border-bottom:1px solid #23262e; white-space:nowrap; }
-  table.board td { padding:5px 9px; border-bottom:1px solid #1d2027; vertical-align:top; white-space:nowrap; }
-  table.board td.rn { color:#6b7280; text-align:right; width:30px; }
-  table.board td.c a { color:#e6e6e6; text-decoration:none; font-weight:600; }
-  table.board td.c a:hover { color:#4dabf7; text-decoration:underline; }
-  table.board td.c.hl { background:#27406b; }
-  table.board td.c .sub { line-height:1.3; }
-  .mc { display:inline-block; font-size:10px; color:#ffa94d; border:1px solid #ffa94d66; border-radius:4px; padding:0 3px; margin-left:5px; }
-  .mc3 { background:#ffa94d33; font-weight:bold; }
 </style>
 </head>
 <body>
   <a class="back" href="index.html">&larr; 홈</a>
   <h1>종목·섹터 상대강도 순위<span class="sub">코스피 대비 초과수익률 · 기간별 순위 비교</span></h1>
-  <div class="updated">최종 갱신: 2026-10-07 19:06 &middot; 데이터 기준일: 2026-10-06 &middot; 2,556종목(코스피+코스닥 보통주, 그중 내 섹터 정리 1,028종목)</div>
+  <div class="updated">최종 갱신: 2026-10-07 19:19 &middot; 데이터 기준일: 2026-10-06 &middot; 2,556종목(코스피+코스닥 보통주, 그중 내 섹터 정리 1,028종목)</div>
 
   <div class="exp">
     <b>무엇을 보는 페이지인가</b><br>
     기간별 수익률에서 <b>같은 기간 코스피 수익률을 뺀 초과수익률</b>을 구하고, 기간마다 높은 순서대로
     <b>순위</b>(1위 = 코스피 대비 가장 강한 종목)를 매겼습니다. 기간은 거래일 기준(1주=5, 2주=10, 1달=20,
     2달=40, 3달=60, 6달=120일)이고 코스닥 종목도 일단 코스피 대비로 계산했습니다.<br>
-    <b>① 종목별 표</b>: 종목 한 줄에 6개 기간의 순위·초과수익률이 나란히 있습니다. 열 머리글을 누르거나 "정렬" 메뉴로 원하는 기간의
-    순위/수익률 순으로 줄 세울 수 있고, "상위 N% 이내" 조건에 기간을 체크하면 체크한 기간 <b>모두</b>에서 상위 N% 안에 든 종목만 남습니다.
-    순위 색은 빨강=상위, 파랑=하위(진할수록 극단)입니다.<br>
-    <b>② 기간별 순위표</b>: 기간마다 상위(또는 하위) N개 종목을 순위대로 나열합니다. 같은 종목에 마우스를 올리면 다른 기간 열에서도 강조되고,
-    <span class="mc" style="margin-left:0">×3</span>처럼 표시된 종목은 표시된 N개 안에 그 개수만큼의 기간에 동시에 올라온 종목입니다.<br>
-    <b>③ 섹터별 순위</b>: 내 섹터 정리(<code>섹터 정리.xlsx</code>)의 섹터로만 구분해서, 섹터 소속 종목의 초과수익률 <b>단순 평균</b>(엑셀 '섹터 상대강도'
-    시트와 같은 방식)으로 섹터 순위를 매겼고, 섹터를 누르면 소속 종목이 펼쳐집니다. 평균은 소수 종목의 급등락에 흔들릴 수 있어 중앙값·이긴 종목 비율로도 볼 수
-    있습니다. 코스피 비중은 섹터 정리에 든 코스피 종목의 시가총액 기준(합 100%)입니다.<br>
+    <b>기간 선택</b>(체크박스): 보고 싶은 기간만 체크하면 표에 그 기간만 보이고, 필터와 정렬도 <b>체크한 기간으로</b> 적용됩니다. "선택한 기간 모두 / 하나라도"로
+    조건을 어떻게 묶을지 고르고, "단기·중장기" 버튼으로 한 번에 바꿀 수 있습니다.<br>
+    <b>① 종목별 표</b>: 종목 한 줄에 기간별 순위·초과수익률이 나란히 있습니다. "코스피를 이긴 종목만", "순위 상위 N%(또는 N위) 이내" 조건을 켜면 체크한 기간
+    모두(또는 하나라도)에서 조건을 만족한 종목만 남고, 기본 정렬은 <b>체크한 기간 순위의 평균</b>(기간을 하나만 체크하면 그 기간 순위 순)입니다. 열 머리글을 누르거나
+    "정렬" 메뉴로 특정 기간의 순위/수익률 순으로도 줄 세울 수 있습니다. 순위 색은 빨강=상위, 파랑=하위(진할수록 극단)입니다.<br>
+    <b>② 섹터별 순위</b>: 내 섹터 정리(<code>섹터 정리.xlsx</code>)의 섹터로만 구분해서, 섹터 소속 종목의 초과수익률 <b>단순 평균</b>(엑셀 '섹터 상대강도'
+    시트와 같은 방식)으로 섹터 순위를 매겼고, 섹터를 누르면 소속 종목이 펼쳐집니다. 기간 선택과 "코스피를 이긴 섹터만" 조건이 똑같이 적용됩니다. 평균은 소수 종목의
+    급등락에 흔들릴 수 있어 중앙값·이긴 종목 비율로도 볼 수 있습니다. 코스피 비중은 섹터 정리에 든 코스피 종목의 시가총액 기준(합 100%)입니다.<br>
     <b>섹터</b>는 내 섹터 정리 분류를 우선 쓰고, 거기 없는 종목은 네이버 업종(<span class="nv" style="margin-left:0">N</span> 표시)으로 채웠습니다.
     가격은 수정주가가 아니라 종가라서, 액면분할 등으로 하루 ±31%를 넘게 움직인 날은 0%로 처리했습니다
     (무상증자처럼 그보다 작은 조정은 반영되지 않아 일부 종목은 수정주가 기준 엑셀 표와 다를 수 있습니다 - 2026-08-07 기준
@@ -102,8 +94,16 @@
 
   <div class="tabs" id="tabs">
     <button data-tab="t1" class="on">① 종목별 표</button>
-    <button data-tab="t2">② 기간별 순위표</button>
-    <button data-tab="t3">③ 섹터별 순위</button>
+    <button data-tab="t2">② 섹터별 순위</button>
+  </div>
+
+  <div class="filters perbar" id="perBar">
+    <span class="pl">기간 선택</span>
+    <span class="hz-chk" id="hzChk"></span>
+    <button id="perAll">전체</button>
+    <button id="perShort">단기(1주·2주·1달)</button>
+    <button id="perLong">중장기(2달·3달·6달)</button>
+    <label>조건 묶기 <select id="fMode"><option value="all">선택한 기간 모두 충족</option><option value="any">선택한 기간 중 하나라도 충족</option></select></label>
   </div>
 
   <div id="stockBar">
@@ -117,8 +117,8 @@
       <label class="t1only">정렬 <select id="fSort"></select></label>
     </div>
     <div class="filters t1only">
-      <label>상위 <input type="number" id="fTop" min="0" max="100" step="1" placeholder="예 10"> % 이내인 기간(체크한 기간 모두):</label>
-      <span class="hz-chk" id="hzChk"></span>
+      <label><input type="checkbox" id="fWin"> 코스피를 이긴 종목만(초과수익률 +)</label>
+      <label><input type="checkbox" id="fTopOn"> 순위 상위 <input type="number" id="fTop" min="1" step="1" value="10"> <select id="fTopUnit"><option value="pct">%</option><option value="rank">위</option></select> 이내</label>
       <button id="resetBtn">필터 초기화</button>
       <button id="csvBtn">현재 표 CSV 저장</button>
     </div>
@@ -138,21 +138,11 @@
 
   <section class="tab" id="t2">
     <div class="filters">
-      <label>방향 <select id="bDir"><option value="top">상위(코스피를 가장 크게 이긴 종목)</option><option value="bot">하위(가장 크게 진 종목)</option></select></label>
-      <label>표시 개수 <select id="bN"><option>10</option><option>20</option><option selected>30</option><option>50</option><option>100</option><option>200</option></select></label>
-      <label><input type="checkbox" id="bSec" checked> 섹터 표시</label>
-      <button id="bCsv">CSV 저장</button>
-    </div>
-    <div class="note">위의 시장·섹터·"내 섹터 정리 종목만" 조건을 적용한 <b>그 안에서의 순위</b>입니다(조건이 없으면 전체 종목 순위). 같은 종목에 마우스를 올리면 다른 기간 열에서도 강조됩니다.</div>
-    <div class="table-wrap"><table class="board" id="board"></table></div>
-  </section>
-
-  <section class="tab" id="t3">
-    <div class="filters">
       <label>순위 기준 <select id="sMetric"><option value="mean">평균 초과수익률 (엑셀 '섹터 상대강도'와 같은 방식)</option><option value="median">중앙값 초과수익률</option><option value="win">코스피를 이긴 종목 비율</option></select></label>
       <label><input type="checkbox" id="sAbs"> 절대수익률로 보기(코스피 수익률 더함)</label>
       <label><input type="checkbox" id="sNoMisc"> 개별주 묶음 제외</label>
       <label>최소 종목수 <input type="number" id="sMinN" min="1" step="1" value="1"></label>
+      <label><input type="checkbox" id="sWinOnly"> 코스피를 이긴 섹터만</label>
       <button id="sExpandAll">모두 펼치기</button>
       <button id="sCollapseAll">모두 접기</button>
       <button id="sCsv">CSV 저장</button>
@@ -210,7 +200,7 @@ const nSecBy = {};
   }
 })();
 
-const S = {scope: 'all', show: 'both', sortKey: 'rank', sortH: 0, sortDir: 1, limit: 200};
+const S = {scope: 'all', show: 'both', sortKey: 'avg', sortH: 0, sortDir: 1, limit: 200};
 const rk = (i, h) => S.scope === 'all' ? rkAll[i][h] : (S.scope === 'user' ? rkUser[i][h] : rkSec[i][h]);
 const tot = (i, h) => S.scope === 'all' ? nAll[h] : (S.scope === 'user' ? nUser[h] : nSecBy[secKey(i)][h]);
 const SCOPE_LABEL = {all: '전체 종목', user: '내 섹터 정리 종목 안', sec: '같은 섹터 안'};
@@ -221,6 +211,16 @@ function heat(p) {           // p: 0(최상위) ~ 1(최하위)
   return p <= 0.5 ? 'background:rgba(255,99,99,' + a + ')' : 'background:rgba(77,171,247,' + a + ')';
 }
 
+// ---------- 기간 선택(체크박스) - 표 열 표시 / 필터 / 정렬에 모두 적용
+function perIdx() {
+  const a = [];
+  for (let h = 0; h < NH; h++) if ($('pk' + h).checked) a.push(h);
+  return a.length ? a : HZ.map((_, h) => h);
+}
+const perText = P => P.length === NH ? '전체 기간' : P.map(h => HZ[h].label).join('·');
+function avgRank(i, P) { let s = 0; for (const h of P) { const v = rk(i, h); if (v === null) return null; s += v; } return s / P.length; }
+function avgTot(i, P) { let s = 0; for (const h of P) s += tot(i, h); return s / P.length; }
+
 // ---------- 상단 요약표
 (function renderSummary() {
   let h = '<thead><tr><th class="lbl"></th>' + HZ.map(x => '<th>' + x.label + '</th>').join('') + '</tr></thead><tbody>';
@@ -230,7 +230,7 @@ function heat(p) {           // p: 0(최상위) ~ 1(최하위)
   $('sumTable').innerHTML = h;
 })();
 
-// ---------- 공통 필터 컨트롤 초기화
+// ---------- 공통 컨트롤 초기화
 (function initControls() {
   const cnt = {};
   ROWS.forEach(r => { const k = r.src + ':' + r.sec; cnt[k] = (cnt[k] || 0) + 1; });
@@ -240,11 +240,18 @@ function heat(p) {           // p: 0(최상위) ~ 1(최하위)
     return '<optgroup label="' + title + '">' + keys.map(k => '<option value="' + esc(k) + '">' + esc(k.slice(2)) + ' (' + cnt[k] + ')</option>').join('') + '</optgroup>';
   };
   $('fSector').innerHTML = '<option value="">전체</option>' + mk('U', '내 섹터 정리') + mk('N', '네이버 업종') + mk('', '기타');
-  $('hzChk').innerHTML = HZ.map((x, h) => '<label><input type="checkbox" id="tk' + h + '" checked> ' + x.label + '</label>').join('');
-  $('fSort').innerHTML = '<option value="">(열 머리글 클릭으로 정렬)</option>' +
-    HZ.map((x, h) => '<option value="rank:' + h + '">' + x.label + ' 순위</option>').join('') +
-    HZ.map((x, h) => '<option value="ex:' + h + '">' + x.label + ' 초과수익률</option>').join('');
+  $('hzChk').innerHTML = HZ.map((x, h) => '<label><input type="checkbox" id="pk' + h + '" checked> ' + x.label + '</label>').join('');
 })();
+function rebuildSortSelect() {
+  const P = perIdx();
+  $('fSort').innerHTML = '<option value="avg:0">선택 기간 평균 순위(좋은 순)</option><option value="">(열 머리글 클릭으로 정렬)</option>' +
+    P.map(h => '<option value="rank:' + h + '">' + HZ[h].label + ' 순위</option>').join('') +
+    P.map(h => '<option value="ex:' + h + '">' + HZ[h].label + ' 초과수익률</option>').join('');
+}
+function syncSortSelect() {
+  $('fSort').value = S.sortKey === 'avg' ? 'avg:0' : ((S.sortKey === 'rank' || S.sortKey === 'ex') ? S.sortKey + ':' + S.sortH : '');
+}
+rebuildSortSelect();
 
 // ---------- ① 종목별 표
 function baseOk(i) {
@@ -255,23 +262,28 @@ function baseOk(i) {
   if ($('fUserOnly').checked && r.src !== 'U') return false;
   return true;
 }
-function filtered() {
+function filtered(P) {
   const q = $('fSearch').value.trim().toLowerCase();
-  const top = parseFloat($('fTop').value);
-  const chk = HZ.map((_, h) => $('tk' + h).checked);
-  const useTop = !isNaN(top) && top > 0 && chk.some(Boolean);
+  const mode = $('fMode').value;
+  const useWin = $('fWin').checked;
+  const topV = parseFloat($('fTop').value);
+  const useTop = $('fTopOn').checked && !isNaN(topV) && topV > 0;
+  const pct = $('fTopUnit').value === 'pct';
   const out = [];
   for (let i = 0; i < ROWS.length; i++) {
     const r = ROWS[i];
     if (!baseOk(i)) continue;
     if (q && !(r.name.toLowerCase().includes(q) || r.code.includes(q))) continue;
     if (S.scope === 'user' && r.src !== 'U') continue;
-    if (useTop) {
-      let ok = true;
-      for (let h = 0; h < NH; h++) {
-        if (!chk[h]) continue;
-        const v = rk(i, h);
-        if (v === null || v / tot(i, h) > top / 100 + 1e-9) { ok = false; break; }
+    if (useWin || useTop) {
+      let ok = mode === 'all';
+      for (const h of P) {
+        const x = r.ex[h], v = rk(i, h);
+        let good = x !== null;
+        if (good && useWin) good = x > 0;
+        if (good && useTop) good = v !== null && (pct ? v / tot(i, h) <= topV / 100 + 1e-9 : v <= topV);
+        if (mode === 'all') { if (!good) { ok = false; break; } }
+        else if (good) { ok = true; break; }
       }
       if (!ok) continue;
     }
@@ -279,12 +291,21 @@ function filtered() {
   }
   return out;
 }
+let AVG = {};
 function sortList(list) {
   const k = S.sortKey, h = S.sortH, d = S.sortDir;
   list.sort((a, b) => {
     if (k === 'name') return d * ROWS[a].name.localeCompare(ROWS[b].name, 'ko');
     if (k === 'sec') return d * ROWS[a].sec.localeCompare(ROWS[b].sec, 'ko') || ROWS[a].name.localeCompare(ROWS[b].name, 'ko');
     if (k === 'mkt') return d * ROWS[a].mkt.localeCompare(ROWS[b].mkt);
+    if (k === 'avg') {
+      const va = AVG[a], vb = AVG[b];
+      if (va === null && vb === null) return ROWS[a].name.localeCompare(ROWS[b].name, 'ko');
+      if (va === null) return 1;
+      if (vb === null) return -1;
+      if (va !== vb) return d * (va - vb);
+      return ROWS[a].name.localeCompare(ROWS[b].name, 'ko');
+    }
     if (k === 'rank') {
       const va = rk(a, h), vb = rk(b, h);
       if (va === null && vb === null) return 0;
@@ -301,14 +322,16 @@ function sortList(list) {
   });
   return list;
 }
-function renderHead() {
+function renderHead(P) {
   const cols = S.show === 'both' ? ['rank', 'ex'] : [S.show];
+  const showAvg = P.length > 1;
   const txt = k => (k === 'name' || k === 'sec' || k === 'mkt');
   const arrow = (key, h) => (S.sortKey === key && (h === undefined || S.sortH === h)) ? '<span class="arrow">' + ((S.sortDir === 1) === txt(key) ? '▲' : '▼') + '</span>' : '';
-  let r1 = '<tr><th class="lbl nm" rowspan="2" data-sort="name:0">종목명' + arrow('name') + '</th><th rowspan="2" data-sort="mkt:0">시장' + arrow('mkt') + '</th><th class="lbl" rowspan="2" data-sort="sec:0">섹터' + arrow('sec') + '</th>';
+  let r1 = '<tr><th class="lbl nm" rowspan="2" data-sort="name:0">종목명' + arrow('name') + '</th><th rowspan="2" data-sort="mkt:0">시장' + arrow('mkt') + '</th><th class="lbl" rowspan="2" data-sort="sec:0">섹터' + arrow('sec') + '</th>' +
+    (showAvg ? '<th rowspan="2" data-sort="avg:0" title="체크한 기간 순위의 평균">평균 순위' + arrow('avg') + '</th>' : '');
   let r2 = '<tr class="r2">';
-  HZ.forEach((x, h) => {
-    r1 += '<th class="grp" colspan="' + cols.length + '">' + x.label + ' <span class="sub">(' + x.n + '일)</span></th>';
+  P.forEach(h => {
+    r1 += '<th class="grp" colspan="' + cols.length + '">' + HZ[h].label + ' <span class="sub">(' + HZ[h].n + '일)</span></th>';
     cols.forEach(c => { r2 += '<th data-sort="' + c + ':' + h + '">' + (c === 'rank' ? '순위' : '초과수익률') + arrow(c, h) + '</th>'; });
   });
   $('thead').innerHTML = r1 + '</tr>' + r2 + '</tr>';
@@ -325,74 +348,57 @@ function cellEx(i, h, first) {
   return '<td class="' + (x >= 0 ? 'pos' : 'neg') + base + '">' + sgn(x) + '%</td>';
 }
 let CUR = [];
-function renderBody() {
+function renderBody(P) {
   const n = Math.min(CUR.length, S.limit);
+  const showAvg = P.length > 1;
   const parts = [];
   for (let k = 0; k < n; k++) {
     const i = CUR[k], r = ROWS[i];
     let tr = '<tr><td class="lbl nm">' + nameLink(r) + '</td>' +
       '<td class="mk">' + (r.mkt === 'P' ? '코스피' : '코스닥') + '</td>' +
       '<td class="lbl">' + esc(r.sec) + (r.src === 'N' ? '<span class="nv" title="내 섹터 정리에 없어서 네이버 업종으로 채움">N</span>' : '') + '</td>';
-    for (let h = 0; h < NH; h++) {
+    if (showAvg) {
+      const a = AVG[i];
+      tr += a === null ? '<td class="rk first na">-</td>' : '<td class="rk first" style="' + heat((a - 0.5) / avgTot(i, P)) + '" title="체크한 ' + P.length + '개 기간 순위의 평균">' + a.toFixed(1) + '</td>';
+    }
+    P.forEach(h => {
       if (S.show === 'both') tr += cellRank(i, h, true) + cellEx(i, h, false);
       else if (S.show === 'rank') tr += cellRank(i, h, true);
       else tr += cellEx(i, h, true);
-    }
+    });
     parts.push(tr + '</tr>');
   }
   $('tbody').innerHTML = parts.join('');
   $('moreBtn').style.display = CUR.length > n ? 'block' : 'none';
   $('moreBtn').textContent = '더 보기 (' + n.toLocaleString() + ' / ' + CUR.length.toLocaleString() + ')';
 }
-function sortLabel() {
+function sortLabel(P) {
   const k = S.sortKey;
   if (k === 'name') return '종목명';
   if (k === 'sec') return '섹터';
   if (k === 'mkt') return '시장';
+  if (k === 'avg') return P.length > 1 ? '선택 기간 평균 순위' : HZ[P[0]].label + ' 순위';
   return HZ[S.sortH].label + (k === 'rank' ? ' 순위' : ' 초과수익률');
 }
 function refresh(resetLimit) {
   if (resetLimit) S.limit = 200;
-  CUR = sortList(filtered());
-  $('count').textContent = CUR.length.toLocaleString() + '종목 (전체 ' + ROWS.length.toLocaleString() + '종목 중) · 순위 기준: ' + SCOPE_LABEL[S.scope] + ' · 정렬: ' + sortLabel();
-  $('fSort').value = (S.sortKey === 'rank' || S.sortKey === 'ex') ? S.sortKey + ':' + S.sortH : '';
-  renderHead();
-  renderBody();
+  const P = perIdx();
+  const list = filtered(P);
+  AVG = {};
+  list.forEach(i => { AVG[i] = avgRank(i, P); });
+  CUR = sortList(list);
+  const conds = [];
+  if ($('fWin').checked) conds.push('코스피를 이긴 종목만');
+  if ($('fTopOn').checked && parseFloat($('fTop').value) > 0) conds.push('순위 상위 ' + $('fTop').value + ($('fTopUnit').value === 'pct' ? '%' : '위') + ' 이내');
+  $('count').textContent = CUR.length.toLocaleString() + '종목 (전체 ' + ROWS.length.toLocaleString() + '종목 중) · 선택 기간: ' + perText(P) +
+    (conds.length ? ' · 조건: ' + conds.join(' + ') + ' (' + ($('fMode').value === 'all' ? '선택한 기간 모두' : '하나라도') + ')' : '') +
+    ' · 순위 기준: ' + SCOPE_LABEL[S.scope] + ' · 정렬: ' + sortLabel(P);
+  syncSortSelect();
+  renderHead(P);
+  renderBody(P);
 }
 
-// ---------- ② 기간별 순위표
-let BOARD_CELLS = {};
-let BOARD_LISTS = [];
-function renderBoard() {
-  const dir = $('bDir').value, N = parseInt($('bN').value, 10), showSec = $('bSec').checked;
-  const set = [];
-  for (let i = 0; i < ROWS.length; i++) if (baseOk(i)) set.push(i);
-  BOARD_LISTS = HZ.map((_, h) => set.filter(i => ROWS[i].ex[h] !== null)
-    .sort((a, b) => dir === 'top' ? ROWS[b].ex[h] - ROWS[a].ex[h] : ROWS[a].ex[h] - ROWS[b].ex[h]).slice(0, N));
-  const cnt = {};
-  BOARD_LISTS.forEach(l => l.forEach(i => { cnt[i] = (cnt[i] || 0) + 1; }));
-  const nRows = Math.max(0, ...BOARD_LISTS.map(l => l.length));
-  let h = '<thead><tr><th style="text-align:right">#</th>' + HZ.map(x => '<th>' + x.label + ' <span class="sub">코스피 ' + sgn(x.kospi, 2) + '%</span></th>').join('') + '</tr></thead><tbody>';
-  for (let k = 0; k < nRows; k++) {
-    h += '<tr><td class="rn">' + (k + 1) + '</td>';
-    for (let hh = 0; hh < NH; hh++) {
-      const i = BOARD_LISTS[hh][k];
-      if (i === undefined) { h += '<td class="c"></td>'; continue; }
-      const r = ROWS[i], c = cnt[i], x = r.ex[hh];
-      h += '<td class="c" data-i="' + i + '">' + nameLink(r) + ' <span class="' + (x >= 0 ? 'pos' : 'neg') + '">' + sgn(x) + '%</span>' +
-        (c >= 2 ? '<span class="mc' + (c >= 3 ? ' mc3' : '') + '" title="표시된 ' + c + '개 기간에 동시에 올라온 종목">×' + c + '</span>' : '') +
-        (showSec ? '<div class="sub">' + esc(r.sec) + (r.src === 'N' ? ' (N)' : '') + '</div>' : '') + '</td>';
-    }
-    h += '</tr>';
-  }
-  $('board').innerHTML = h + '</tbody>';
-  BOARD_CELLS = {};
-  document.querySelectorAll('#board td[data-i]').forEach(td => { (BOARD_CELLS[td.dataset.i] = BOARD_CELLS[td.dataset.i] || []).push(td); });
-}
-$('board').addEventListener('mouseover', e => { const td = e.target.closest('td[data-i]'); if (td) (BOARD_CELLS[td.dataset.i] || []).forEach(x => x.classList.add('hl')); });
-$('board').addEventListener('mouseout', e => { const td = e.target.closest('td[data-i]'); if (td) (BOARD_CELLS[td.dataset.i] || []).forEach(x => x.classList.remove('hl')); });
-
-// ---------- ③ 섹터별 순위 (내 섹터 정리 섹터만)
+// ---------- ② 섹터별 순위 (내 섹터 정리 섹터만)
 const SECMAP = {};
 ROWS.forEach((r, i) => { if (r.src === 'U') (SECMAP[r.sec] = SECMAP[r.sec] || {name: r.sec, idx: []}).idx.push(i); });
 const SECLIST = Object.values(SECMAP);
@@ -403,7 +409,7 @@ SECLIST.forEach((s, id) => {
     return {nv: v.length, mean: mean(v), median: median(v), win: v.length ? v.filter(x => x > 0).length / v.length : null};
   });
 });
-const SM = {metric: 'mean', abs: false, noMisc: false, minN: 1, sortKey: 'rank', sortH: 0, sortDir: 1, open: {}};
+const SM = {metric: 'mean', abs: false, noMisc: false, minN: 1, winOnly: false, sortKey: 'avg', sortH: 0, sortDir: 1, open: {}};
 let SLIST = [];
 function secVal(s, h) {
   const st = s.stat[h];
@@ -415,31 +421,38 @@ function secVal(s, h) {
 function fmtSecVal(v) { return SM.metric === 'win' ? v.toFixed(0) + '%' : sgn(v) + '%'; }
 function secValCls(v) { return SM.metric === 'win' ? (v >= 50 ? 'pos' : 'neg') : (v >= 0 ? 'pos' : 'neg'); }
 function renderSectors() {
+  const P = perIdx(), mode = $('fMode').value, showAvg = P.length > 1;
   SM.metric = $('sMetric').value;
   $('sAbs').disabled = SM.metric === 'win';
   SM.abs = $('sAbs').checked && SM.metric !== 'win';
   SM.noMisc = $('sNoMisc').checked;
   SM.minN = Math.max(1, parseInt($('sMinN').value, 10) || 1);
-  const list = SECLIST.filter(s => s.n >= SM.minN && !(SM.noMisc && s.name === '개별주'));
-  list.forEach(s => { s.v = HZ.map((_, h) => secVal(s, h)); s.rk = new Array(NH).fill(null); });
+  SM.winOnly = $('sWinOnly').checked;
+  const base = SECLIST.filter(s => s.n >= SM.minN && !(SM.noMisc && s.name === '개별주'));
+  base.forEach(s => { s.v = HZ.map((_, h) => secVal(s, h)); s.rk = new Array(NH).fill(null); });
   const totS = new Array(NH).fill(0);
   for (let h = 0; h < NH; h++) {
-    const a = list.filter(s => s.v[h] !== null).sort((x, y) => y.v[h] - x.v[h]);
+    const a = base.filter(s => s.v[h] !== null).sort((x, y) => y.v[h] - x.v[h]);
     totS[h] = a.length;
     a.forEach((s, k) => { s.rk[h] = k + 1; });
   }
-  // 요약: 코스피를 이긴 섹터 수 (평균/중앙값 기준 - 이긴 종목 비율 기준일 땐 평균 사용)
+  base.forEach(s => { s.avg = P.every(h => s.rk[h] !== null) ? mean(P.map(h => s.rk[h])) : null; });
+  // 코스피를 이긴 섹터 (평균/중앙값 기준 - 이긴 종목 비율 기준일 땐 평균 사용)
   const aggKey = SM.metric === 'median' ? 'median' : 'mean';
-  const winSec = HZ.map((_, h) => list.filter(s => s.stat[h].nv && s.stat[h][aggKey] > 0).length);
-  $('secSum').innerHTML = '<thead><tr><th class="lbl"></th>' + HZ.map(x => '<th>' + x.label + '</th>').join('') + '</tr></thead><tbody><tr><td class="lbl">코스피를 이긴 섹터 수(' + (aggKey === 'median' ? '중앙값' : '평균') + ' 기준)</td>' +
-    HZ.map((_, h) => '<td>' + winSec[h] + ' / ' + totS[h] + '</td>').join('') + '</tr></tbody>';
-  $('secNote').textContent = '섹터 ' + list.length + '개(내 섹터 정리 기준) · 기준: ' + {mean: '소속 종목 초과수익률 평균', median: '소속 종목 초과수익률 중앙값', win: '코스피를 이긴 종목 비율'}[SM.metric] + (SM.abs ? ' + 코스피 수익률(절대수익률)' : '') + ' · 섹터 이름을 누르면 소속 종목이 펼쳐지고, 펼친 종목의 순위는 "같은 섹터 안" 순위입니다.';
+  const beat = (s, h) => s.stat[h].nv > 0 && s.stat[h][aggKey] > 0;
+  const winSec = HZ.map((_, h) => base.filter(s => beat(s, h)).length);
+  let list = base;
+  if (SM.winOnly) list = base.filter(s => mode === 'all' ? P.every(h => beat(s, h)) : P.some(h => beat(s, h)));
+  $('secSum').innerHTML = '<thead><tr><th class="lbl"></th>' + P.map(h => '<th>' + HZ[h].label + '</th>').join('') + '</tr></thead><tbody><tr><td class="lbl">코스피를 이긴 섹터 수(' + (aggKey === 'median' ? '중앙값' : '평균') + ' 기준)</td>' +
+    P.map(h => '<td>' + winSec[h] + ' / ' + totS[h] + '</td>').join('') + '</tr></tbody>';
+  $('secNote').textContent = '섹터 ' + list.length + '개(내 섹터 정리 기준' + (SM.winOnly ? ', 코스피를 이긴 섹터만' : '') + ') · 선택 기간: ' + perText(P) + ' · 기준: ' + {mean: '소속 종목 초과수익률 평균', median: '소속 종목 초과수익률 중앙값', win: '코스피를 이긴 종목 비율'}[SM.metric] + (SM.abs ? ' + 코스피 수익률(절대수익률)' : '') + ' · 섹터 이름을 누르면 소속 종목이 펼쳐지고, 펼친 종목의 순위는 "같은 섹터 안" 순위입니다.';
   // 정렬
   const k = SM.sortKey, hs = SM.sortH, d = SM.sortDir;
-  list.sort((a, b) => {
+  list = list.slice().sort((a, b) => {
     if (k === 'name') return d * a.name.localeCompare(b.name, 'ko');
     if (k === 'n') return d * (b.n - a.n);
     if (k === 'w') { if (a.w === null && b.w === null) return 0; if (a.w === null) return 1; if (b.w === null) return -1; return d * (b.w - a.w); }
+    if (k === 'avg') { if (a.avg === null && b.avg === null) return 0; if (a.avg === null) return 1; if (b.avg === null) return -1; return d * (a.avg - b.avg); }
     if (k === 'val') { const va = a.v[hs], vb = b.v[hs]; if (va === null) return 1; if (vb === null) return -1; return d * (vb - va); }
     const ra = a.rk[hs], rb = b.rk[hs];
     if (ra === null) return 1;
@@ -449,10 +462,11 @@ function renderSectors() {
   SLIST = list;
   // 머리글
   const arr = (key, h) => (SM.sortKey === key && (h === undefined || SM.sortH === h)) ? '<span class="arrow">' + ((SM.sortDir === 1) === (key === 'name') ? '▲' : '▼') + '</span>' : '';
-  let r1 = '<tr><th class="lbl nm" rowspan="2" data-sort="name:0">섹터' + arr('name') + '</th><th rowspan="2" data-sort="n:0">종목수' + arr('n') + '</th><th rowspan="2" data-sort="w:0" title="섹터 정리에 든 코스피 종목 시가총액 기준, 합 100%">코스피 비중' + arr('w') + '</th>';
+  let r1 = '<tr><th class="lbl nm" rowspan="2" data-sort="name:0">섹터' + arr('name') + '</th><th rowspan="2" data-sort="n:0">종목수' + arr('n') + '</th><th rowspan="2" data-sort="w:0" title="섹터 정리에 든 코스피 종목 시가총액 기준, 합 100%">코스피 비중' + arr('w') + '</th>' +
+    (showAvg ? '<th rowspan="2" data-sort="avg:0" title="체크한 기간 순위의 평균">평균 순위' + arr('avg') + '</th>' : '');
   let r2 = '<tr class="r2">';
-  HZ.forEach((x, h) => {
-    r1 += '<th class="grp" colspan="2">' + x.label + ' <span class="sub">(' + x.n + '일)</span></th>';
+  P.forEach(h => {
+    r1 += '<th class="grp" colspan="2">' + HZ[h].label + ' <span class="sub">(' + HZ[h].n + '일)</span></th>';
     r2 += '<th data-sort="rank:' + h + '">순위' + arr('rank', h) + '</th><th data-sort="val:' + h + '">' + (SM.metric === 'win' ? '이긴 비율' : (SM.abs ? '수익률' : '초과수익률')) + arr('val', h) + '</th>';
   });
   $('sHead').innerHTML = r1 + '</tr>' + r2 + '</tr>';
@@ -461,17 +475,19 @@ function renderSectors() {
   list.forEach(s => {
     const open = !!SM.open[s.id];
     let tr = '<tr class="srow" data-sid="' + s.id + '"><td class="lbl nm"><span class="tg">' + (open ? '▾' : '▸') + '</span>' + esc(s.name) + '</td><td>' + s.n + '</td><td>' + (s.w === null ? '-' : (s.w * 100).toFixed(1) + '%') + '</td>';
-    for (let h = 0; h < NH; h++) {
+    if (showAvg) tr += s.avg === null ? '<td class="rk first na">-</td>' : '<td class="rk first" style="' + heat((s.avg - 0.5) / (P.reduce((t, h) => t + totS[h], 0) / P.length)) + '" title="체크한 ' + P.length + '개 기간 순위의 평균">' + s.avg.toFixed(1) + '</td>';
+    P.forEach(h => {
       const v = s.v[h], r = s.rk[h];
-      if (v === null) { tr += '<td class="rk first na">-</td><td class="na">-</td>'; continue; }
+      if (v === null) { tr += '<td class="rk first na">-</td><td class="na">-</td>'; return; }
       const st = s.stat[h];
       const tip = '평균 ' + sgn(st.mean) + '% · 중앙값 ' + sgn(st.median) + '% · 이긴 종목 ' + Math.round(st.win * st.nv) + '/' + st.nv + ' (' + (st.win * 100).toFixed(0) + '%) · 코스피 대비';
       tr += '<td class="rk first" style="' + heat((r - 0.5) / totS[h]) + '" title="' + totS[h] + '개 섹터 중 ' + r + '위">' + r + '</td><td class="' + secValCls(v) + '" title="' + esc(tip) + '">' + fmtSecVal(v) + '</td>';
-    }
+    });
     parts.push(tr + '</tr>');
     if (open) {
       const mem = s.idx.slice().sort((a, b) => {
-        const ra = rkSec[a][SM.sortH], rb = rkSec[b][SM.sortH];
+        const hh = (SM.sortKey === 'rank' || SM.sortKey === 'val') ? SM.sortH : P[0];
+        const ra = rkSec[a][hh], rb = rkSec[b][hh];
         if (ra === null && rb === null) return 0;
         if (ra === null) return 1;
         if (rb === null) return -1;
@@ -479,36 +495,50 @@ function renderSectors() {
       });
       mem.forEach(i => {
         const r = ROWS[i];
-        let m = '<tr class="mrow"><td class="lbl nm">' + nameLink(r) + '</td><td class="mk">' + (r.mkt === 'P' ? '코스피' : '코스닥') + '</td><td></td>';
-        for (let h = 0; h < NH; h++) {
+        let m = '<tr class="mrow"><td class="lbl nm">' + nameLink(r) + '</td><td class="mk">' + (r.mkt === 'P' ? '코스피' : '코스닥') + '</td><td></td>' + (showAvg ? '<td></td>' : '');
+        P.forEach(h => {
           const x = r.ex[h], rr = rkSec[i][h];
-          if (x === null) { m += '<td class="first na">-</td><td class="na">-</td>'; continue; }
+          if (x === null) { m += '<td class="first na">-</td><td class="na">-</td>'; return; }
           const val = SM.abs ? x + HZ[h].kospi : x;
           m += '<td class="first" title="섹터 안 ' + nSecBy[secKey(i)][h] + '종목 중 ' + rr + '위">' + rr + '</td><td class="' + (val >= 0 ? 'pos' : 'neg') + '">' + sgn(val) + '%</td>';
-        }
+        });
         parts.push(m + '</tr>');
       });
-      parts.push('<tr class="mrow"><td class="lbl nm"><button class="lnk" data-go="' + s.id + '">이 섹터를 종목별 표에서 보기 &rarr;</button></td><td colspan="' + (2 + 2 * NH) + '"></td></tr>');
+      parts.push('<tr class="mrow"><td class="lbl nm"><button class="lnk" data-go="' + s.id + '">이 섹터를 종목별 표에서 보기 &rarr;</button></td><td colspan="' + (2 + (showAvg ? 1 : 0) + 2 * P.length) + '"></td></tr>');
     }
   });
   $('sBody').innerHTML = parts.join('');
 }
 
 // ---------- 탭 전환 / 이벤트
-function refreshCurrent() { if (TAB === 't1') refresh(true); else if (TAB === 't2') renderBoard(); else renderSectors(); }
+function refreshCurrent() { if (TAB === 't1') refresh(true); else renderSectors(); }
 function setTab(t, keepHash) {
   TAB = t;
   document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === t));
-  ['t1', 't2', 't3'].forEach(id => $(id).classList.toggle('on', id === t));
-  $('stockBar').style.display = t === 't3' ? 'none' : '';
+  ['t1', 't2'].forEach(id => $(id).classList.toggle('on', id === t));
+  $('stockBar').style.display = t === 't2' ? 'none' : '';
   document.querySelectorAll('.t1only').forEach(el => { el.style.display = t === 't1' ? '' : 'none'; });
-  if (t === 't1') refresh(false); else if (t === 't2') renderBoard(); else renderSectors();
-  if (!keepHash) history.replaceState(null, '', location.pathname + location.search + (t === 't2' ? '#board' : (t === 't3' ? '#sector' : '')));
+  if (t === 't1') refresh(false); else renderSectors();
+  if (!keepHash) history.replaceState(null, '', location.pathname + location.search + (t === 't2' ? '#sector' : ''));
+}
+function onPeriodsChanged() {
+  const P = perIdx();
+  if ((S.sortKey === 'rank' || S.sortKey === 'ex') && !P.includes(S.sortH)) { S.sortKey = 'avg'; S.sortDir = 1; }
+  if ((SM.sortKey === 'rank' || SM.sortKey === 'val') && !P.includes(SM.sortH)) { SM.sortKey = 'avg'; SM.sortDir = 1; }
+  rebuildSortSelect();
+  refreshCurrent();
 }
 $('tabs').addEventListener('click', e => { const b = e.target.closest('button[data-tab]'); if (b) setTab(b.dataset.tab); });
+$('hzChk').addEventListener('change', e => {
+  if (!HZ.some((_, h) => $('pk' + h).checked)) e.target.checked = true;   // 최소 1개 기간은 선택
+  onPeriodsChanged();
+});
+function setPer(arr) { HZ.forEach((_, h) => { $('pk' + h).checked = arr.includes(h); }); onPeriodsChanged(); }
+$('perAll').addEventListener('click', () => setPer(HZ.map((_, h) => h)));
+$('perShort').addEventListener('click', () => setPer([0, 1, 2]));
+$('perLong').addEventListener('click', () => setPer([3, 4, 5]));
 ['fSearch', 'fTop'].forEach(id => $(id).addEventListener('input', () => refreshCurrent()));
-['fMarket', 'fSector', 'fUserOnly'].forEach(id => $(id).addEventListener('change', () => refreshCurrent()));
-$('hzChk').addEventListener('change', () => refresh(true));
+['fMarket', 'fSector', 'fUserOnly', 'fWin', 'fTopOn', 'fTopUnit', 'fMode'].forEach(id => $(id).addEventListener('change', () => refreshCurrent()));
 $('fScope').addEventListener('change', e => { S.scope = e.target.value; refresh(true); });
 $('fShow').addEventListener('change', e => { S.show = e.target.value; refresh(false); });
 $('fSort').addEventListener('change', e => {
@@ -517,18 +547,18 @@ $('fSort').addEventListener('change', e => {
   S.sortKey = key; S.sortH = parseInt(hs, 10); S.sortDir = 1;
   refresh(true);
 });
-$('moreBtn').addEventListener('click', () => { S.limit += 300; renderBody(); });
+$('moreBtn').addEventListener('click', () => { S.limit += 300; renderBody(perIdx()); });
 $('thead').addEventListener('click', e => {
   const th = e.target.closest('th[data-sort]');
   if (!th) return;
   const [key, hs] = th.dataset.sort.split(':'), h = parseInt(hs, 10);
-  if (S.sortKey === key && (S.sortH === h || key === 'name' || key === 'sec' || key === 'mkt')) S.sortDir *= -1;
+  if (S.sortKey === key && (S.sortH === h || key === 'name' || key === 'sec' || key === 'mkt' || key === 'avg')) S.sortDir *= -1;
   else { S.sortKey = key; S.sortH = h; S.sortDir = 1; }
   refresh(true);
 });
 $('resetBtn').addEventListener('click', () => {
-  $('fSearch').value = ''; $('fMarket').value = ''; $('fSector').value = ''; $('fUserOnly').checked = false; $('fTop').value = '';
-  HZ.forEach((_, h) => { $('tk' + h).checked = true; });
+  $('fSearch').value = ''; $('fMarket').value = ''; $('fSector').value = ''; $('fUserOnly').checked = false;
+  $('fWin').checked = false; $('fTopOn').checked = false; $('fTop').value = '10'; $('fTopUnit').value = 'pct';
   refresh(true);
 });
 function downloadCsv(name, lines) {
@@ -541,42 +571,33 @@ function downloadCsv(name, lines) {
 }
 const q2 = s => '"' + String(s).replace(/"/g, '""') + '"';
 $('csvBtn').addEventListener('click', () => {
+  const P = perIdx();
   const head = ['종목명', '종목코드', '시장', '섹터', '섹터출처'];
-  HZ.forEach(x => { head.push(x.label + ' 순위', x.label + ' 초과수익률(%p)'); });
+  if (P.length > 1) head.push('선택기간 평균순위');
+  P.forEach(h => { head.push(HZ[h].label + ' 순위', HZ[h].label + ' 초과수익률(%p)'); });
   const lines = [head.join(',')];
   CUR.forEach(i => {
     const r = ROWS[i];
     const row = [q2(r.name), r.code, r.mkt === 'P' ? '코스피' : '코스닥', q2(r.sec), r.src === 'U' ? '내 섹터 정리' : (r.src === 'N' ? '네이버' : '')];
-    HZ.forEach((_, h) => { row.push(rk(i, h) === null ? '' : rk(i, h), r.ex[h] === null ? '' : r.ex[h].toFixed(2)); });
+    if (P.length > 1) row.push(AVG[i] === null || AVG[i] === undefined ? '' : AVG[i].toFixed(1));
+    P.forEach(h => { row.push(rk(i, h) === null ? '' : rk(i, h), r.ex[h] === null ? '' : r.ex[h].toFixed(2)); });
     lines.push(row.join(','));
   });
   downloadCsv('종목_상대강도순위_' + DATA.asof + '.csv', lines);
 });
-['bDir', 'bN', 'bSec'].forEach(id => $(id).addEventListener('change', renderBoard));
-$('bCsv').addEventListener('click', () => {
-  const head = ['순위'];
-  HZ.forEach(x => { head.push(x.label + ' 종목', x.label + ' 초과수익률(%p)'); });
-  const lines = [head.join(',')];
-  const nRows = Math.max(0, ...BOARD_LISTS.map(l => l.length));
-  for (let k = 0; k < nRows; k++) {
-    const row = [k + 1];
-    HZ.forEach((_, h) => { const i = BOARD_LISTS[h][k]; row.push(i === undefined ? '' : q2(ROWS[i].name), i === undefined ? '' : ROWS[i].ex[h].toFixed(2)); });
-    lines.push(row.join(','));
-  }
-  downloadCsv('기간별_순위표_' + $('bDir').value + '_' + DATA.asof + '.csv', lines);
-});
 $('sCsv').addEventListener('click', () => {
-  const head = ['섹터', '종목수', '코스피비중(%)'];
+  const P = perIdx();
+  const head = ['섹터', '종목수', '코스피비중(%)', '선택기간 평균순위'];
   HZ.forEach(x => { head.push(x.label + ' 평균초과(%p)', x.label + ' 중앙값초과(%p)', x.label + ' 이긴비율(%)', x.label + ' 순위(현재기준)'); });
   const lines = [head.join(',')];
   SLIST.forEach(s => {
-    const row = [q2(s.name), s.n, s.w === null ? '' : (s.w * 100).toFixed(2)];
+    const row = [q2(s.name), s.n, s.w === null ? '' : (s.w * 100).toFixed(2), s.avg === null || P.length < 2 ? '' : s.avg.toFixed(1)];
     HZ.forEach((_, h) => { const st = s.stat[h]; row.push(st.nv ? st.mean.toFixed(2) : '', st.nv ? st.median.toFixed(2) : '', st.nv ? (st.win * 100).toFixed(1) : '', s.rk[h] === null ? '' : s.rk[h]); });
     lines.push(row.join(','));
   });
   downloadCsv('섹터_상대강도순위_' + SM.metric + '_' + DATA.asof + '.csv', lines);
 });
-['sMetric', 'sAbs', 'sNoMisc', 'sMinN'].forEach(id => $(id).addEventListener('change', renderSectors));
+['sMetric', 'sAbs', 'sNoMisc', 'sMinN', 'sWinOnly'].forEach(id => $(id).addEventListener('change', renderSectors));
 $('sMinN').addEventListener('input', renderSectors);
 $('sExpandAll').addEventListener('click', () => { SECLIST.forEach(s => { SM.open[s.id] = true; }); renderSectors(); });
 $('sCollapseAll').addEventListener('click', () => { SM.open = {}; renderSectors(); });
@@ -584,7 +605,7 @@ $('sHead').addEventListener('click', e => {
   const th = e.target.closest('th[data-sort]');
   if (!th) return;
   const [key, hs] = th.dataset.sort.split(':'), h = parseInt(hs, 10);
-  if (SM.sortKey === key && (SM.sortH === h || key === 'name' || key === 'n' || key === 'w')) SM.sortDir *= -1;
+  if (SM.sortKey === key && (SM.sortH === h || key === 'name' || key === 'n' || key === 'w' || key === 'avg')) SM.sortDir *= -1;
   else { SM.sortKey = key; SM.sortH = h; SM.sortDir = 1; }
   renderSectors();
 });
@@ -593,9 +614,11 @@ $('sBody').addEventListener('click', e => {
   const go = e.target.closest('button[data-go]');
   if (go) {
     const s = SECLIST[parseInt(go.dataset.go, 10)];
-    $('fMarket').value = ''; $('fUserOnly').checked = false; $('fSector').value = 'U:' + s.name; $('fTop').value = '';
+    $('fMarket').value = ''; $('fUserOnly').checked = false; $('fSector').value = 'U:' + s.name;
+    $('fWin').checked = false; $('fTopOn').checked = false;
     S.scope = 'sec'; $('fScope').value = 'sec';
-    S.sortKey = 'rank'; S.sortH = SM.sortH; S.sortDir = 1;
+    if (SM.sortKey === 'rank' || SM.sortKey === 'val') { S.sortKey = 'rank'; S.sortH = SM.sortH; } else { S.sortKey = 'avg'; }
+    S.sortDir = 1;
     setTab('t1');
     return;
   }
@@ -603,7 +626,7 @@ $('sBody').addEventListener('click', e => {
   if (tr) { const id = parseInt(tr.dataset.sid, 10); SM.open[id] = !SM.open[id]; renderSectors(); }
 });
 
-setTab(location.hash === '#sector' ? 't3' : (location.hash === '#board' ? 't2' : 't1'), true);
+setTab(location.hash === '#sector' ? 't2' : 't1', true);
 </script>
 </body>
 </html>
