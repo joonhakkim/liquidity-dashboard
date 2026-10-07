@@ -54,7 +54,7 @@
   <a class="back" href="index.html">&larr; 홈</a>
   <a class="back" href="relative_strength.html">종목·섹터 상대강도 순위 &rarr;</a>
   <h1>시장 국면 점수<span class="sub">밸류 하단 · 공격-방어 · 120일선 위 종목으로 본 6국면 (주간)</span></h1>
-  <div class="updated">최종 갱신: 2026-10-08 08:47 &middot; 데이터 기준일: 2026-10-07 &middot; 매주 목요일 기준(마지막 점은 기준일)</div>
+  <div class="updated">최종 갱신: 2026-10-08 08:48 &middot; 데이터 기준일: 2026-10-07 &middot; 매주 목요일 기준(마지막 점은 기준일)</div>
 
   <div class="panel">
     <h3>모델 설정 <span style="font-size:12px;color:#9aa0a6;font-weight:normal">바꾸면 국면·점수·차트·검증표가 바로 다시 계산됩니다</span></h3>
@@ -68,6 +68,7 @@
       <label>120일선 위 <select id="wX"></select></label>
       <label>점수 평균 기간 <select id="sm"><option>4</option><option>8</option><option>13</option><option>26</option></select>주</label>
       <label>방향 판단 기간 <select id="kk"><option>2</option><option>4</option><option>8</option><option>13</option></select>주 전과 비교</label>
+      <label>높음·낮음 기준 <select id="thr"><option value="exp">누적(2018~ 전체, 기본)</option><option value="104">최근 2년</option><option value="156">최근 3년</option><option value="260">최근 5년</option><option value="fix">고정 33/67점</option></select></label>
     </div>
     <div class="note" id="cfgNote"></div>
   </div>
@@ -83,6 +84,15 @@
       <b>2026-10-07 검증 요약</b>: 앞 절반에서 가장 잘 맞던 설정들(밸류 위주, 짧은 평균)은 뒤 절반에서 인접 정답률이 72% → 54~57%로 떨어져 <b>과적합</b>이었고,
       기본 설정은 양쪽 모두 64% 안팎으로 안정적이었습니다. <b>⑤ 중소형 하락</b>은 두 절반 모두에서 기준선보다 크게 높아 6국면 중 가장 믿을 만한 신호입니다.
       다만 ⑤는 중소형 고점보다 <b>5~8주 늦게</b> 나오는 확인 신호입니다(아래 하락 구간표 참고).
+    </div>
+  </div>
+
+  <div class="panel">
+    <h3>높음·낮음 기준 잡는 방식 비교 &middot; 지금 배점·기간 기준</h3>
+    <div class="tblwrap"><table class="st" id="tblThr"></table></div>
+    <div class="note">
+      <b>누적</b> = 2018년부터 그 주까지의 점수 전체를 3등분(기본). <b>최근 N년</b> = 최근 N년 점수만 3등분해 최근 환경에 더 빨리 맞춤. <b>고정</b> = 33점·67점.
+      판정 변경 = 국면이 전 주와 달라진 주의 비율(높을수록 자주 뒤집힘). 행을 누르면 그 방식으로 위 설정이 바뀝니다.
     </div>
   </div>
 
@@ -193,6 +203,7 @@ const DAY = 86400000;
 const T = DATA.dates.map(d => Date.parse(d));
 
 // ---------- 모델 (Python과 같은 계산)
+function qa(a, p) { const pos = (a.length - 1) * p, f = Math.floor(pos), c = Math.ceil(pos); return a[f] + (a[c] - a[f]) * (pos - f); }
 function computeModel(c) {
   const ws = c.wC + c.wD + c.wX;
   const comp = new Array(N).fill(null);
@@ -213,7 +224,12 @@ function computeModel(c) {
       while (a < b) { const m = (a + b) >> 1; if (sorted[m] < Ls[i]) a = m + 1; else b = m; }
       sorted.splice(a, 0, Ls[i]);
     }
-    if (sorted.length >= 26) { lo[i] = q(1 / 3); hi[i] = q(2 / 3); }
+    if (c.thr === 'fix') { if (nn(Ls[i])) { lo[i] = 100 / 3; hi[i] = 200 / 3; } }
+    else if (c.thr !== 'exp') {
+      const win = [];
+      for (let j = Math.max(start, i - c.thr + 1); j <= i; j++) if (nn(Ls[j])) win.push(Ls[j]);
+      if (win.length >= 26) { win.sort((a, b) => a - b); lo[i] = qa(win, 1 / 3); hi[i] = qa(win, 2 / 3); }
+    } else if (sorted.length >= 26) { lo[i] = q(1 / 3); hi[i] = q(2 / 3); }
     const pi = i - c.k;
     if (nn(Ls[i]) && nn(lo[i]) && pi >= start && nn(Ls[pi])) {
       const level = Ls[i] < lo[i] ? 0 : (Ls[i] > hi[i] ? 2 : 1);
@@ -495,9 +511,29 @@ function renderCards() {
   $('nowX').textContent = '현재 ' + fmt(DATA.X[iX]) + '% · ' + fmt(DATA.sX[iX], 0) + '점';
 }
 
-function readCfg() { return {wC: +$('wC').value, wD: +$('wD').value, wX: +$('wX').value, sm: +$('sm').value, k: +$('kk').value}; }
-function setCfg(c) { $('wC').value = c.wC; $('wD').value = c.wD; $('wX').value = c.wX; $('sm').value = c.sm; $('kk').value = c.k; }
-const PRESETS = {base: {wC: DATA.weights.C, wD: DATA.weights.D, wX: DATA.weights.X, sm: DATA.smooth, k: DATA.dirWeeks}, five: {wC: 3, wD: 0, wX: 0, sm: 8, k: 4}};
+const thrVal = v => (v === 'exp' || v === 'fix') ? v : +v;
+function readCfg() { return {wC: +$('wC').value, wD: +$('wD').value, wX: +$('wX').value, sm: +$('sm').value, k: +$('kk').value, thr: thrVal($('thr').value)}; }
+function setCfg(c) { $('wC').value = c.wC; $('wD').value = c.wD; $('wX').value = c.wX; $('sm').value = c.sm; $('kk').value = c.k; $('thr').value = String(c.thr); }
+const PRESETS = {base: {wC: DATA.weights.C, wD: DATA.weights.D, wX: DATA.weights.X, sm: DATA.smooth, k: DATA.dirWeeks, thr: 'exp'}, five: {wC: 3, wD: 0, wX: 0, sm: 8, k: 4, thr: 'exp'}};
+const THRS = [['exp', '누적(2018~ 전체)'], [104, '최근 2년'], [156, '최근 3년'], [260, '최근 5년'], ['fix', '고정 33/67점']];
+function renderThrTable() {
+  const H = HALVES.slice(0, 2);
+  let h = '<tr><th>기준 방식</th>' + ['인접 정답률', '상승·하락 구분', '⑤ 주 중 실제 중소형 하락', '⑤ 뒤 13주 중소형 하락 확률', '판정 변경'].map(t => '<th colspan="2">' + t + '</th>').join('') + '<th>지금 국면</th><th>지금 낮음/높음 기준</th></tr>';
+  h += '<tr><th></th>' + [0, 1, 2, 3, 4].map(() => H.map(x => '<th>' + x[0].split(' (')[0] + '</th>').join('')).join('') + '<th></th><th></th></tr>';
+  THRS.forEach(([v, lbl]) => {
+    const m = computeModel(Object.assign({}, CFG, {thr: v}));
+    const S = H.map(([, f]) => phaseStats(m.ph, f));
+    const chg = H.map(([, f]) => { let c = 0, n = 0; for (let i = 1; i < N; i++) if (f(i) && nn(m.ph[i]) && nn(m.ph[i - 1])) { n++; if (m.ph[i] !== m.ph[i - 1]) c++; } return n ? c / n * 100 : NaN; });
+    const iP = lastIdx(m.ph), cur = v === CFG.thr;
+    h += '<tr data-thr="' + v + '" style="cursor:pointer' + (cur ? ';background:#1c2a3a' : '') + '"><td>' + (cur ? '▶ ' : '') + lbl + '</td>' +
+      S.map(s => cellVs(s.adj, 50, '%', true)).join('') + S.map(s => cellVs(s.dir, 50, '%', true)).join('') +
+      S.map(s => cellVs(s.down5, s.downB, '%', true)).join('') + S.map(s => cellVs(s.neg5, s.negB, '%', true)).join('') +
+      chg.map(x => '<td>' + fmt(x, 0) + '%</td>').join('') +
+      '<td><span style="color:' + PHC[m.ph[iP]] + '">' + PH[m.ph[iP]] + '</span></td><td>' + fmt(m.lo[iP]) + ' / ' + fmt(m.hi[iP]) + '</td></tr>';
+  });
+  $('tblThr').innerHTML = h;
+}
+$('tblThr').addEventListener('click', e => { const r = e.target.closest('tr[data-thr]'); if (!r) return; $('thr').value = r.dataset.thr; recalc(); });
 function recalc() {
   CFG = readCfg();
   if (CFG.wC + CFG.wD + CFG.wX === 0) { $('cfgNote').textContent = '배점이 모두 0입니다. 하나 이상 0보다 크게 두세요.'; return; }
@@ -508,12 +544,12 @@ function recalc() {
     : '직접 고른 설정입니다. 아래 반반 검증표에서 <b>앞·뒤 절반 성적이 비슷한지</b> 확인하세요(한쪽만 좋으면 과적합).';
   M = computeModel(CFG);
   W = computeWarn();
-  renderCards(); renderHalfTable(M); renderPhaseTable(M); renderWarn(W); buildCharts();
+  renderCards(); renderHalfTable(M); renderThrTable(); renderPhaseTable(M); renderWarn(W); buildCharts();
 }
 ['wC', 'wD', 'wX'].forEach(id => { $(id).innerHTML = [0, 1, 2, 3].map(v => '<option>' + v + '</option>').join(''); });
 setCfg(PRESETS.base);
 document.querySelectorAll('[data-preset]').forEach(b => b.addEventListener('click', () => { setCfg(PRESETS[b.dataset.preset]); recalc(); }));
-['wC', 'wD', 'wX', 'sm', 'kk'].forEach(id => $(id).addEventListener('change', recalc));
+['wC', 'wD', 'wX', 'sm', 'kk', 'thr'].forEach(id => $(id).addEventListener('change', recalc));
 $('hW').value = '52'; $('near').value = '3'; $('aN').value = '20'; $('aT').value = '90';
 ['hW', 'near', 'aN', 'aT', 'xC'].forEach(id => $(id).addEventListener('change', () => { W = computeWarn(); renderWarn(W); buildCharts(); }));
 $('phLegend').innerHTML = Object.keys(PH).map(k => '<span><i style="background:' + PHC[k] + '"></i>' + PH[k] + '</span>').join('');
