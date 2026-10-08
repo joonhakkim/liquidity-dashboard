@@ -54,26 +54,7 @@
   <a class="back" href="index.html">&larr; 홈</a>
   <a class="back" href="relative_strength.html">종목·섹터 상대강도 순위 &rarr;</a>
   <h1>시장 국면 점수<span class="sub">밸류 하단 · 공격-방어 · 120일선 위 종목으로 본 6국면 (주간)</span></h1>
-  <div class="updated">최종 갱신: 2026-10-08 10:04 &middot; 데이터 기준일: 2026-10-07 &middot; 매주 목요일 기준(마지막 점은 기준일)</div>
-
-  <div class="panel">
-    <h3>모델 설정 <span style="font-size:12px;color:#9aa0a6;font-weight:normal">바꾸면 국면·점수·차트가 바로 다시 계산됩니다</span></h3>
-    <div class="ctl">
-      <button class="btn" data-preset="base">기본 (밸류3·공격방어2·120일선2, 13주/8주, 방향 둔감·기준선 여유 2점)</button>
-      <button class="btn" data-preset="five">⑤ 중시 (밸류 하단만, 8주/4주)</button>
-    </div>
-    <div class="ctl" style="margin-top:10px">
-      <label>밸류 하단 <select id="wC"></select></label>
-      <label>공격-방어 <select id="wD"></select></label>
-      <label>120일선 위 <select id="wX"></select></label>
-      <label>점수 평균 기간 <select id="sm"><option>4</option><option>8</option><option>13</option><option>26</option></select>주</label>
-      <label>방향 판단 기간 <select id="kk"><option>2</option><option>4</option><option>8</option><option>13</option></select>주 전과 비교</label>
-      <label>방향 둔감 <select id="db"><option value="0">없음</option><option value="1">1점</option><option value="2">2점</option><option value="3">3점</option></select> 이하 변화는 직전 방향 유지</label>
-      <label>기준선 여유 <select id="hb"><option value="0">없음</option><option value="1">1점</option><option value="2">2점</option><option value="3">3점</option></select> 넘게 넘어야 수준 변경</label>
-      <label>높음·낮음 기준 <select id="thr"><option value="exp">누적(2018~ 전체, 기본)</option><option value="104">최근 2년</option><option value="156">최근 3년</option><option value="260">최근 5년</option><option value="fix">고정 33/67점</option></select></label>
-    </div>
-    <div class="note" id="cfgNote"></div>
-  </div>
+  <div class="updated">최종 갱신: 2026-10-08 10:13 &middot; 데이터 기준일: 2026-10-07 &middot; 매주 목요일 기준(마지막 점은 기준일)</div>
 
   <div class="cards" id="cards"></div>
 
@@ -115,9 +96,9 @@
   </div>
 
   <div class="exp">
-    <b>점수 만드는 법</b>: 세 지표를 각각 <b>그 시점까지의 과거 값 대비 백분위(0~100점)</b>로 바꾼 뒤(미래 정보 없음) 배점대로 평균하고, N주 평균을 국면 점수로 씁니다.
+    <b>점수 만드는 법</b>: 세 지표를 각각 <b>그 시점까지의 과거 값 대비 백분위(0~100점)</b>로 바꾼 뒤(미래 정보 없음) <b>밸류 하단 3점 · 공격-방어 2점 · 120일선 위 2점</b> 비중으로 평균하고, 13주 평균을 국면 점수로 씁니다.
     밸류 하단 비율은 거꾸로(비율이 낮을수록 높은 점수) 반영합니다. 점수 자체에는 코스피 지수 값이 들어가지 않습니다(코스피는 정답지·이후 수익률 측정에만 사용).<br>
-    <b>국면 판정</b>: 점수가 그 시점까지 점수 분포의 하위 1/3이면 낮음, 상위 1/3이면 높음, 그 사이는 중간. K주 전보다 오르는 중이면(변화가 둔감 기준 이하면 직전 방향 유지, 기준선은 여유 점수만큼 넘어야 수준 변경)
+    <b>국면 판정</b>: 점수가 그 시점까지 점수 분포의 하위 1/3이면 낮음, 상위 1/3이면 높음, 그 사이는 중간. 8주 전보다 오르는 중이면(8주 변화가 2점 이하면 직전 방향 유지, 낮음·높음 기준선은 2점 넘게 넘어야 수준 변경)
     낮음 ① 반등시작 · 중간 ② 중소형 확산 · 높음 ③ 전면 확산, 내리는 중이면 높음 ④ 고점 · 중간 ⑤ 중소형 하락 · 낮음 ⑥ 대형주까지 바닥입니다.<br>
     <b>주의</b>: 정확히 같은 국면을 맞히는 비율은 낮아 <b>대략적인 위치</b>로만 보세요. ④ 고점 판정 뒤에도 코스피가 더 오른 경우가 많아 매도 신호로 쓰면 안 됩니다.
     섹터·밸류 데이터는 현재 상장 종목 기준입니다.
@@ -263,7 +244,7 @@ function kospiDataset(sl) {
   return {label: '코스피(오른쪽)', data: sl(DATA.kospi), borderColor: '#6b7280', borderWidth: 1, pointRadius: 0, yAxisID: 'y2', order: 9};
 }
 
-let M = null, CFG = null;
+let M = null;
 function buildCharts() {
   Object.values(charts).forEach(c => c.destroy());
   const sl = windowOf([M.ph]);
@@ -306,7 +287,7 @@ function renderCards() {
   const cd = (lbl, val, sub) => '<div class="card"><div class="lbl">' + lbl + '</div><div class="val">' + val + '</div><div class="sub">' + sub + '</div></div>';
   const iC = lastIdx(DATA.C), iD = lastIdx(DATA.D), iX = lastIdx(DATA.X);
   $('cards').innerHTML =
-    '<div class="card main"><div class="lbl">현재 국면 (' + DATA.dates[iP] + ', 지금 설정)</div><span class="badge" style="background:' + PHC[p] + '">' + PH[p] + '</span>' +
+    '<div class="card main"><div class="lbl">현재 국면 (' + DATA.dates[iP] + ')</div><span class="badge" style="background:' + PHC[p] + '">' + PH[p] + '</span>' +
     '<div class="sub">' + PHDESC[p] + '</div><div class="sub">최근 26주 국면 흐름(왼쪽이 과거)</div><div class="strip">' + strip + '</div></div>' +
     cd('국면 점수 (' + CFG.sm + '주 평균)', fmt(s) + '<span style="font-size:13px;color:#9aa0a6"> / 100</span>', '낮음 &lt; ' + fmt(M.lo[iS]) + ' · 높음 &gt; ' + fmt(M.hi[iS]) + '<br>' + CFG.k + '주 전 ' + fmt(sk) + ' → <span class="' + (s - sk >= 0 ? 'pos' : 'neg') + '">' + sgn(s - sk) + '</span>') +
     cd('공격-방어 상대강도(1달)', '<span class="' + (DATA.D[iD] >= 0 ? 'pos' : 'neg') + '">' + sgn(DATA.D[iD]) + '%p</span>', '점수 ' + fmt(DATA.sD[iD], 0) + '점 · 배점 ' + CFG.wD) +
@@ -321,25 +302,11 @@ function renderCards() {
 }
 
 const thrVal = v => (v === 'exp' || v === 'fix') ? v : +v;
-function readCfg() { return {wC: +$('wC').value, wD: +$('wD').value, wX: +$('wX').value, sm: +$('sm').value, k: +$('kk').value, db: +$('db').value, hb: +$('hb').value, thr: thrVal($('thr').value)}; }
-function setCfg(c) { $('wC').value = c.wC; $('wD').value = c.wD; $('wX').value = c.wX; $('sm').value = c.sm; $('kk').value = c.k; $('db').value = String(c.db); $('hb').value = String(c.hb); $('thr').value = String(c.thr); }
-const PRESETS = {base: {wC: DATA.weights.C, wD: DATA.weights.D, wX: DATA.weights.X, sm: DATA.smooth, k: DATA.dirWeeks, db: DATA.deadband, hb: DATA.levelBand, thr: 'exp'}, five: {wC: 3, wD: 0, wX: 0, sm: 8, k: 4, db: 0, hb: 0, thr: 'exp'}};
-const THRS = [['exp', '누적(2018~ 전체)'], [104, '최근 2년'], [156, '최근 3년'], [260, '최근 5년'], ['fix', '고정 33/67점']];
+const CFG = {wC: DATA.weights.C, wD: DATA.weights.D, wX: DATA.weights.X, sm: DATA.smooth, k: DATA.dirWeeks, db: DATA.deadband, hb: DATA.levelBand, thr: 'exp'};
 function recalc() {
-  CFG = readCfg();
-  if (CFG.wC + CFG.wD + CFG.wX === 0) { $('cfgNote').textContent = '배점이 모두 0입니다. 하나 이상 0보다 크게 두세요.'; return; }
-  const same = k => Object.keys(PRESETS[k]).every(x => PRESETS[k][x] === CFG[x]);
-  document.querySelectorAll('[data-preset]').forEach(b => b.classList.toggle('active', same(b.dataset.preset)));
-  $('cfgNote').innerHTML = same('base') ? '기본 설정: 2018~2026 전체 백테스트로 정한 배점이며 반반 검증에서 두 절반 성적이 비슷했습니다. 8주 변화가 2점 이하이면 방향을 바꾸지 않아 1주씩 깜빡이는 판정을 줄였고, 낮음·높음 기준선도 2점 넘게 넘어야 수준이 바뀝니다(2026-10-08).'
-    : same('five') ? '<b>⑤ 중시</b>: 앞 절반에서 ⑤ 성적으로 고른 설정이며, 뒤 절반(표본 밖)에서도 ⑤ 성적이 가장 좋았습니다. 대신 다른 국면 구분은 기본 설정보다 거칩니다.'
-    : '직접 고른 설정입니다. 한쪽 기간에만 맞춘 설정은 과적합일 수 있습니다.';
   M = computeModel(CFG);
   renderCards(); buildCharts();
 }
-['wC', 'wD', 'wX'].forEach(id => { $(id).innerHTML = [0, 1, 2, 3].map(v => '<option>' + v + '</option>').join(''); });
-setCfg(PRESETS.base);
-document.querySelectorAll('[data-preset]').forEach(b => b.addEventListener('click', () => { setCfg(PRESETS[b.dataset.preset]); recalc(); }));
-['wC', 'wD', 'wX', 'sm', 'kk', 'db', 'hb', 'thr'].forEach(id => $(id).addEventListener('change', recalc));
 $('phLegend').innerHTML = Object.keys(PH).map(k => '<span><i style="background:' + PHC[k] + '"></i>' + PH[k] + '</span>').join('');
 $('descD').innerHTML = '공격 섹터(코스피 대비 민감도 상위 ' + DATA.aggr.length + '개: ' + DATA.aggr.join(', ') + ') 동일가중 1달(20거래일) 수익률에서 ' +
   '방어 섹터(' + DATA.dfn.join(', ') + ') 1달 수익률을 뺀 값입니다. 높을수록 위험 선호(상승 국면 쪽)입니다. 섹터는 내 섹터 정리 기준입니다.';
