@@ -300,10 +300,6 @@ def main():
         "score": col("score", 1, 2), "lo": col("lo", 1, 2), "hi": col("hi", 1, 2), "phase": ints("phase"),
         "C": col("C", 100), "D": col("D", 100), "X": col("X", 100),
         "sC": col("sC"), "sD": col("sD"), "sX": col("sX"),
-        "fK13mdd": col("fK13mdd", 100),
-        "adr10": col("adr10", 1, 1), "adr20": col("adr20", 1, 1), "adr40": col("adr40", 1, 1), "adr60": col("adr60", 1, 1),
-        "hi26": col("hi26", 1, 1), "hi52": col("hi52", 1, 1),
-        "peaksK": peaksK,
         "phases": PHASES, "weights": WEIGHTS, "aggr": agg_list, "dfn": def_list, "cN": c_n,
         "smooth": SMOOTH_WEEKS, "dirWeeks": DIR_WEEKS, "evalStart": EVAL_START, "halfSplit": HALF_SPLIT,
     }
@@ -413,23 +409,6 @@ TEMPLATE = r"""<!doctype html>
     <div class="chart-wrap" style="height:260px"><canvas id="cScore"></canvas></div>
   </div>
 
-  <div class="panel">
-    <h3>고점 경고 (실험용) <span id="warnNow" style="font-size:12px;font-weight:normal;margin-left:6px"></span></h3>
-    <div class="ctl">
-      <label>코스피가 <select id="hW"><option value="26">26주</option><option value="52">52주</option></select> 최고치의</label>
-      <label><select id="near"><option>3</option><option>5</option><option>10</option></select>% 이내인데</label>
-      <label>상승/하락 종목비(ADR) <select id="aN"><option>10</option><option>20</option><option>40</option><option>60</option></select>일이</label>
-      <label><select id="aT"><option>80</option><option>90</option><option>100</option><option>110</option></select> 미만</label>
-      <label>+ 120일선 위 종목 <select id="xC"><option value="0">조건 없음</option><option value="60">60% 미만</option><option value="50">50% 미만</option><option value="40">40% 미만</option></select></label>
-    </div>
-    <div class="tblwrap"><table class="st" id="tblWarn"></table></div>
-    <div class="note">
-      지수는 신고가 근처인데 오르는 종목보다 내리는 종목이 많은(쏠림) 상태를 경고합니다. 경고 시작 주는 코스피 차트에 주황 삼각형, 실제 코스피 15% 고점은 흰 별로 표시됩니다.
-      <b>주의</b>: 앞 절반에서 가장 잘 맞던 조건(ADR20 &lt; 90, 26주 최고치 3% 이내)은 적중률이 67%였지만 뒤 절반에서 11%(기준 13%)로 무너졌습니다.
-      어떤 조건도 두 절반 모두에서 안정적이지 않아 <b>참고용</b>으로만 보세요.
-    </div>
-  </div>
-
   <div class="chart-box">
     <h2>공격-방어 상대강도 <span class="now" id="nowD"></span></h2>
     <div class="desc" id="descD"></div>
@@ -524,49 +503,6 @@ function computeModel(c) {
   return {Ls, lo, hi, ph};
 }
 
-function cellVs(v, b, unit, higherGood, d) {
-  if (isNaN(v)) return '<td>-</td>';
-  const diff = higherGood ? v - b : b - v;
-  const cls = isNaN(b) ? 'mid' : (diff >= 10 ? 'good' : (diff <= 0 ? 'bad' : 'mid'));
-  return '<td><span class="' + cls + '">' + (unit === '%r' ? sgn(v, 1) + '%' : fmt(v, d === undefined ? 0 : d) + '%') + '</span><span class="b">(' + (unit === '%r' ? sgn(b, 1) + '%' : fmt(b, 0) + '%') + ')</span></td>';
-}
-// ---------- 고점 경고
-function pct(a) { return a.length ? a.filter(x => x).length / a.length * 100 : NaN; }
-function computeWarn() {
-  const aN = $('aN').value, aT = +$('aT').value, hW = $('hW').value, near = +$('near').value / 100, xC = +$('xC').value;
-  const adr = DATA['adr' + aN], hi = DATA['hi' + hW];
-  const w = new Array(N).fill(false);
-  for (let i = 0; i < N; i++) {
-    if (!nn(DATA.kospi[i]) || !nn(adr[i]) || !nn(hi[i])) continue;
-    w[i] = DATA.kospi[i] >= hi[i] * (1 - near) && adr[i] < aT && (!xC || (nn(DATA.X[i]) && DATA.X[i] < xC));
-  }
-  const starts = w.map((v, i) => v && !(i > 0 && w[i - 1]));
-  return {w, starts, adr, hi};
-}
-function renderWarn(W) {
-  const peaks = DATA.peaksK.map(d => idxOnOrAfter(d)).filter(i => i < N);
-  const S = HALVES.map(([, f]) => {
-    const st = [], hits = [], base = [];
-    for (let i = 0; i < N; i++) {
-      if (!f(i)) continue;
-      if (nn(DATA.fK13mdd[i])) base.push(DATA.fK13mdd[i] <= -10);
-      if (W.starts[i]) { st.push(i); if (nn(DATA.fK13mdd[i])) hits.push(DATA.fK13mdd[i] <= -10); }
-    }
-    const pk = peaks.filter(p => f(p));
-    const caught = pk.filter(p => st.some(i => (T[i] - T[p]) / DAY >= -56 && (T[i] - T[p]) / DAY <= 28)).length;
-    return {n: st.length, hit: pct(hits), nh: hits.length, base: pct(base), caught, npk: pk.length};
-  });
-  const row = (lbl, f) => '<tr><td>' + lbl + '</td>' + S.map(f).join('') + '</tr>';
-  $('tblWarn').innerHTML = '<tr><th>항목</th>' + HALVES.map(h => '<th>' + h[0] + '</th>').join('') + '</tr>' +
-    row('경고 횟수(새로 켜진 주)', s => '<td>' + s.n + '</td>') +
-    row('경고 뒤 13주 안에 코스피 −10% 이상 하락', s => s.nh ? cellVs(s.hit, s.base, '%', true) : '<td>-</td>') +
-    row('실제 코스피 15% 고점 포착 <span class="b">(고점 8주 전~4주 뒤에 경고)</span>', s => '<td>' + s.caught + ' / ' + s.npk + '</td>');
-  const i = N - 1;
-  const dist = nn(W.hi[i]) ? (DATA.kospi[i] / W.hi[i] - 1) * 100 : NaN;
-  $('warnNow').innerHTML = '지금: ' + (W.w[i] ? '<span class="warn-on">경고 켜짐</span>' : '경고 없음') +
-    ' · ADR' + $('aN').value + ' ' + fmt(W.adr[i]) + ' · 코스피 ' + $('hW').value + '주 최고치 대비 ' + sgn(dist) + '%';
-}
-
 // ---------- 차트 공통
 function bgPlugin(ph, alpha) {
   return {
@@ -630,22 +566,16 @@ function kospiDataset(sl) {
   return {label: '코스피(오른쪽)', data: sl(DATA.kospi), borderColor: '#6b7280', borderWidth: 1, pointRadius: 0, yAxisID: 'y2', order: 9};
 }
 
-let M = null, W = null, CFG = null;
+let M = null, CFG = null;
 function buildCharts() {
   Object.values(charts).forEach(c => c.destroy());
   const sl = windowOf([M.ph]);
   const phAt = sl(M.ph);
-  const peakSet = new Set(DATA.peaksK.map(d => idxOnOrAfter(d)));
-  const idxs = sl(DATA.dates.map((_, i) => i));
-  const warnPts = idxs.map(i => W.starts[i] ? DATA.kospi[i] : null);
-  const peakPts = idxs.map(i => peakSet.has(i) ? DATA.kospi[i] : null);
   charts.k = new Chart($('cKospi'), {type: 'line', plugins: [bgPlugin(phAt, '88')], data: {labels: sl(DATA.dates), datasets: [
-    {label: '코스피', data: sl(DATA.kospi), borderColor: '#e6e6e6', borderWidth: 1.6, pointRadius: 0},
-    {label: '고점 경고 시작', data: warnPts, showLine: false, pointStyle: 'triangle', pointRadius: 7, pointBackgroundColor: '#ffa94d', borderColor: '#ffa94d'},
-    {label: '실제 코스피 15% 고점', data: peakPts, showLine: false, pointStyle: 'star', pointRadius: 9, borderColor: '#ffffff', borderWidth: 2}
+    {label: '코스피', data: sl(DATA.kospi), borderColor: '#e6e6e6', borderWidth: 1.6, pointRadius: 0}
   ]}, options: baseOpts({
-    plugins: {legend: {labels: {boxWidth: 12, font: {size: 11}, filter: it => it.datasetIndex > 0}},
-      tooltip: {filter: it => it.datasetIndex === 0, callbacks: {afterBody: items => { const q = phAt[items[0].dataIndex]; return q ? '국면: ' + PH[q] : ''; }}}},
+    plugins: {legend: {display: false},
+      tooltip: {callbacks: {afterBody: items => { const q = phAt[items[0].dataIndex]; return q ? '국면: ' + PH[q] : ''; }}}},
     scales: {x: xAxis(), y: {type: 'logarithmic', ticks: {callback: v => Number(v).toLocaleString()}}}
   })});
   charts.s = new Chart($('cScore'), {type: 'line', plugins: [bgPlugin(phAt, '33')], data: {labels: sl(DATA.dates), datasets: [
@@ -707,15 +637,12 @@ function recalc() {
     : same('five') ? '<b>⑤ 중시</b>: 앞 절반에서 ⑤ 성적으로 고른 설정이며, 뒤 절반(표본 밖)에서도 ⑤ 성적이 가장 좋았습니다. 대신 다른 국면 구분은 기본 설정보다 거칩니다.'
     : '직접 고른 설정입니다. 한쪽 기간에만 맞춘 설정은 과적합일 수 있습니다.';
   M = computeModel(CFG);
-  W = computeWarn();
-  renderCards(); renderWarn(W); buildCharts();
+  renderCards(); buildCharts();
 }
 ['wC', 'wD', 'wX'].forEach(id => { $(id).innerHTML = [0, 1, 2, 3].map(v => '<option>' + v + '</option>').join(''); });
 setCfg(PRESETS.base);
 document.querySelectorAll('[data-preset]').forEach(b => b.addEventListener('click', () => { setCfg(PRESETS[b.dataset.preset]); recalc(); }));
 ['wC', 'wD', 'wX', 'sm', 'kk', 'thr'].forEach(id => $(id).addEventListener('change', recalc));
-$('hW').value = '52'; $('near').value = '3'; $('aN').value = '20'; $('aT').value = '90';
-['hW', 'near', 'aN', 'aT', 'xC'].forEach(id => $(id).addEventListener('change', () => { W = computeWarn(); renderWarn(W); buildCharts(); }));
 $('phLegend').innerHTML = Object.keys(PH).map(k => '<span><i style="background:' + PHC[k] + '"></i>' + PH[k] + '</span>').join('');
 $('descD').innerHTML = '공격 섹터(코스피 대비 민감도 상위 ' + DATA.aggr.length + '개: ' + DATA.aggr.join(', ') + ') 동일가중 1달(20거래일) 수익률에서 ' +
   '방어 섹터(' + DATA.dfn.join(', ') + ') 1달 수익률을 뺀 값입니다. 높을수록 위험 선호(상승 국면 쪽)입니다. 섹터는 내 섹터 정리 기준입니다.';
