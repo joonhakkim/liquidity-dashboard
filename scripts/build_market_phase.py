@@ -426,8 +426,8 @@ TEMPLATE = r"""<!doctype html>
   </div>
 
   <div class="chart-box">
-    <h2>그날 점수 (평균 전, 0~100) <span class="now" id="nowRaw"></span></h2>
-    <div class="desc">세 지표 점수를 배점대로 평균한 그날의 값입니다(국면 점수는 이것의 65거래일 평균). 국면 판단에는 쓰지 않는 참고용이며, 국면 점수보다 1~2달 먼저 움직이지만 헛신호가 많습니다. 굵은 선은 20거래일 평균입니다.</div>
+    <h2>일별 점수 (평균 전, 0~100) <span class="now" id="nowRaw"></span></h2>
+    <div class="desc">세 지표 점수를 배점대로 평균한 매일의 값입니다(국면 점수는 이것의 65거래일 평균). 국면 판단에는 쓰지 않는 참고용이며, 국면 점수보다 1~2달 먼저 움직이지만 헛신호가 많습니다. 굵은 선은 20거래일 평균입니다.</div>
     <div class="chart-wrap" style="height:260px"><canvas id="cRaw"></canvas></div>
   </div>
 
@@ -627,7 +627,7 @@ function buildCharts() {
   })});
   charts.raw = new Chart($('cRaw'), {type: 'line', plugins: [bgPlugin(phAt, '33')], data: {labels: sl(DATA.dates), datasets: [
     {label: '20거래일 평균', data: sl(RAW20), borderColor: '#4dabf7', borderWidth: 2.2, pointRadius: 0},
-    {label: '그날 점수', data: sl(RAW), borderColor: '#4dabf766', borderWidth: 1, pointRadius: 0},
+    {label: '일별 점수', data: sl(RAW), borderColor: '#4dabf766', borderWidth: 1, pointRadius: 0},
     {label: '국면 점수(65거래일 평균)', data: sl(M.Ls), borderColor: '#ffd43b', borderWidth: 1.2, borderDash: [4, 3], pointRadius: 0}
   ]}, options: baseOpts({scales: {x: xAxis(), y: {min: 0, max: 100}}})});
   charts.s = new Chart($('cScore'), {type: 'line', plugins: [bgPlugin(phAt, '33')], data: {labels: sl(DATA.dates), datasets: [
