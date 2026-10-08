@@ -4,7 +4,7 @@
 각각 따로 차트로", 이어서 "기간 조절할 수 있게, 반은 맞추고 반은 시험보게(과적합 점검),
 ⑤ 중소형 하락이 얼마나 잘 맞는지가 가장 중요").
 
-국면 점수(0~100) 기본값 = (밸류 하단 3점 + 공격-방어 2점 + 120일선 위 2점) / 7, 13주 평균, 8주 방향
+국면 점수(0~100) 기본값 = (밸류 하단 3점 + 공격-방어 2점 + 120일선 위 2점) / 7, 13주 평균, 8주 방향(8주 전 대비 변화가 2점 이하면 직전 방향 유지 - 2026-10-08 방향 둔감 적용)
 (2018~2026 주간 백테스트로 정한 배점; 페이지에서 배점·평균 기간·방향 기간을 바꾸면 브라우저에서 다시 계산).
  - C 밸류 하단 비율: OP밴드 배수(시총/12개월 선행 영업이익)가 자기 최근 3년 하위 10% 아래인 종목 비율
    (docs/op_band_data 종목별 시계열로 그 시점까지 데이터만 써서 계산, 2년 이상 이력 종목만). 낮을수록 +.
@@ -42,6 +42,7 @@ PAGE_OUT_PATH = os.path.join(DOCS_DIR, "market_phase.html")
 WEIGHTS = {"C": 3, "D": 2, "X": 2}
 SMOOTH_WEEKS = 13
 DIR_WEEKS = 8
+DIR_DEADBAND = 2.0     # 8주 변화가 이 점수 이하면 방향을 바꾸지 않음(2022년처럼 1주씩 깜빡이는 판정 방지)
 MAX_DAILY_MOVE = 0.31
 EVAL_START = "2018-07-01"
 HALF_SPLIT = "2022-07-01"
@@ -250,7 +251,13 @@ def compute():
     lo = Ls.expanding(26).quantile(1 / 3)
     hi = Ls.expanding(26).quantile(2 / 3)
     level = np.where(Ls < lo, 0, np.where(Ls > hi, 2, 1))
-    rising = (Ls - Ls.shift(DIR_WEEKS)) > 0
+    chg = Ls - Ls.shift(DIR_WEEKS)
+    rising, cur = [], None
+    for v in chg.values:
+        if not np.isnan(v) and (cur is None or abs(v) > DIR_DEADBAND):
+            cur = bool(v > 0)
+        rising.append(bool(cur))
+    rising = np.array(rising)
     ph = pd.Series(np.where(rising, level + 1, 6 - level), index=Ls.index).where(Ls.notna() & lo.notna() & Ls.shift(DIR_WEEKS).notna())
     out = pd.DataFrame({"kospi": Kw, "C": Cw, "D": Dw, "X": Xw, "sC": sc["C"], "sD": sc["D"], "sX": sc["X"]})
     out["score"] = Ls.reindex(grid)
@@ -301,7 +308,7 @@ def main():
         "C": col("C", 100), "D": col("D", 100), "X": col("X", 100),
         "sC": col("sC"), "sD": col("sD"), "sX": col("sX"),
         "phases": PHASES, "weights": WEIGHTS, "aggr": agg_list, "dfn": def_list, "cN": c_n,
-        "smooth": SMOOTH_WEEKS, "dirWeeks": DIR_WEEKS, "evalStart": EVAL_START, "halfSplit": HALF_SPLIT,
+        "smooth": SMOOTH_WEEKS, "dirWeeks": DIR_WEEKS, "deadband": DIR_DEADBAND, "evalStart": EVAL_START, "halfSplit": HALF_SPLIT,
     }
     html = (TEMPLATE.replace("__UPDATED__", datetime.now().strftime("%Y-%m-%d %H:%M"))
             .replace("__ASOF__", payload["asof"])
@@ -374,7 +381,7 @@ TEMPLATE = r"""<!doctype html>
   <div class="panel">
     <h3>모델 설정 <span style="font-size:12px;color:#9aa0a6;font-weight:normal">바꾸면 국면·점수·차트가 바로 다시 계산됩니다</span></h3>
     <div class="ctl">
-      <button class="btn" data-preset="base">기본 (밸류3·공격방어2·120일선2, 13주/8주)</button>
+      <button class="btn" data-preset="base">기본 (밸류3·공격방어2·120일선2, 13주/8주, 방향 둔감 2점)</button>
       <button class="btn" data-preset="five">⑤ 중시 (밸류 하단만, 8주/4주)</button>
     </div>
     <div class="ctl" style="margin-top:10px">
@@ -383,6 +390,7 @@ TEMPLATE = r"""<!doctype html>
       <label>120일선 위 <select id="wX"></select></label>
       <label>점수 평균 기간 <select id="sm"><option>4</option><option>8</option><option>13</option><option>26</option></select>주</label>
       <label>방향 판단 기간 <select id="kk"><option>2</option><option>4</option><option>8</option><option>13</option></select>주 전과 비교</label>
+      <label>방향 둔감 <select id="db"><option value="0">없음</option><option value="1">1점</option><option value="2">2점</option><option value="3">3점</option></select> 이하 변화는 직전 방향 유지</label>
       <label>높음·낮음 기준 <select id="thr"><option value="exp">누적(2018~ 전체, 기본)</option><option value="104">최근 2년</option><option value="156">최근 3년</option><option value="260">최근 5년</option><option value="fix">고정 33/67점</option></select></label>
     </div>
     <div class="note" id="cfgNote"></div>
@@ -430,7 +438,7 @@ TEMPLATE = r"""<!doctype html>
   <div class="exp">
     <b>점수 만드는 법</b>: 세 지표를 각각 <b>그 시점까지의 과거 값 대비 백분위(0~100점)</b>로 바꾼 뒤(미래 정보 없음) 배점대로 평균하고, N주 평균을 국면 점수로 씁니다.
     밸류 하단 비율은 거꾸로(비율이 낮을수록 높은 점수) 반영합니다. 점수 자체에는 코스피 지수 값이 들어가지 않습니다(코스피는 정답지·이후 수익률 측정에만 사용).<br>
-    <b>국면 판정</b>: 점수가 그 시점까지 점수 분포의 하위 1/3이면 낮음, 상위 1/3이면 높음, 그 사이는 중간. K주 전보다 오르는 중이면
+    <b>국면 판정</b>: 점수가 그 시점까지 점수 분포의 하위 1/3이면 낮음, 상위 1/3이면 높음, 그 사이는 중간. K주 전보다 오르는 중이면(변화가 둔감 기준 이하면 직전 방향 유지)
     낮음 ① 반등시작 · 중간 ② 중소형 확산 · 높음 ③ 전면 확산, 내리는 중이면 높음 ④ 고점 · 중간 ⑤ 중소형 하락 · 낮음 ⑥ 대형주까지 바닥입니다.<br>
     <b>주의</b>: 정확히 같은 국면을 맞히는 비율은 낮아 <b>대략적인 위치</b>로만 보세요. ④ 고점 판정 뒤에도 코스피가 더 오른 경우가 많아 매도 신호로 쓰면 안 됩니다.
     섹터·밸류 데이터는 현재 상장 종목 기준입니다.
@@ -478,6 +486,7 @@ function computeModel(c) {
   const start = firstIdx(comp);
   const Ls = new Array(N).fill(null), lo = new Array(N).fill(null), hi = new Array(N).fill(null), ph = new Array(N).fill(null);
   const sorted = [];
+  let up = null;
   const q = p => { const pos = (sorted.length - 1) * p, f = Math.floor(pos), cc = Math.ceil(pos); return sorted[f] + (sorted[cc] - sorted[f]) * (pos - f); };
   for (let i = Math.max(start, 0); i < N && start >= 0; i++) {
     let s = 0, n = 0;
@@ -495,9 +504,13 @@ function computeModel(c) {
       if (win.length >= 26) { win.sort((a, b) => a - b); lo[i] = qa(win, 1 / 3); hi[i] = qa(win, 2 / 3); }
     } else if (sorted.length >= 26) { lo[i] = q(1 / 3); hi[i] = q(2 / 3); }
     const pi = i - c.k;
+    if (nn(Ls[i]) && pi >= start && nn(Ls[pi])) {
+      const ch = Ls[i] - Ls[pi];
+      if (up === null || Math.abs(ch) > c.db) up = ch > 0;
+    }
     if (nn(Ls[i]) && nn(lo[i]) && pi >= start && nn(Ls[pi])) {
       const level = Ls[i] < lo[i] ? 0 : (Ls[i] > hi[i] ? 2 : 1);
-      ph[i] = (Ls[i] - Ls[pi]) > 0 ? level + 1 : 6 - level;
+      ph[i] = up ? level + 1 : 6 - level;
     }
   }
   return {Ls, lo, hi, ph};
@@ -624,16 +637,16 @@ function renderCards() {
 }
 
 const thrVal = v => (v === 'exp' || v === 'fix') ? v : +v;
-function readCfg() { return {wC: +$('wC').value, wD: +$('wD').value, wX: +$('wX').value, sm: +$('sm').value, k: +$('kk').value, thr: thrVal($('thr').value)}; }
-function setCfg(c) { $('wC').value = c.wC; $('wD').value = c.wD; $('wX').value = c.wX; $('sm').value = c.sm; $('kk').value = c.k; $('thr').value = String(c.thr); }
-const PRESETS = {base: {wC: DATA.weights.C, wD: DATA.weights.D, wX: DATA.weights.X, sm: DATA.smooth, k: DATA.dirWeeks, thr: 'exp'}, five: {wC: 3, wD: 0, wX: 0, sm: 8, k: 4, thr: 'exp'}};
+function readCfg() { return {wC: +$('wC').value, wD: +$('wD').value, wX: +$('wX').value, sm: +$('sm').value, k: +$('kk').value, db: +$('db').value, thr: thrVal($('thr').value)}; }
+function setCfg(c) { $('wC').value = c.wC; $('wD').value = c.wD; $('wX').value = c.wX; $('sm').value = c.sm; $('kk').value = c.k; $('db').value = String(c.db); $('thr').value = String(c.thr); }
+const PRESETS = {base: {wC: DATA.weights.C, wD: DATA.weights.D, wX: DATA.weights.X, sm: DATA.smooth, k: DATA.dirWeeks, db: DATA.deadband, thr: 'exp'}, five: {wC: 3, wD: 0, wX: 0, sm: 8, k: 4, db: 0, thr: 'exp'}};
 const THRS = [['exp', '누적(2018~ 전체)'], [104, '최근 2년'], [156, '최근 3년'], [260, '최근 5년'], ['fix', '고정 33/67점']];
 function recalc() {
   CFG = readCfg();
   if (CFG.wC + CFG.wD + CFG.wX === 0) { $('cfgNote').textContent = '배점이 모두 0입니다. 하나 이상 0보다 크게 두세요.'; return; }
   const same = k => Object.keys(PRESETS[k]).every(x => PRESETS[k][x] === CFG[x]);
   document.querySelectorAll('[data-preset]').forEach(b => b.classList.toggle('active', same(b.dataset.preset)));
-  $('cfgNote').innerHTML = same('base') ? '기본 설정: 2018~2026 전체 백테스트로 정한 배점이며 반반 검증에서 두 절반 성적이 비슷했습니다.'
+  $('cfgNote').innerHTML = same('base') ? '기본 설정: 2018~2026 전체 백테스트로 정한 배점이며 반반 검증에서 두 절반 성적이 비슷했습니다. 8주 변화가 2점 이하이면 방향을 바꾸지 않아 1주씩 깜빡이는 판정을 줄였습니다(2026-10-08).'
     : same('five') ? '<b>⑤ 중시</b>: 앞 절반에서 ⑤ 성적으로 고른 설정이며, 뒤 절반(표본 밖)에서도 ⑤ 성적이 가장 좋았습니다. 대신 다른 국면 구분은 기본 설정보다 거칩니다.'
     : '직접 고른 설정입니다. 한쪽 기간에만 맞춘 설정은 과적합일 수 있습니다.';
   M = computeModel(CFG);
@@ -642,7 +655,7 @@ function recalc() {
 ['wC', 'wD', 'wX'].forEach(id => { $(id).innerHTML = [0, 1, 2, 3].map(v => '<option>' + v + '</option>').join(''); });
 setCfg(PRESETS.base);
 document.querySelectorAll('[data-preset]').forEach(b => b.addEventListener('click', () => { setCfg(PRESETS[b.dataset.preset]); recalc(); }));
-['wC', 'wD', 'wX', 'sm', 'kk', 'thr'].forEach(id => $(id).addEventListener('change', recalc));
+['wC', 'wD', 'wX', 'sm', 'kk', 'db', 'thr'].forEach(id => $(id).addEventListener('change', recalc));
 $('phLegend').innerHTML = Object.keys(PH).map(k => '<span><i style="background:' + PHC[k] + '"></i>' + PH[k] + '</span>').join('');
 $('descD').innerHTML = '공격 섹터(코스피 대비 민감도 상위 ' + DATA.aggr.length + '개: ' + DATA.aggr.join(', ') + ') 동일가중 1달(20거래일) 수익률에서 ' +
   '방어 섹터(' + DATA.dfn.join(', ') + ') 1달 수익률을 뺀 값입니다. 높을수록 위험 선호(상승 국면 쪽)입니다. 섹터는 내 섹터 정리 기준입니다.';
