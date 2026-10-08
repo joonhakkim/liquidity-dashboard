@@ -1,5 +1,5 @@
 """
-시장 국면 점수 페이지(docs/market_phase.html)를 만든다 (2026-10-07 사용자 요청 - "공격 방어 상대강도,
+시장 국면 점수 페이지(docs/market_phase.html)를 만든다 - 2026-10-08부터 매 거래일 판정(13주=65거래일 평균, 8주=40거래일 전 대비) (2026-10-07 사용자 요청 - "공격 방어 상대강도,
 하단 종목 비율, 120일선 위 종목에 점수 비중을 줘서 6국면으로 나누고 홈페이지에 하나 만들자, 그 밑에
 각각 따로 차트로", 이어서 "기간 조절할 수 있게, 반은 맞추고 반은 시험보게(과적합 점검),
 ⑤ 중소형 하락이 얼마나 잘 맞는지가 가장 중요").
@@ -37,7 +37,7 @@ DATA_DIR = os.path.join(BASE_DIR, "data")
 DOCS_DIR = os.path.join(BASE_DIR, "docs")
 PRICES_PATH = os.path.join(DATA_DIR, "bollinger_prices.csv")
 OP_BAND_DIR = os.path.join(DOCS_DIR, "op_band_data")
-SUMMARY_PATH = os.path.join(DATA_DIR, "screening", "market_phase_weekly.csv")
+SUMMARY_PATH = os.path.join(DATA_DIR, "screening", "market_phase_daily.csv")
 PAGE_OUT_PATH = os.path.join(DOCS_DIR, "market_phase.html")
 
 WEIGHTS = {"C": 3, "D": 2, "X": 2}
@@ -48,6 +48,7 @@ DIR_DEADBAND = 2.0     # 8주 변화가 이 점수 이하면 방향을 바꾸지
 MAX_DAILY_MOVE = 0.31
 EVAL_START = "2018-07-01"
 HALF_SPLIT = "2022-07-01"
+GRID = "D"             # "D" = 매 거래일 판정(2026-10-08 사용자 요청: 매일 변동 확인), "W-FRI" = 주간
 LARGE_N = 100          # 대형 = 매주 시가총액 상위 100(OP밴드 종목 시총 기준), 나머지 = 중소형
 # 공격 = 섹터 정리 섹터 중 코스피 대비 주간 베타(2016~2026-10) 상위 1/3, 방어 = 통상 방어업종.
 # 2026-10-07 매년 직전 3년 베타로 다시 고르는 방식과 비교해 주간 국면 판정 96% 일치(별 차이 없어 고정 목록 사용).
@@ -193,10 +194,13 @@ def compute():
     ag = (1 + pd.concat([sector_ret(s) for s in agg_list], axis=1).mean(axis=1).fillna(0)).cumprod()
     df_ = (1 + pd.concat([sector_ret(s) for s in def_list], axis=1).mean(axis=1).fillna(0)).cumprod()
     D = (ag / ag.shift(20) - 1) - (df_ / df_.shift(20) - 1)
-    # 주간 그리드(금요일, 2026-10-08 목요일에서 변경) + 데이터 기준일
-    grid = pd.date_range("2015-01-01", asof, freq="W-FRI")
-    if grid[-1] != asof:
-        grid = grid.append(pd.DatetimeIndex([asof]))
+    # 판정 그리드: 매 거래일(P=5점이 1주) 또는 주간 금요일 + 데이터 기준일(P=1)
+    if GRID == "D":
+        grid, P = wide.index[wide.index >= pd.Timestamp("2015-01-01")], 5
+    else:
+        grid, P = pd.date_range("2015-01-01", asof, freq=GRID), 1
+        if grid[-1] != asof:
+            grid = grid.append(pd.DatetimeIndex([asof]))
     Xw = X.reindex(grid, method="ffill")
     Dw = D.reindex(grid, method="ffill")
     Cw, Cn, caps = op_band_weekly(grid)
@@ -235,7 +239,7 @@ def compute():
         seg = kd_v[i0:i1]
         mdd.append(np.nanmin(seg) / base - 1 if len(seg) else np.nan)
     fK13mdd = pd.Series(mdd, index=grid)
-    fSM13 = SMw.shift(-13) / SMw - 1
+    fSM13 = SMw.shift(-13 * P) / SMw - 1
     # 고점 경고용: 코스피 상장 보통주 ADR(10/20/40/60일), 코스피 26/52주 최고치
     kcodes = [c for c in wide.columns if meta.at[c, "market"] == "KOSPI"]
     rk = wide[kcodes].pct_change(fill_method=None)
@@ -243,15 +247,15 @@ def compute():
     adr = {n: (adv.rolling(n).sum() / dec.rolling(n).sum() * 100).reindex(grid, method="ffill") for n in (10, 20, 40, 60)}
     highs = {wk: Kd.rolling(wk * 5, min_periods=wk * 3).max().reindex(grid, method="ffill") for wk in (26, 52)}
     # 점수(소수 둘째 자리로 맞춰 브라우저 재계산과 똑같이)
-    sc = pd.DataFrame({"C": 100 - exp_pct(Cw), "D": exp_pct(Dw), "X": exp_pct(Xw)}).round(2)
+    sc = pd.DataFrame({"C": 100 - exp_pct(Cw, 52 * P), "D": exp_pct(Dw, 52 * P), "X": exp_pct(Xw, 52 * P)}).round(2)
     valid = sc.notna().all(axis=1)
     start = valid.idxmax()
     sc2 = sc.loc[start:]
     comp = (sc2["C"] * WEIGHTS["C"] + sc2["D"] * WEIGHTS["D"] + sc2["X"] * WEIGHTS["X"]) / sum(WEIGHTS.values())
     comp = comp.where(sc2.notna().all(axis=1))
-    Ls = comp.rolling(SMOOTH_WEEKS, min_periods=1).mean()
-    lo = Ls.expanding(26).quantile(1 / 3)
-    hi = Ls.expanding(26).quantile(2 / 3)
+    Ls = comp.rolling(SMOOTH_WEEKS * P, min_periods=1).mean()
+    lo = Ls.expanding(26 * P).quantile(1 / 3)
+    hi = Ls.expanding(26 * P).quantile(2 / 3)
     level, lev = [], None
     for L, a, b in zip(Ls.values, lo.values, hi.values):
         if np.isnan(L) or np.isnan(a):
@@ -266,14 +270,14 @@ def compute():
             lev = raw
         level.append(lev)
     level = np.array(level)
-    chg = Ls - Ls.shift(DIR_WEEKS)
+    chg = Ls - Ls.shift(DIR_WEEKS * P)
     rising, cur = [], None
     for v in chg.values:
         if not np.isnan(v) and (cur is None or abs(v) > DIR_DEADBAND):
             cur = bool(v > 0)
         rising.append(bool(cur))
     rising = np.array(rising)
-    ph = pd.Series(np.where(rising, level + 1, 6 - level), index=Ls.index).where(Ls.notna() & lo.notna() & Ls.shift(DIR_WEEKS).notna())
+    ph = pd.Series(np.where(rising, level + 1, 6 - level), index=Ls.index).where(Ls.notna() & lo.notna() & Ls.shift(DIR_WEEKS * P).notna())
     out = pd.DataFrame({"kospi": Kw, "C": Cw, "D": Dw, "X": Xw, "sC": sc["C"], "sD": sc["D"], "sX": sc["X"]})
     out["score"] = Ls.reindex(grid)
     out["lo"] = lo.reindex(grid)
@@ -286,7 +290,7 @@ def compute():
         out[f"adr{n}"] = s
     for wk, s in highs.items():
         out[f"hi{wk}"] = s
-    return asof, out, agg_list, def_list, int(Cn.iloc[-1]), peaksK, pivS
+    return asof, out, agg_list, def_list, int(Cn.iloc[-1]), peaksK, pivS, P
 
 
 def main():
@@ -299,10 +303,10 @@ def main():
         PAGE_OUT_PATH = args.out
     if args.summary:
         SUMMARY_PATH = args.summary
-    asof, out, agg_list, def_list, c_n, peaksK, pivS = compute()
+    asof, out, agg_list, def_list, c_n, peaksK, pivS, P = compute()
     last = out.dropna(subset=["phase"]).iloc[-1]
     prev = out["score"].dropna()
-    print(f"데이터 기준일 {asof.date()} | 국면 {PHASES[int(last['phase'])]} | 점수 {last['score']:.1f} (낮음<{last['lo']:.1f}, 높음>{last['hi']:.1f}) | 8주 전 {prev.iloc[-1 - DIR_WEEKS]:.1f}")
+    print(f"데이터 기준일 {asof.date()} | 국면 {PHASES[int(last['phase'])]} | 점수 {last['score']:.1f} (낮음<{last['lo']:.1f}, 높음>{last['hi']:.1f}) | 8주 전 {prev.iloc[-1 - DIR_WEEKS * P]:.1f}")
     print(f"  밸류 하단 비율 {out['C'].iloc[-1] * 100:.1f}% ({c_n}종목) | 공격-방어 {out['D'].iloc[-1] * 100:+.1f}%p | 120일선 위 {out['X'].iloc[-1] * 100:.1f}%")
     os.makedirs(os.path.dirname(SUMMARY_PATH), exist_ok=True)
     out.rename_axis("date").to_csv(SUMMARY_PATH, encoding="utf-8-sig", float_format="%.5g")
@@ -323,7 +327,7 @@ def main():
         "C": col("C", 100), "D": col("D", 100), "X": col("X", 100),
         "sC": col("sC"), "sD": col("sD"), "sX": col("sX"),
         "phases": PHASES, "weights": WEIGHTS, "aggr": agg_list, "dfn": def_list, "cN": c_n,
-        "smooth": SMOOTH_WEEKS, "dirWeeks": DIR_WEEKS, "deadband": DIR_DEADBAND, "levelBand": LEVEL_BAND, "evalStart": EVAL_START, "halfSplit": HALF_SPLIT,
+        "smooth": SMOOTH_WEEKS, "dirWeeks": DIR_WEEKS, "deadband": DIR_DEADBAND, "levelBand": LEVEL_BAND, "per": P, "evalStart": EVAL_START, "halfSplit": HALF_SPLIT,
     }
     html = (TEMPLATE.replace("__UPDATED__", datetime.now().strftime("%Y-%m-%d %H:%M"))
             .replace("__ASOF__", payload["asof"])
@@ -390,10 +394,16 @@ TEMPLATE = r"""<!doctype html>
 <body>
   <a class="back" href="index.html">&larr; 홈</a>
   <a class="back" href="relative_strength.html">종목·섹터 상대강도 순위 &rarr;</a>
-  <h1>시장 국면 점수<span class="sub">밸류 하단 · 공격-방어 · 120일선 위 종목으로 본 6국면 (주간)</span></h1>
-  <div class="updated">최종 갱신: __UPDATED__ &middot; 데이터 기준일: __ASOF__ &middot; 매주 금요일 기준(마지막 점은 기준일)</div>
+  <h1>시장 국면 점수<span class="sub">밸류 하단 · 공격-방어 · 120일선 위 종목으로 본 6국면 (매일 갱신)</span></h1>
+  <div class="updated">최종 갱신: __UPDATED__ &middot; 데이터 기준일: __ASOF__ &middot; 매 거래일 기준</div>
 
   <div class="cards" id="cards"></div>
+
+  <div class="panel">
+    <h3>최근 변동 <span id="lastChg" style="font-size:12px;font-weight:normal;color:#c9ccd1;margin-left:6px"></span></h3>
+    <div class="tblwrap"><table class="st" id="tblRecent"></table></div>
+    <div class="note">국면 점수는 13주(65거래일) 평균이라 하루 변화는 작습니다. 국면이 바뀐 날은 강조 표시됩니다. 8주 전 대비가 ±2점 이내면 방향을 바꾸지 않고, 낮음·높음 기준선은 2점 넘게 넘어야 수준이 바뀝니다.</div>
+  </div>
 
   <div class="range-bar ctl" id="rangeBar" style="margin-bottom:12px">
     <span>차트 기간</span>
@@ -444,6 +454,7 @@ TEMPLATE = r"""<!doctype html>
 <script>
 const DATA = __DATA__;
 const N = DATA.dates.length;
+const PER = DATA.per || 1;   // 1주 = PER점(일간이면 5거래일)
 const PH = DATA.phases;
 const PHC = {1: '#9be3b0', 2: '#4cc47a', 3: '#1f8a4c', 4: '#f2a25c', 5: '#e8684a', 6: '#b5252b'};
 const PHDESC = {
@@ -498,8 +509,8 @@ function computeModel(c) {
     else if (c.thr !== 'exp') {
       const win = [];
       for (let j = Math.max(start, i - c.thr + 1); j <= i; j++) if (nn(Ls[j])) win.push(Ls[j]);
-      if (win.length >= 26) { win.sort((a, b) => a - b); lo[i] = qa(win, 1 / 3); hi[i] = qa(win, 2 / 3); }
-    } else if (sorted.length >= 26) { lo[i] = q(1 / 3); hi[i] = q(2 / 3); }
+      if (win.length >= 26 * PER) { win.sort((a, b) => a - b); lo[i] = qa(win, 1 / 3); hi[i] = qa(win, 2 / 3); }
+    } else if (sorted.length >= 26 * PER) { lo[i] = q(1 / 3); hi[i] = q(2 / 3); }
     if (nn(Ls[i]) && nn(lo[i])) {
       const L = Ls[i], a = lo[i], b = hi[i], raw = L < a ? 0 : (L > b ? 2 : 1);
       if (lev === null || Math.abs(raw - lev) === 2) lev = raw;
@@ -542,7 +553,7 @@ function bgPlugin(ph, alpha) {
 Chart.defaults.color = '#9aa0a6';
 Chart.defaults.borderColor = '#23262e';
 Chart.defaults.font.family = '-apple-system, "Malgun Gothic", sans-serif';
-const RANGES = [['1년', 52], ['3년', 156], ['5년', 260], ['전체', 0]];
+const RANGES = [['3달', 13 * PER], ['1년', 52 * PER], ['3년', 156 * PER], ['5년', 260 * PER], ['전체', 0]];
 let RANGE = 0, FROM = null, TO = null;
 const charts = {};
 function windowOf(seriesList) {
@@ -568,7 +579,7 @@ function rolling(arr, n) {
   }
   return out;
 }
-const D13 = rolling(DATA.D, 13);
+const D13 = rolling(DATA.D, 13 * PER);
 function baseOpts(extra) {
   return Object.assign({
     responsive: true, maintainAspectRatio: false, animation: false,
@@ -617,32 +628,46 @@ function buildCharts() {
   comp('cX', 'X', '120일선 위 종목 비율', '#63e6be', '%', 50);
 }
 
+function renderRecent() {
+  const iE = lastIdx(M.ph);
+  let h = '<tr><th>날짜</th><th>국면</th><th>국면 점수</th><th>전일 대비</th><th>' + DATA.dirWeeks + '주 전 대비</th><th>밸류 하단</th><th>공격-방어</th><th>120일선 위</th></tr>';
+  for (let i = iE; i >= Math.max(0, iE - 14); i--) {
+    const chg = i > 0 && M.ph[i - 1] && M.ph[i] !== M.ph[i - 1];
+    const d1 = M.Ls[i] - M.Ls[i - 1], dk = M.Ls[i] - M.Ls[i - CFG.k];
+    h += '<tr' + (chg ? ' style="background:#2b2414"' : '') + '><td>' + DATA.dates[i] + '</td><td><span style="color:' + PHC[M.ph[i]] + '">■</span> ' + PH[M.ph[i]] + (chg ? ' <b style="color:#ffa94d">← ' + PH[M.ph[i - 1]] + '</b>' : '') + '</td>' +
+      '<td>' + fmt(M.Ls[i]) + '</td><td class="' + (d1 >= 0 ? 'pos' : 'neg') + '">' + sgn(d1, 2) + '</td><td class="' + (dk >= 0 ? 'pos' : 'neg') + '">' + sgn(dk) + '</td>' +
+      '<td>' + fmt(DATA.C[i]) + '%</td><td>' + sgn(DATA.D[i]) + '%p</td><td>' + fmt(DATA.X[i]) + '%</td></tr>';
+  }
+  $('tblRecent').innerHTML = h;
+  let j = iE; while (j > 0 && M.ph[j - 1] === M.ph[iE]) j--;
+  $('lastChg').textContent = j > 0 && M.ph[j - 1] ? '마지막 국면 변경: ' + DATA.dates[j] + ' (' + PH[M.ph[j - 1]] + ' → ' + PH[M.ph[iE]] + ', ' + (iE - j + 1) + '거래일째)' : '';
+}
 function renderCards() {
   const iP = lastIdx(M.ph), p = M.ph[iP];
   const iS = lastIdx(M.Ls), s = M.Ls[iS], sk = M.Ls[iS - CFG.k];
-  const strip = M.ph.slice(Math.max(0, iP - 25), iP + 1).map((q, k, a) => '<span title="' + DATA.dates[iP - (a.length - 1 - k)] + ' ' + (q ? PH[q] : '-') + '" style="background:' + (q ? PHC[q] : '#2a2e37') + '"></span>').join('');
+  const strip = M.ph.slice(Math.max(0, iP - 29), iP + 1).map((q, k, a) => '<span title="' + DATA.dates[iP - (a.length - 1 - k)] + ' ' + (q ? PH[q] : '-') + '" style="background:' + (q ? PHC[q] : '#2a2e37') + '"></span>').join('');
   const cd = (lbl, val, sub) => '<div class="card"><div class="lbl">' + lbl + '</div><div class="val">' + val + '</div><div class="sub">' + sub + '</div></div>';
   const iC = lastIdx(DATA.C), iD = lastIdx(DATA.D), iX = lastIdx(DATA.X);
   $('cards').innerHTML =
     '<div class="card main"><div class="lbl">현재 국면 (' + DATA.dates[iP] + ')</div><span class="badge" style="background:' + PHC[p] + '">' + PH[p] + '</span>' +
-    '<div class="sub">' + PHDESC[p] + '</div><div class="sub">최근 26주 국면 흐름(왼쪽이 과거)</div><div class="strip">' + strip + '</div></div>' +
-    cd('국면 점수 (' + CFG.sm + '주 평균)', fmt(s) + '<span style="font-size:13px;color:#9aa0a6"> / 100</span>', '낮음 &lt; ' + fmt(M.lo[iS]) + ' · 높음 &gt; ' + fmt(M.hi[iS]) + '<br>' + CFG.k + '주 전 ' + fmt(sk) + ' → <span class="' + (s - sk >= 0 ? 'pos' : 'neg') + '">' + sgn(s - sk) + '</span>') +
+    '<div class="sub">' + PHDESC[p] + '</div><div class="sub">최근 30거래일 국면 흐름(왼쪽이 과거)</div><div class="strip">' + strip + '</div></div>' +
+    cd('국면 점수 (' + DATA.smooth + '주 평균)', fmt(s) + '<span style="font-size:13px;color:#9aa0a6"> / 100</span>', '낮음 &lt; ' + fmt(M.lo[iS]) + ' · 높음 &gt; ' + fmt(M.hi[iS]) + '<br>' + DATA.dirWeeks + '주 전 ' + fmt(sk) + ' → <span class="' + (s - sk >= 0 ? 'pos' : 'neg') + '">' + sgn(s - sk) + '</span>') +
     cd('공격-방어 상대강도(1달)', '<span class="' + (DATA.D[iD] >= 0 ? 'pos' : 'neg') + '">' + sgn(DATA.D[iD]) + '%p</span>', '점수 ' + fmt(DATA.sD[iD], 0) + '점 · 배점 ' + CFG.wD) +
     cd('밸류 하단 종목 비율', fmt(DATA.C[iC]) + '%', '점수 ' + fmt(DATA.sC[iC], 0) + '점 · 배점 ' + CFG.wC + ' (비율 낮을수록 점수 높음) · ' + DATA.cN.toLocaleString() + '종목') +
     cd('120일선 위 종목 비율', fmt(DATA.X[iX]) + '%', '점수 ' + fmt(DATA.sX[iX], 0) + '점 · 배점 ' + CFG.wX);
   $('nowPhase').textContent = '현재 ' + PH[p];
-  $('nowScore').textContent = '현재 ' + fmt(s) + ' (' + CFG.k + '주 전 ' + fmt(sk) + ')';
-  $('descScore').textContent = '배점 밸류 하단 ' + CFG.wC + ' · 공격-방어 ' + CFG.wD + ' · 120일선 위 ' + CFG.wX + ', ' + CFG.sm + '주 평균. 점선은 그 시점까지 점수 분포의 하위 1/3(낮음 기준)·상위 1/3(높음 기준)입니다.';
+  $('nowScore').textContent = '현재 ' + fmt(s) + ' (' + DATA.dirWeeks + '주 전 ' + fmt(sk) + ')';
+  $('descScore').textContent = '배점 밸류 하단 ' + CFG.wC + ' · 공격-방어 ' + CFG.wD + ' · 120일선 위 ' + CFG.wX + ', ' + DATA.smooth + '주 평균. 점선은 그 시점까지 점수 분포의 하위 1/3(낮음 기준)·상위 1/3(높음 기준)입니다.';
   $('nowD').textContent = '현재 ' + sgn(DATA.D[iD]) + '%p · ' + fmt(DATA.sD[iD], 0) + '점';
   $('nowC').textContent = '현재 ' + fmt(DATA.C[iC]) + '% · ' + fmt(DATA.sC[iC], 0) + '점';
   $('nowX').textContent = '현재 ' + fmt(DATA.X[iX]) + '% · ' + fmt(DATA.sX[iX], 0) + '점';
 }
 
 const thrVal = v => (v === 'exp' || v === 'fix') ? v : +v;
-const CFG = {wC: DATA.weights.C, wD: DATA.weights.D, wX: DATA.weights.X, sm: DATA.smooth, k: DATA.dirWeeks, db: DATA.deadband, hb: DATA.levelBand, thr: 'exp'};
+const CFG = {wC: DATA.weights.C, wD: DATA.weights.D, wX: DATA.weights.X, sm: DATA.smooth * PER, k: DATA.dirWeeks * PER, db: DATA.deadband, hb: DATA.levelBand, thr: 'exp'};
 function recalc() {
   M = computeModel(CFG);
-  renderCards(); buildCharts();
+  renderCards(); renderRecent(); buildCharts();
 }
 $('phLegend').innerHTML = Object.keys(PH).map(k => '<span><i style="background:' + PHC[k] + '"></i>' + PH[k] + '</span>').join('');
 $('descD').innerHTML = '공격 섹터(코스피 대비 민감도 상위 ' + DATA.aggr.length + '개: ' + DATA.aggr.join(', ') + ') 동일가중 1달(20거래일) 수익률에서 ' +
