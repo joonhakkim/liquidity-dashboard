@@ -193,8 +193,8 @@ def compute():
     ag = (1 + pd.concat([sector_ret(s) for s in agg_list], axis=1).mean(axis=1).fillna(0)).cumprod()
     df_ = (1 + pd.concat([sector_ret(s) for s in def_list], axis=1).mean(axis=1).fillna(0)).cumprod()
     D = (ag / ag.shift(20) - 1) - (df_ / df_.shift(20) - 1)
-    # 주간 그리드(목요일) + 데이터 기준일
-    grid = pd.date_range("2015-01-01", asof, freq="W-THU")
+    # 주간 그리드(금요일, 2026-10-08 목요일에서 변경) + 데이터 기준일
+    grid = pd.date_range("2015-01-01", asof, freq="W-FRI")
     if grid[-1] != asof:
         grid = grid.append(pd.DatetimeIndex([asof]))
     Xw = X.reindex(grid, method="ffill")
@@ -391,7 +391,7 @@ TEMPLATE = r"""<!doctype html>
   <a class="back" href="index.html">&larr; 홈</a>
   <a class="back" href="relative_strength.html">종목·섹터 상대강도 순위 &rarr;</a>
   <h1>시장 국면 점수<span class="sub">밸류 하단 · 공격-방어 · 120일선 위 종목으로 본 6국면 (주간)</span></h1>
-  <div class="updated">최종 갱신: __UPDATED__ &middot; 데이터 기준일: __ASOF__ &middot; 매주 목요일 기준(마지막 점은 기준일)</div>
+  <div class="updated">최종 갱신: __UPDATED__ &middot; 데이터 기준일: __ASOF__ &middot; 매주 금요일 기준(마지막 점은 기준일)</div>
 
   <div class="cards" id="cards"></div>
 
