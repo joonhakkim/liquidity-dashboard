@@ -54,15 +54,9 @@
   <a class="back" href="index.html">&larr; 홈</a>
   <a class="back" href="relative_strength.html">종목·섹터 상대강도 순위 &rarr;</a>
   <h1>시장 국면 점수<span class="sub">밸류 하단 · 공격-방어 · 120일선 위 종목으로 본 6국면 (매일 갱신)</span></h1>
-  <div class="updated">최종 갱신: 2026-10-08 10:21 &middot; 데이터 기준일: 2026-10-07 &middot; 매 거래일 기준</div>
+  <div class="updated">최종 갱신: 2026-10-08 10:29 &middot; 데이터 기준일: 2026-10-07 &middot; 매 거래일 기준</div>
 
   <div class="cards" id="cards"></div>
-
-  <div class="panel">
-    <h3>최근 변동 <span id="lastChg" style="font-size:12px;font-weight:normal;color:#c9ccd1;margin-left:6px"></span></h3>
-    <div class="tblwrap"><table class="st" id="tblRecent"></table></div>
-    <div class="note">국면 점수는 13주(65거래일) 평균이라 하루 변화는 작습니다. 국면이 바뀐 날은 강조 표시됩니다. 8주 전 대비가 ±2점 이내면 방향을 바꾸지 않고, 낮음·높음 기준선은 2점 넘게 넘어야 수준이 바뀝니다.</div>
-  </div>
 
   <div class="range-bar ctl" id="rangeBar" style="margin-bottom:12px">
     <span>차트 기간</span>
@@ -108,6 +102,12 @@
     낮음 ① 반등시작 · 중간 ② 중소형 확산 · 높음 ③ 전면 확산, 내리는 중이면 높음 ④ 고점 · 중간 ⑤ 중소형 하락 · 낮음 ⑥ 대형주까지 바닥입니다.<br>
     <b>주의</b>: 정확히 같은 국면을 맞히는 비율은 낮아 <b>대략적인 위치</b>로만 보세요. ④ 고점 판정 뒤에도 코스피가 더 오른 경우가 많아 매도 신호로 쓰면 안 됩니다.
     섹터·밸류 데이터는 현재 상장 종목 기준입니다.
+  </div>
+
+  <div class="panel">
+    <h3>최근 변동 <span id="lastChg" style="font-size:12px;font-weight:normal;color:#c9ccd1;margin-left:6px"></span></h3>
+    <div class="tblwrap"><table class="st" id="tblRecent"></table></div>
+    <div class="note">전일 대비는 참고용이고 국면 판단에는 쓰지 않습니다(국면은 65거래일 평균 점수의 수준과 40거래일 전 대비 변화로 판단). 국면이 바뀐 날은 강조 표시됩니다. 8주 전 대비가 ±2점 이내면 방향을 바꾸지 않고, 낮음·높음 기준선은 2점 넘게 넘어야 수준이 바뀝니다.</div>
   </div>
 
 <script>
