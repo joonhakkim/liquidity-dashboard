@@ -300,11 +300,10 @@ def main():
         "score": col("score", 1, 2), "lo": col("lo", 1, 2), "hi": col("hi", 1, 2), "phase": ints("phase"),
         "C": col("C", 100), "D": col("D", 100), "X": col("X", 100),
         "sC": col("sC"), "sD": col("sD"), "sX": col("sX"),
-        "tK": ints("tK"), "tE": ints("tE"), "tS": ints("tS"),
-        "fK13mdd": col("fK13mdd", 100), "fSM13": col("fSM13", 100),
+        "fK13mdd": col("fK13mdd", 100),
         "adr10": col("adr10", 1, 1), "adr20": col("adr20", 1, 1), "adr40": col("adr40", 1, 1), "adr60": col("adr60", 1, 1),
         "hi26": col("hi26", 1, 1), "hi52": col("hi52", 1, 1),
-        "peaksK": peaksK, "pivS": pivS, "smIdx": col("sm_idx", 1, 2),
+        "peaksK": peaksK,
         "phases": PHASES, "weights": WEIGHTS, "aggr": agg_list, "dfn": def_list, "cN": c_n,
         "smooth": SMOOTH_WEEKS, "dirWeeks": DIR_WEEKS, "evalStart": EVAL_START, "halfSplit": HALF_SPLIT,
     }
@@ -377,7 +376,7 @@ TEMPLATE = r"""<!doctype html>
   <div class="updated">최종 갱신: __UPDATED__ &middot; 데이터 기준일: __ASOF__ &middot; 매주 목요일 기준(마지막 점은 기준일)</div>
 
   <div class="panel">
-    <h3>모델 설정 <span style="font-size:12px;color:#9aa0a6;font-weight:normal">바꾸면 국면·점수·차트·검증표가 바로 다시 계산됩니다</span></h3>
+    <h3>모델 설정 <span style="font-size:12px;color:#9aa0a6;font-weight:normal">바꾸면 국면·점수·차트가 바로 다시 계산됩니다</span></h3>
     <div class="ctl">
       <button class="btn" data-preset="base">기본 (밸류3·공격방어2·120일선2, 13주/8주)</button>
       <button class="btn" data-preset="five">⑤ 중시 (밸류 하단만, 8주/4주)</button>
@@ -395,34 +394,6 @@ TEMPLATE = r"""<!doctype html>
 
   <div class="cards" id="cards"></div>
 
-  <div class="panel">
-    <h3>반반 검증 (앞 절반으로 맞추고 뒤 절반으로 시험) &middot; 지금 설정 기준</h3>
-    <div class="tblwrap"><table class="st" id="tblHalf"></table></div>
-    <div class="note">
-      정답지(사후) = 코스피·시장(전 종목 동일가중) 지수가 15% 이상 되돌린 상승·하락 구간을 진행률 1/3씩 ①~⑥으로 나눈 것. 중소형 = 매주 시가총액 상위 100 밖 종목 동일가중 지수.
-      괄호 안 회색 숫자는 <b>기준선(아무 주나 골랐을 때)</b>입니다. 기준선보다 확실히 높아야 의미가 있습니다.<br>
-      <b>2026-10-07 검증 요약</b>: 앞 절반에서 가장 잘 맞던 설정들(밸류 위주, 짧은 평균)은 뒤 절반에서 인접 정답률이 72% → 54~57%로 떨어져 <b>과적합</b>이었고,
-      기본 설정은 양쪽 모두 64% 안팎으로 안정적이었습니다. <b>⑤ 중소형 하락</b>은 두 절반 모두에서 기준선보다 크게 높아 6국면 중 가장 믿을 만한 신호입니다.
-      다만 ⑤는 중소형 고점보다 <b>5~8주 늦게</b> 나오는 확인 신호입니다(아래 하락 구간표 참고).
-    </div>
-  </div>
-
-  <div class="panel">
-    <h3>높음·낮음 기준 잡는 방식 비교 &middot; 지금 배점·기간 기준</h3>
-    <div class="tblwrap"><table class="st" id="tblThr"></table></div>
-    <div class="note">
-      <b>누적</b> = 2018년부터 그 주까지의 점수 전체를 3등분(기본). <b>최근 N년</b> = 최근 N년 점수만 3등분해 최근 환경에 더 빨리 맞춤. <b>고정</b> = 33점·67점.
-      판정 변경 = 국면이 전 주와 달라진 주의 비율(높을수록 자주 뒤집힘). 행을 누르면 그 방식으로 위 설정이 바뀝니다.
-    </div>
-  </div>
-
-  <div class="panel">
-    <h3>⑤ 중소형 하락 성적 &middot; 국면별 이후 13주 중소형 지수 (검증 전체 기간)</h3>
-    <div class="tblwrap"><table class="st" id="tblPhase"></table></div>
-    <h3 style="margin-top:14px">실제 중소형 15% 하락 구간별 ⑤ 판정 시점</h3>
-    <div class="tblwrap"><table class="st" id="tblLegs"></table></div>
-  </div>
-
   <div class="range-bar ctl" id="rangeBar" style="margin-bottom:12px">
     <span>차트 기간</span>
     <span id="rangeBtns"></span>
@@ -434,12 +405,6 @@ TEMPLATE = r"""<!doctype html>
     <h2>코스피와 국면 <span class="now" id="nowPhase"></span></h2>
     <div class="legend-ph" id="phLegend"></div>
     <div class="chart-wrap"><canvas id="cKospi"></canvas></div>
-  </div>
-
-  <div class="chart-box">
-    <h2>⑤ 판정 vs 실제 중소형 지수 <span class="now" id="nowSm"></span></h2>
-    <div class="desc">선 = 중소형 지수(2016-01 = 100, 로그). 빨간 배경 = 지금 설정의 ⑤ 판정 주, 아래 회색 띠 = 사후적으로 실제 중소형 15% 하락 구간이었던 주.</div>
-    <div class="chart-wrap"><canvas id="cSm"></canvas></div>
   </div>
 
   <div class="chart-box">
@@ -559,90 +524,14 @@ function computeModel(c) {
   return {Ls, lo, hi, ph};
 }
 
-// ---------- 검증 통계
-function pct(a) { return a.length ? a.filter(x => x).length / a.length * 100 : NaN; }
-function mean(a) { return a.length ? a.reduce((s, x) => s + x, 0) / a.length : NaN; }
-function phaseStats(ph, inMask) {
-  const out = {};
-  const truths = [DATA.tK, DATA.tE];
-  let adj = [], ex = [], dir = [];
-  truths.forEach(t => {
-    const p = [], tt = [];
-    for (let i = 0; i < N; i++) if (inMask(i) && nn(ph[i]) && nn(t[i])) { p.push(ph[i]); tt.push(t[i]); }
-    if (!p.length) return;
-    let a = 0, e = 0, uu = 0, ut = 0, dd = 0, dt = 0;
-    for (let j = 0; j < p.length; j++) {
-      const d = Math.abs(p[j] - tt[j]), cyc = Math.min(d, 6 - d);
-      if (cyc <= 1) a++;
-      if (d === 0) e++;
-      if (tt[j] <= 3) { ut++; if (p[j] <= 3) uu++; } else { dt++; if (p[j] > 3) dd++; }
-    }
-    adj.push(a / p.length * 100); ex.push(e / p.length * 100);
-    dir.push(((ut ? uu / ut : 0) + (dt ? dd / dt : 0)) / 2 * 100);
-  });
-  out.n = 0; for (let i = 0; i < N; i++) if (inMask(i) && nn(ph[i])) out.n++;
-  out.adj = mean(adj); out.ex = mean(ex); out.dir = mean(dir);
-  // ⑤
-  const sel = i => inMask(i) && ph[i] === 5;
-  const base = i => inMask(i) && nn(ph[i]);
-  const coll = (f, key, fn) => { const a = []; for (let i = 0; i < N; i++) if (f(i) && nn(DATA[key][i])) a.push(fn(DATA[key][i])); return a; };
-  out.n5 = 0; for (let i = 0; i < N; i++) if (sel(i)) out.n5++;
-  out.down5 = pct(coll(sel, 'tS', v => v >= 4)); out.downB = pct(coll(base, 'tS', v => v >= 4));
-  out.neg5 = pct(coll(sel, 'fSM13', v => v < 0)); out.negB = pct(coll(base, 'fSM13', v => v < 0));
-  out.avg5 = mean(coll(sel, 'fSM13', v => v)); out.avgB = mean(coll(base, 'fSM13', v => v));
-  return out;
-}
 function cellVs(v, b, unit, higherGood, d) {
   if (isNaN(v)) return '<td>-</td>';
   const diff = higherGood ? v - b : b - v;
   const cls = isNaN(b) ? 'mid' : (diff >= 10 ? 'good' : (diff <= 0 ? 'bad' : 'mid'));
   return '<td><span class="' + cls + '">' + (unit === '%r' ? sgn(v, 1) + '%' : fmt(v, d === undefined ? 0 : d) + '%') + '</span><span class="b">(' + (unit === '%r' ? sgn(b, 1) + '%' : fmt(b, 0) + '%') + ')</span></td>';
 }
-function renderHalfTable(M) {
-  const S = HALVES.map(([, f]) => phaseStats(M.ph, f));
-  const row = (lbl, f) => '<tr><td>' + lbl + '</td>' + S.map(f).join('') + '</tr>';
-  $('tblHalf').innerHTML = '<tr><th>항목</th>' + HALVES.map(h => '<th>' + h[0] + '</th>').join('') + '</tr>' +
-    row('국면 판정 주수', s => '<td>' + s.n + '</td>') +
-    row('인접 국면까지 맞힌 비율 <span class="b">(무작위 ≈ 50%)</span>', s => cellVs(s.adj, 50, '%', true)) +
-    row('정확히 같은 국면 <span class="b">(무작위 ≈ 17%)</span>', s => cellVs(s.ex, 100 / 6, '%', true)) +
-    row('상승·하락 구분 <span class="b">(무작위 50%)</span>', s => cellVs(s.dir, 50, '%', true)) +
-    row('<b style="color:#e8684a">⑤ 판정 주수</b>', s => '<td>' + s.n5 + '</td>') +
-    row('⑤ 주 중 실제 중소형 하락 구간', s => cellVs(s.down5, s.downB, '%', true)) +
-    row('⑤ 뒤 13주 안에 중소형 지수 하락 확률', s => cellVs(s.neg5, s.negB, '%', true)) +
-    row('⑤ 뒤 13주 중소형 지수 평균 수익률', s => cellVs(s.avg5, s.avgB, '%r', false));
-}
-function renderPhaseTable(M) {
-  const all = i => i >= EVAL0;
-  let h = '<tr><th>국면</th><th>주수</th><th>실제 중소형 하락 구간</th><th>13주 뒤 중소형 평균</th><th>13주 뒤 하락 확률</th></tr>';
-  const baseDown = [], baseR = [];
-  for (let i = 0; i < N; i++) if (all(i) && nn(M.ph[i])) { if (nn(DATA.tS[i])) baseDown.push(DATA.tS[i] >= 4); if (nn(DATA.fSM13[i])) baseR.push(DATA.fSM13[i]); }
-  for (let p = 1; p <= 6; p++) {
-    const dn = [], r = []; let n = 0;
-    for (let i = 0; i < N; i++) if (all(i) && M.ph[i] === p) { n++; if (nn(DATA.tS[i])) dn.push(DATA.tS[i] >= 4); if (nn(DATA.fSM13[i])) r.push(DATA.fSM13[i]); }
-    const st = p === 5 ? ' style="background:#2a1a17"' : '';
-    h += '<tr' + st + '><td><span style="color:' + PHC[p] + '">■</span> ' + PH[p] + '</td><td>' + n + '</td><td>' + fmt(pct(dn), 0) + '%</td><td class="' + (mean(r) < 0 ? 'neg' : 'pos') + '">' + sgn(mean(r)) + '%</td><td>' + fmt(pct(r.map(x => x < 0)), 0) + '%</td></tr>';
-  }
-  h += '<tr><td class="b">전체(기준선)</td><td>' + baseR.length + '</td><td>' + fmt(pct(baseDown), 0) + '%</td><td>' + sgn(mean(baseR)) + '%</td><td>' + fmt(pct(baseR.map(x => x < 0)), 0) + '%</td></tr>';
-  $('tblPhase').innerHTML = h;
-  // 하락 구간별
-  let g = '<tr><th>중소형 고점</th><th>저점</th><th>낙폭</th><th>첫 ⑤ (고점 뒤)</th><th>첫 ⑤·⑥ (고점 뒤)</th><th>구간 중 ⑤·⑥ 비율</th></tr>';
-  const pv = DATA.pivS;
-  for (let j = 0; j + 1 < pv.length; j++) {
-    if (pv[j][1] !== 'H' || pv[j][0] < DATA.evalStart) continue;
-    const i0 = idxOnOrAfter(pv[j][0]), i1 = idxOnOrBefore(pv[j + 1][0]);
-    let f5 = -1, f56 = -1, c56 = 0, n = 0;
-    for (let i = i0; i <= i1; i++) {
-      n++;
-      if (M.ph[i] === 5 && f5 < 0) f5 = i;
-      if ((M.ph[i] === 5 || M.ph[i] === 6)) { c56++; if (f56 < 0) f56 = i; }
-    }
-    const wk = i => i < 0 ? '없음' : DATA.dates[i] + ' (' + Math.round((T[i] - Date.parse(pv[j][0])) / DAY / 7) + '주)';
-    g += '<tr><td>' + pv[j][0] + '</td><td>' + pv[j + 1][0] + '</td><td class="neg">' + sgn((pv[j + 1][2] / pv[j][2] - 1) * 100, 0) + '%</td><td>' + wk(f5) + '</td><td>' + wk(f56) + '</td><td>' + fmt(n ? c56 / n * 100 : NaN, 0) + '%</td></tr>';
-  }
-  $('tblLegs').innerHTML = g;
-}
-
 // ---------- 고점 경고
+function pct(a) { return a.length ? a.filter(x => x).length / a.length * 100 : NaN; }
 function computeWarn() {
   const aN = $('aN').value, aT = +$('aT').value, hW = $('hW').value, near = +$('near').value / 100, xC = +$('xC').value;
   const adr = DATA['adr' + aN], hi = DATA['hi' + hW];
@@ -694,24 +583,6 @@ function bgPlugin(ph, alpha) {
         const x1 = i === n - 1 ? a.right : (xc + x.getPixelForValue(i + 1)) / 2;
         ctx.fillStyle = PHC[q] + alpha;
         ctx.fillRect(x0, a.top, x1 - x0, a.bottom - a.top);
-      }
-      ctx.restore();
-    }
-  };
-}
-function fiveBg(ph, ts) {
-  return {
-    id: 'fiveBg',
-    beforeDatasetsDraw(chart) {
-      const {ctx, chartArea: a, scales: {x}} = chart;
-      const n = chart.data.labels.length;
-      ctx.save();
-      for (let i = 0; i < n; i++) {
-        const xc = x.getPixelForValue(i);
-        const x0 = i === 0 ? a.left : (x.getPixelForValue(i - 1) + xc) / 2;
-        const x1 = i === n - 1 ? a.right : (xc + x.getPixelForValue(i + 1)) / 2;
-        if (ph[i] === 5) { ctx.fillStyle = '#e8684a66'; ctx.fillRect(x0, a.top, x1 - x0, a.bottom - a.top - 12); }
-        if (nn(ts[i]) && ts[i] >= 4) { ctx.fillStyle = '#9aa0a6'; ctx.fillRect(x0, a.bottom - 9, x1 - x0, 9); }
       }
       ctx.restore();
     }
@@ -777,13 +648,6 @@ function buildCharts() {
       tooltip: {filter: it => it.datasetIndex === 0, callbacks: {afterBody: items => { const q = phAt[items[0].dataIndex]; return q ? '국면: ' + PH[q] : ''; }}}},
     scales: {x: xAxis(), y: {type: 'logarithmic', ticks: {callback: v => Number(v).toLocaleString()}}}
   })});
-  const slS = windowOf([DATA.smIdx, M.ph]);
-  charts.sm = new Chart($('cSm'), {type: 'line', plugins: [fiveBg(slS(M.ph), slS(DATA.tS))], data: {labels: slS(DATA.dates), datasets: [
-    {label: '중소형 지수', data: slS(DATA.smIdx), borderColor: '#ffd43b', borderWidth: 1.6, pointRadius: 0}
-  ]}, options: baseOpts({
-    plugins: {legend: {display: false}, tooltip: {callbacks: {afterBody: items => { const q = slS(M.ph)[items[0].dataIndex]; return q ? '국면: ' + PH[q] : ''; }}}},
-    scales: {x: xAxis(), y: {type: 'logarithmic', ticks: {callback: v => Number(v).toFixed(0)}}}
-  })});
   charts.s = new Chart($('cScore'), {type: 'line', plugins: [bgPlugin(phAt, '33')], data: {labels: sl(DATA.dates), datasets: [
     {label: '국면 점수', data: sl(M.Ls), borderColor: '#ffd43b', borderWidth: 2, pointRadius: 0},
     {label: '높음 기준', data: sl(M.hi), borderColor: '#ff8787', borderWidth: 1, borderDash: [5, 4], pointRadius: 0},
@@ -824,8 +688,6 @@ function renderCards() {
   $('nowPhase').textContent = '현재 ' + PH[p];
   $('nowScore').textContent = '현재 ' + fmt(s) + ' (' + CFG.k + '주 전 ' + fmt(sk) + ')';
   $('descScore').textContent = '배점 밸류 하단 ' + CFG.wC + ' · 공격-방어 ' + CFG.wD + ' · 120일선 위 ' + CFG.wX + ', ' + CFG.sm + '주 평균. 점선은 그 시점까지 점수 분포의 하위 1/3(낮음 기준)·상위 1/3(높음 기준)입니다.';
-  const iSm = lastIdx(DATA.smIdx);
-  $('nowSm').textContent = '현재 국면 ' + PH[p] + ' · 중소형 지수 ' + fmt(DATA.smIdx[iSm], 0);
   $('nowD').textContent = '현재 ' + sgn(DATA.D[iD]) + '%p · ' + fmt(DATA.sD[iD], 0) + '점';
   $('nowC').textContent = '현재 ' + fmt(DATA.C[iC]) + '% · ' + fmt(DATA.sC[iC], 0) + '점';
   $('nowX').textContent = '현재 ' + fmt(DATA.X[iX]) + '% · ' + fmt(DATA.sX[iX], 0) + '점';
@@ -836,24 +698,6 @@ function readCfg() { return {wC: +$('wC').value, wD: +$('wD').value, wX: +$('wX'
 function setCfg(c) { $('wC').value = c.wC; $('wD').value = c.wD; $('wX').value = c.wX; $('sm').value = c.sm; $('kk').value = c.k; $('thr').value = String(c.thr); }
 const PRESETS = {base: {wC: DATA.weights.C, wD: DATA.weights.D, wX: DATA.weights.X, sm: DATA.smooth, k: DATA.dirWeeks, thr: 'exp'}, five: {wC: 3, wD: 0, wX: 0, sm: 8, k: 4, thr: 'exp'}};
 const THRS = [['exp', '누적(2018~ 전체)'], [104, '최근 2년'], [156, '최근 3년'], [260, '최근 5년'], ['fix', '고정 33/67점']];
-function renderThrTable() {
-  const H = HALVES.slice(0, 2);
-  let h = '<tr><th>기준 방식</th>' + ['인접 정답률', '상승·하락 구분', '⑤ 주 중 실제 중소형 하락', '⑤ 뒤 13주 중소형 하락 확률', '판정 변경'].map(t => '<th colspan="2">' + t + '</th>').join('') + '<th>지금 국면</th><th>지금 낮음/높음 기준</th></tr>';
-  h += '<tr><th></th>' + [0, 1, 2, 3, 4].map(() => H.map(x => '<th>' + x[0].split(' (')[0] + '</th>').join('')).join('') + '<th></th><th></th></tr>';
-  THRS.forEach(([v, lbl]) => {
-    const m = computeModel(Object.assign({}, CFG, {thr: v}));
-    const S = H.map(([, f]) => phaseStats(m.ph, f));
-    const chg = H.map(([, f]) => { let c = 0, n = 0; for (let i = 1; i < N; i++) if (f(i) && nn(m.ph[i]) && nn(m.ph[i - 1])) { n++; if (m.ph[i] !== m.ph[i - 1]) c++; } return n ? c / n * 100 : NaN; });
-    const iP = lastIdx(m.ph), cur = v === CFG.thr;
-    h += '<tr data-thr="' + v + '" style="cursor:pointer' + (cur ? ';background:#1c2a3a' : '') + '"><td>' + (cur ? '▶ ' : '') + lbl + '</td>' +
-      S.map(s => cellVs(s.adj, 50, '%', true)).join('') + S.map(s => cellVs(s.dir, 50, '%', true)).join('') +
-      S.map(s => cellVs(s.down5, s.downB, '%', true)).join('') + S.map(s => cellVs(s.neg5, s.negB, '%', true)).join('') +
-      chg.map(x => '<td>' + fmt(x, 0) + '%</td>').join('') +
-      '<td><span style="color:' + PHC[m.ph[iP]] + '">' + PH[m.ph[iP]] + '</span></td><td>' + fmt(m.lo[iP]) + ' / ' + fmt(m.hi[iP]) + '</td></tr>';
-  });
-  $('tblThr').innerHTML = h;
-}
-$('tblThr').addEventListener('click', e => { const r = e.target.closest('tr[data-thr]'); if (!r) return; $('thr').value = r.dataset.thr; recalc(); });
 function recalc() {
   CFG = readCfg();
   if (CFG.wC + CFG.wD + CFG.wX === 0) { $('cfgNote').textContent = '배점이 모두 0입니다. 하나 이상 0보다 크게 두세요.'; return; }
@@ -861,10 +705,10 @@ function recalc() {
   document.querySelectorAll('[data-preset]').forEach(b => b.classList.toggle('active', same(b.dataset.preset)));
   $('cfgNote').innerHTML = same('base') ? '기본 설정: 2018~2026 전체 백테스트로 정한 배점이며 반반 검증에서 두 절반 성적이 비슷했습니다.'
     : same('five') ? '<b>⑤ 중시</b>: 앞 절반에서 ⑤ 성적으로 고른 설정이며, 뒤 절반(표본 밖)에서도 ⑤ 성적이 가장 좋았습니다. 대신 다른 국면 구분은 기본 설정보다 거칩니다.'
-    : '직접 고른 설정입니다. 아래 반반 검증표에서 <b>앞·뒤 절반 성적이 비슷한지</b> 확인하세요(한쪽만 좋으면 과적합).';
+    : '직접 고른 설정입니다. 한쪽 기간에만 맞춘 설정은 과적합일 수 있습니다.';
   M = computeModel(CFG);
   W = computeWarn();
-  renderCards(); renderHalfTable(M); renderThrTable(); renderPhaseTable(M); renderWarn(W); buildCharts();
+  renderCards(); renderWarn(W); buildCharts();
 }
 ['wC', 'wD', 'wX'].forEach(id => { $(id).innerHTML = [0, 1, 2, 3].map(v => '<option>' + v + '</option>').join(''); });
 setCfg(PRESETS.base);
