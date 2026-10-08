@@ -1,23 +1,17 @@
 """
-시장 국면 점수 페이지(docs/market_phase.html)를 만든다 - 2026-10-08부터 매 거래일 판정(13주=65거래일 평균, 8주=40거래일 전 대비) (2026-10-07 사용자 요청 - "공격 방어 상대강도,
-하단 종목 비율, 120일선 위 종목에 점수 비중을 줘서 6국면으로 나누고 홈페이지에 하나 만들자, 그 밑에
-각각 따로 차트로", 이어서 "기간 조절할 수 있게, 반은 맞추고 반은 시험보게(과적합 점검),
-⑤ 중소형 하락이 얼마나 잘 맞는지가 가장 중요").
+시장 국면 점수 페이지(docs/market_phase.html)를 만든다(2026-10-07 신규, 10-08 매 거래일 판정으로 전환).
 
-국면 점수(0~100) 기본값 = (밸류 하단 3점 + 공격-방어 2점 + 120일선 위 2점) / 7, 13주 평균, 8주 방향(8주 전 대비 변화가 2점 이하면 직전 방향 유지 - 2026-10-08 방향 둔감 적용,
-낮음/높음 기준선도 2점 넘게 넘어야 수준이 바뀜)
-(2018~2026 주간 백테스트로 정한 배점; 페이지에서 배점·평균 기간·방향 기간을 바꾸면 브라우저에서 다시 계산).
+국면 점수(0~100) = (밸류 하단 3점 + 공격-방어 2점 + 120일선 위 2점) / 7 의 65거래일(13주) 평균.
  - C 밸류 하단 비율: OP밴드 배수(시총/12개월 선행 영업이익)가 자기 최근 3년 하위 10% 아래인 종목 비율
    (docs/op_band_data 종목별 시계열로 그 시점까지 데이터만 써서 계산, 2년 이상 이력 종목만). 낮을수록 +.
  - D 공격-방어 상대강도: 공격 섹터 동일가중 1달(20거래일) 수익률 - 방어 섹터 1달 수익률. 높을수록 +.
  - X 120일선 위 종목 비율: 주가가 120일 이동평균 위인 보통주 비율(상장 250일 이상). 높을수록 +.
 각 지표는 그 시점까지의 과거 값 대비 백분위(0~100점, 미래 정보 없음)로 바꿔 배점대로 평균한다.
-국면 = N주 평균 점수의 수준(그 시점까지 점수 분포의 1/3, 2/3 기준: 낮음/중간/높음) x 방향(K주 전보다 상승/하락)
+국면 = 점수 수준(그 시점까지 점수 분포의 1/3, 2/3 기준: 낮음/중간/높음, 기준선은 2점 넘게 넘어야 바뀜)
+     x 방향(40거래일 전 대비, 변화가 2점 이하면 직전 방향 유지)
   상승: 낮음 ① 반등시작, 중간 ② 중소형 확산, 높음 ③ 전면 확산 / 하락: 높음 ④ 고점, 중간 ⑤ 중소형 하락, 낮음 ⑥ 바닥
-반반 검증용으로 실제(사후) 국면 = 코스피·시장(동일가중)·중소형(시총 101위~ 동일가중) 지수의 15% 되돌림 구간을
-진행률 1/3씩 나눈 것, ⑤ 성적 = ⑤ 판정 주가 실제 중소형 하락 구간이었는지 + 이후 13주 중소형 수익률을 함께 싣는다.
-고점 경고(실험용) = 코스피가 N주 최고치 근처인데 M일 ADR이 기준 미만(+120일선 위 비율 조건) - 반반 검증에서 과적합이
-확인돼 실험용으로만 표시(2026-10-07).
+2026-10-08 전수 탐색(지표 14종 x 설정 7.6만 조합 + 머신러닝, 워크포워드)에서 이보다 앞으로를 더 잘 맞히는 설정을 못 찾아 고정.
+매 실행 때 그날 판정을 판정 기록(data/screening/market_phase_log.csv)에 한 번만 덧붙인다 - 나중에 실제 성적(표본 밖)을 재기 위함.
 """
 import argparse
 import glob
@@ -38,6 +32,8 @@ DOCS_DIR = os.path.join(BASE_DIR, "docs")
 PRICES_PATH = os.path.join(DATA_DIR, "bollinger_prices.csv")
 OP_BAND_DIR = os.path.join(DOCS_DIR, "op_band_data")
 SUMMARY_PATH = os.path.join(DATA_DIR, "screening", "market_phase_daily.csv")
+LOG_PATH = os.path.join(DATA_DIR, "screening", "market_phase_log.csv")   # 판정 기록(덧붙이기만, 고치지 않음)
+MODEL_TAG = "v1 C10x3+D20x2+X120x2 sma65 dir40 db2 hb2 exp-tercile"
 PAGE_OUT_PATH = os.path.join(DOCS_DIR, "market_phase.html")
 
 WEIGHTS = {"C": 3, "D": 2, "X": 2}
@@ -336,8 +332,32 @@ def main():
     os.makedirs(os.path.dirname(PAGE_OUT_PATH), exist_ok=True)
     with open(PAGE_OUT_PATH, "w", encoding="utf-8") as f:
         f.write(html)
+    append_log(asof, out, P)
     print(f"저장 완료: {SUMMARY_PATH}")
     print(f"저장 완료: {PAGE_OUT_PATH}")
+
+
+def append_log(asof, out, P):
+    """그날(데이터 기준일) 판정을 기록에 한 번만 남긴다. 같은 기준일이 이미 있으면 그대로 둔다(처음 판정 = 그 당시 판단)."""
+    i = out.index.get_loc(asof)
+    row = out.iloc[i]
+    k = DIR_WEEKS * P
+    raw = (row["sC"] * WEIGHTS["C"] + row["sD"] * WEIGHTS["D"] + row["sX"] * WEIGHTS["X"]) / sum(WEIGHTS.values())
+    rec = {
+        "asof": asof.strftime("%Y-%m-%d"), "logged_at": datetime.now().strftime("%Y-%m-%d %H:%M"),
+        "phase": int(row["phase"]) if row["phase"] == row["phase"] else "", "phase_name": PHASES.get(int(row["phase"]), "") if row["phase"] == row["phase"] else "",
+        "score": round(float(row["score"]), 2), "lo": round(float(row["lo"]), 2), "hi": round(float(row["hi"]), 2),
+        "chg_dir": round(float(row["score"] - out["score"].iloc[i - k]), 2), "daily_score": round(float(raw), 2),
+        "C_pct": round(float(row["C"]) * 100, 2), "D_pctp": round(float(row["D"]) * 100, 2), "X_pct": round(float(row["X"]) * 100, 2),
+        "kospi": round(float(row["kospi"]), 2), "sm_idx": round(float(row["sm_idx"]), 2), "model": MODEL_TAG,
+    }
+    if os.path.exists(LOG_PATH):
+        log = pd.read_csv(LOG_PATH, dtype=str)
+        if rec["asof"] in set(log["asof"]):
+            print(f"판정 기록: {rec['asof']} 이미 있음(그대로 둠)")
+            return
+    pd.DataFrame([rec]).to_csv(LOG_PATH, mode="a", header=not os.path.exists(LOG_PATH), index=False, encoding="utf-8")
+    print(f"판정 기록 추가: {rec['asof']} {rec['phase_name']} 점수 {rec['score']}")
 
 
 TEMPLATE = r"""<!doctype html>

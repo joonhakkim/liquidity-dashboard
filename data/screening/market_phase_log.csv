@@ -1,0 +1,2 @@
+asof,logged_at,phase,phase_name,score,lo,hi,chg_dir,daily_score,C_pct,D_pctp,X_pct,kospi,sm_idx,model
+2026-10-07,2026-10-08 12:57,1,① 반등시작,29.52,36.51,61.74,2.95,63.08,17.9,16.59,31.72,6803.9,167.69,v1 C10x3+D20x2+X120x2 sma65 dir40 db2 hb2 exp-tercile
