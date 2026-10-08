@@ -54,7 +54,7 @@
   <a class="back" href="index.html">&larr; 홈</a>
   <a class="back" href="relative_strength.html">종목·섹터 상대강도 순위 &rarr;</a>
   <h1>시장 국면 점수<span class="sub">밸류 하단 · 공격-방어 · 120일선 위 종목으로 본 6국면 (매일 갱신)</span></h1>
-  <div class="updated">최종 갱신: 2026-10-08 10:36 &middot; 데이터 기준일: 2026-10-07 &middot; 매 거래일 기준</div>
+  <div class="updated">최종 갱신: 2026-10-08 11:03 &middot; 데이터 기준일: 2026-10-07 &middot; 매 거래일 기준</div>
 
   <div class="cards" id="cards"></div>
 
@@ -81,6 +81,12 @@
     <h2>국면 점수 (0~100) <span class="now" id="nowScore"></span></h2>
     <div class="desc" id="descScore"></div>
     <div class="chart-wrap" style="height:260px"><canvas id="cScore"></canvas></div>
+  </div>
+
+  <div class="chart-box">
+    <h2>그날 점수 (평균 전, 0~100) <span class="now" id="nowRaw"></span></h2>
+    <div class="desc">세 지표 점수를 배점대로 평균한 그날의 값입니다(국면 점수는 이것의 65거래일 평균). 국면 판단에는 쓰지 않는 참고용이며, 국면 점수보다 1~2달 먼저 움직이지만 헛신호가 많습니다. 굵은 선은 20거래일 평균입니다.</div>
+    <div class="chart-wrap" style="height:260px"><canvas id="cRaw"></canvas></div>
   </div>
 
   <div class="chart-box">
@@ -245,6 +251,8 @@ function rolling(arr, n) {
   return out;
 }
 const D13 = rolling(DATA.D, 13 * PER);
+const RAW = DATA.sC.map((c, i) => nn(c) && nn(DATA.sD[i]) && nn(DATA.sX[i]) ? (c * DATA.weights.C + DATA.sD[i] * DATA.weights.D + DATA.sX[i] * DATA.weights.X) / (DATA.weights.C + DATA.weights.D + DATA.weights.X) : null);
+const RAW20 = rolling(RAW, 4 * PER);
 function baseOpts(extra) {
   return Object.assign({
     responsive: true, maintainAspectRatio: false, animation: false,
@@ -275,6 +283,11 @@ function buildCharts() {
     plugins: {legend: {display: false}, tooltip: {callbacks: {label: c => '중소형 지수: ' + (c.parsed.y === null ? '-' : c.parsed.y.toFixed(1)), afterBody: items => { const q = phAt[items[0].dataIndex]; return q ? '국면: ' + PH[q] : ''; }}}},
     scales: {x: xAxis(), y: {type: 'logarithmic', ticks: {callback: v => Number(v).toFixed(0)}}}
   })});
+  charts.raw = new Chart($('cRaw'), {type: 'line', plugins: [bgPlugin(phAt, '33')], data: {labels: sl(DATA.dates), datasets: [
+    {label: '20거래일 평균', data: sl(RAW20), borderColor: '#4dabf7', borderWidth: 2.2, pointRadius: 0},
+    {label: '그날 점수', data: sl(RAW), borderColor: '#4dabf766', borderWidth: 1, pointRadius: 0},
+    {label: '국면 점수(65거래일 평균)', data: sl(M.Ls), borderColor: '#ffd43b', borderWidth: 1.2, borderDash: [4, 3], pointRadius: 0}
+  ]}, options: baseOpts({scales: {x: xAxis(), y: {min: 0, max: 100}}})});
   charts.s = new Chart($('cScore'), {type: 'line', plugins: [bgPlugin(phAt, '33')], data: {labels: sl(DATA.dates), datasets: [
     {label: '국면 점수', data: sl(M.Ls), borderColor: '#ffd43b', borderWidth: 2, pointRadius: 0},
     {label: '높음 기준', data: sl(M.hi), borderColor: '#ff8787', borderWidth: 1, borderDash: [5, 4], pointRadius: 0},
@@ -327,6 +340,8 @@ function renderCards() {
     cd('밸류 하단 종목 비율', fmt(DATA.C[iC]) + '%', '점수 ' + fmt(DATA.sC[iC], 0) + '점 · 배점 ' + CFG.wC + ' (비율 낮을수록 점수 높음) · ' + DATA.cN.toLocaleString() + '종목') +
     cd('120일선 위 종목 비율', fmt(DATA.X[iX]) + '%', '점수 ' + fmt(DATA.sX[iX], 0) + '점 · 배점 ' + CFG.wX);
   $('nowPhase').textContent = '현재 ' + PH[p];
+  const iR = lastIdx(RAW);
+  $('nowRaw').textContent = '현재 ' + fmt(RAW[iR]) + ' · 20거래일 평균 ' + fmt(RAW20[iR]) + ' · 국면 점수 ' + fmt(M.Ls[iR]);
   const iSm = lastIdx(DATA.smIdx);
   $('nowSm').textContent = '현재 ' + fmt(DATA.smIdx[iSm]) + ' · 최근 1달 ' + sgn((DATA.smIdx[iSm] / DATA.smIdx[iSm - 4 * PER] - 1) * 100) + '% · 코스피 ' + sgn((DATA.kospi[iSm] / DATA.kospi[iSm - 4 * PER] - 1) * 100) + '%';
   $('nowScore').textContent = '현재 ' + fmt(s) + ' (' + DATA.dirWeeks + '주 전 ' + fmt(sk) + ')';
