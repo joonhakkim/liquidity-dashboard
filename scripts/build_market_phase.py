@@ -326,6 +326,7 @@ def main():
         "score": col("score", 1, 2), "lo": col("lo", 1, 2), "hi": col("hi", 1, 2), "phase": ints("phase"),
         "C": col("C", 100), "D": col("D", 100), "X": col("X", 100),
         "sC": col("sC"), "sD": col("sD"), "sX": col("sX"),
+        "smIdx": col("sm_idx", 1, 2),
         "phases": PHASES, "weights": WEIGHTS, "aggr": agg_list, "dfn": def_list, "cN": c_n,
         "smooth": SMOOTH_WEEKS, "dirWeeks": DIR_WEEKS, "deadband": DIR_DEADBAND, "levelBand": LEVEL_BAND, "per": P, "evalStart": EVAL_START, "halfSplit": HALF_SPLIT,
     }
@@ -410,6 +411,12 @@ TEMPLATE = r"""<!doctype html>
     <h2>코스피와 국면 <span class="now" id="nowPhase"></span></h2>
     <div class="legend-ph" id="phLegend"></div>
     <div class="chart-wrap"><canvas id="cKospi"></canvas></div>
+  </div>
+
+  <div class="chart-box">
+    <h2>중소형 지수와 국면 <span class="now" id="nowSm"></span></h2>
+    <div class="desc">중소형 지수 = 매주 시가총액 상위 100 종목을 뺀 코스피·코스닥 보통주 동일가중 지수(2016-01 = 100, 로그 축). 국면 점수가 보통 종목 흐름을 따라가므로 코스피보다 이 지수와 더 잘 맞습니다.</div>
+    <div class="chart-wrap"><canvas id="cSm"></canvas></div>
   </div>
 
   <div class="chart-box">
@@ -604,6 +611,12 @@ function buildCharts() {
       tooltip: {callbacks: {afterBody: items => { const q = phAt[items[0].dataIndex]; return q ? '국면: ' + PH[q] : ''; }}}},
     scales: {x: xAxis(), y: {type: 'logarithmic', ticks: {callback: v => Number(v).toLocaleString()}}}
   })});
+  charts.sm = new Chart($('cSm'), {type: 'line', plugins: [bgPlugin(phAt, '88')], data: {labels: sl(DATA.dates), datasets: [
+    {label: '중소형 지수', data: sl(DATA.smIdx), borderColor: '#ffd43b', borderWidth: 1.6, pointRadius: 0}
+  ]}, options: baseOpts({
+    plugins: {legend: {display: false}, tooltip: {callbacks: {label: c => '중소형 지수: ' + (c.parsed.y === null ? '-' : c.parsed.y.toFixed(1)), afterBody: items => { const q = phAt[items[0].dataIndex]; return q ? '국면: ' + PH[q] : ''; }}}},
+    scales: {x: xAxis(), y: {type: 'logarithmic', ticks: {callback: v => Number(v).toFixed(0)}}}
+  })});
   charts.s = new Chart($('cScore'), {type: 'line', plugins: [bgPlugin(phAt, '33')], data: {labels: sl(DATA.dates), datasets: [
     {label: '국면 점수', data: sl(M.Ls), borderColor: '#ffd43b', borderWidth: 2, pointRadius: 0},
     {label: '높음 기준', data: sl(M.hi), borderColor: '#ff8787', borderWidth: 1, borderDash: [5, 4], pointRadius: 0},
@@ -656,6 +669,8 @@ function renderCards() {
     cd('밸류 하단 종목 비율', fmt(DATA.C[iC]) + '%', '점수 ' + fmt(DATA.sC[iC], 0) + '점 · 배점 ' + CFG.wC + ' (비율 낮을수록 점수 높음) · ' + DATA.cN.toLocaleString() + '종목') +
     cd('120일선 위 종목 비율', fmt(DATA.X[iX]) + '%', '점수 ' + fmt(DATA.sX[iX], 0) + '점 · 배점 ' + CFG.wX);
   $('nowPhase').textContent = '현재 ' + PH[p];
+  const iSm = lastIdx(DATA.smIdx);
+  $('nowSm').textContent = '현재 ' + fmt(DATA.smIdx[iSm]) + ' · 최근 1달 ' + sgn((DATA.smIdx[iSm] / DATA.smIdx[iSm - 4 * PER] - 1) * 100) + '% · 코스피 ' + sgn((DATA.kospi[iSm] / DATA.kospi[iSm - 4 * PER] - 1) * 100) + '%';
   $('nowScore').textContent = '현재 ' + fmt(s) + ' (' + DATA.dirWeeks + '주 전 ' + fmt(sk) + ')';
   $('descScore').textContent = '배점 밸류 하단 ' + CFG.wC + ' · 공격-방어 ' + CFG.wD + ' · 120일선 위 ' + CFG.wX + ', ' + DATA.smooth + '주 평균. 점선은 그 시점까지 점수 분포의 하위 1/3(낮음 기준)·상위 1/3(높음 기준)입니다.';
   $('nowD').textContent = '현재 ' + sgn(DATA.D[iD]) + '%p · ' + fmt(DATA.sD[iD], 0) + '점';
