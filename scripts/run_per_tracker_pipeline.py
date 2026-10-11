@@ -77,4 +77,6 @@ def main():
 
 
 if __name__ == "__main__":
+    from keep_awake import keep_awake
+    keep_awake()   # 도는 동안 PC가 다시 절전으로 들어가지 않게(2026-10-12)
     main()

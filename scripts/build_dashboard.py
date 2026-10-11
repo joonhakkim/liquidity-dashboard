@@ -97,9 +97,12 @@ def build_merged():
         # 거래일 기준 20일/100일 이동평균이라 krx(거래일에만 행 있음) 위에서 미리 계산한 뒤
         # 합친다 - ffill된 캘린더일 그리드에서 rolling하면 "20일"이 주말 낀 진짜 20일이
         # 아니라 20영업일+주말이 섞여버림(ADR과 동일한 이유).
+        # 종가가 빈 날(2026-09-22처럼 수집 실패)은 빼고 계산 - 빈 날이 하나라도 창에 들어가면
+        # min_periods 때문에 이후 20/100거래일 동안 이격도가 전부 비어버렸음(2026-10-12 발견).
         krx = krx.sort_values("date").reset_index(drop=True)
-        krx["kospi_ma20"] = krx["kospi_close"].rolling(20, min_periods=20).mean()
-        krx["kospi_ma100"] = krx["kospi_close"].rolling(100, min_periods=100).mean()
+        kc = krx["kospi_close"].dropna()
+        krx["kospi_ma20"] = kc.rolling(20, min_periods=20).mean()
+        krx["kospi_ma100"] = kc.rolling(100, min_periods=100).mean()
         krx["kospi_gap_20_100"] = (krx["kospi_ma20"] / krx["kospi_ma100"] - 1) * 100
 
     all_dates = pd.concat(
