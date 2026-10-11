@@ -22,6 +22,9 @@ MP 트래커용 "지시서" 자동 해석 - data/manual/mp_orders.csv에 사용�
     exit - 전량 편출(pct 무시, 보유수량 전부 매도)
     rebalance_equal - 그 포트폴리오의 "이날 처리된 다른 지시까지 반영한 뒤" 남은 보유종목
       전부를 pct%로 균등 리밸런싱(코드/이름 없이 한 줄로 포트폴리오 전체에 적용)
+    target_pct - 그 종목 비중을 그날 종가·AUM 기준 정확히 pct%로 맞춘다(보유 중이면 차이만큼
+      매수/매도, 없으면 신규편입). 편출 등 다른 지시를 먼저 처리한 뒤 적용(2026-10-12 추가 -
+      목표표 전체 리밸런싱용)
     swap - name(보유중)을 전량매도하고, 그 매도금액 그대로(같은 비중) note에 적은 종목을
       신규편입(2026-09-21 추가 - "A 편출하고 그 자리에 B로 교체" 요청이 반복돼서 만듦).
       note에 종목명만 적으면 자동완성으로 코드 조회(모호하면 스킵). "새이름|새코드" 형식으로
@@ -185,11 +188,15 @@ def main():
         done_idx = []
 
         rebalance_row = None
+        target_rows = []
         for idx, row in group.iterrows():
             action = row["action"]
             if action == "rebalance_equal":
                 rebalance_row = (idx, row)
                 continue  # 다른 지시부터 먼저 처리한 뒤 마지막에 적용
+            if action == "target_pct":
+                target_rows.append((idx, row))
+                continue  # 편출 등 다른 지시를 먼저 반영한 뒤, 그날 종가 AUM 기준으로 정확히 맞춘다
 
             name = row.get("name")
             code = row.get("code") if isinstance(row.get("code"), str) and row.get("code") else None
@@ -295,6 +302,42 @@ def main():
                     act = "BUY" if delta > 0 else "SELL"
                     append_trade(trades_path, state2["date"], h["code"], h["name"], act, h["cur_price"], abs(delta), h["sector"])
                     summary.append(f"[{pid}] {h['name']} 균등리밸런싱 -> {pct}% ({act} {abs(delta):,.0f}원)")
+                done_idx.append(idx)
+
+        if target_rows:
+            # target_pct: 그 종목 비중을 그날 종가·AUM 기준 정확히 pct%로(보유 중이면 차이만큼 매수/매도,
+            # 없으면 신규편입). 목표표 전체 리밸런싱용(2026-10-12 추가 - 전날 비중으로 차이를 미리 계산하면
+            # 당일 주가 변동만큼 목표에서 어긋나서).
+            state2 = get_holdings(portfolio)
+            held = {h["code"]: h for h in state2["holdings"]}
+            for idx, row in target_rows:
+                name = row.get("name")
+                code = row.get("code") if isinstance(row.get("code"), str) and row.get("code") else None
+                if not code:
+                    code = resolve_code(name) if name and isinstance(name, str) else None
+                    if not code:
+                        summary.append(f"[{pid}] '{name}' 종목코드 확인 실패 - 스킵(수동 확인 필요)")
+                        continue
+                code = code.zfill(6)
+                pct = row.get("pct")
+                if pd.isna(pct):
+                    summary.append(f"[{pid}] {name} target_pct pct 값 없음 - 스킵")
+                    continue
+                h = held.get(code)
+                price = h["cur_price"] if h else get_price_or_fetch(code, prices)
+                if price is None:
+                    summary.append(f"[{pid}] {name}({code}) 오늘 가격 없음 - 스킵")
+                    continue
+                cur_amt = h["shares"] * h["cur_price"] if h else 0.0
+                delta = state2["aum"] * float(pct) / 100.0 - cur_amt
+                if abs(delta) < price * 0.5:
+                    summary.append(f"[{pid}] {name} 목표 {pct}% - 이미 맞음")
+                    done_idx.append(idx)
+                    continue
+                act = "BUY" if delta > 0 else "SELL"
+                nm = h["name"] if h else name
+                append_trade(trades_path, state2["date"], code, nm, act, price, abs(delta), sector_map.get(code, "기타"))
+                summary.append(f"[{pid}] {nm} 목표비중 {pct}% ({cur_amt / state2['aum'] * 100:.2f}% -> {pct}%, {act} {abs(delta):,.0f}원 @ {price:,.0f})")
                 done_idx.append(idx)
 
         orders.loc[done_idx, "processed"] = datetime.now().isoformat()
