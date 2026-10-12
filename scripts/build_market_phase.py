@@ -1,7 +1,8 @@
 """
 시장 국면 점수 페이지(docs/market_phase.html)를 만든다(2026-10-07 신규, 10-08 매 거래일 판정으로 전환).
 
-국면 점수(0~100) = (밸류 하단 3점 + 공격-방어 2점 + 120일선 위 2점) / 7 의 65거래일(13주) 평균.
+국면 점수(0~100) = (밸류 하단 3점 + 공격-방어 2점 + 120일선 위 2점) / 7 의 65일 지수이동평균(EMA, 2026-10-13 단순 65일 평균에서 변경 -
+오래된 값이 한꺼번에 빠져나가며 점수가 움직이는 문제 때문).
  - C 밸류 하단 비율: OP밴드 배수(시총/12개월 선행 영업이익)가 자기 최근 3년 하위 10% 아래인 종목 비율
    (docs/op_band_data 종목별 시계열로 그 시점까지 데이터만 써서 계산, 2년 이상 이력 종목만). 낮을수록 +.
  - D 공격-방어 상대강도: 공격 섹터 동일가중 1달(20거래일) 수익률 - 방어 섹터 1달 수익률. 높을수록 +.
@@ -33,7 +34,7 @@ PRICES_PATH = os.path.join(DATA_DIR, "bollinger_prices.csv")
 OP_BAND_DIR = os.path.join(DOCS_DIR, "op_band_data")
 SUMMARY_PATH = os.path.join(DATA_DIR, "screening", "market_phase_daily.csv")
 LOG_PATH = os.path.join(DATA_DIR, "screening", "market_phase_log.csv")   # 판정 기록(덧붙이기만, 고치지 않음)
-MODEL_TAG = "v1 C10x3+D20x2+X120x2 sma65 dir40 db2 hb2 exp-tercile"
+MODEL_TAG = "v2 C10x3+D20x2+X120x2 ema65 dir40 db2 hb2 exp-tercile"   # v1(sma65)은 2026-10-12 기록까지
 PAGE_OUT_PATH = os.path.join(DOCS_DIR, "market_phase.html")
 FAST_PAGE_PATH = os.path.join(DOCS_DIR, "market_phase_fast.html")   # 일별 점수 국면(빠른 버전, 2026-10-12)
 
@@ -160,6 +161,18 @@ def truth_phase(daily, thr, grid):
     return lab, piv
 
 
+def ema(s, span):
+    """지수이동평균(adjust=False와 같은 재귀식: y = a*x + (1-a)*y_prev, a = 2/(span+1)).
+    값이 빈 날은 직전 값을 그대로 유지(감쇠 없음) - 페이지 JS(computeModel)와 똑같이 계산하려고 직접 구현."""
+    a = 2.0 / (span + 1)
+    out, y = [], None
+    for x in s.values:
+        if not np.isnan(x):
+            y = x if y is None else a * x + (1 - a) * y
+        out.append(np.nan if y is None else y)
+    return pd.Series(out, index=s.index)
+
+
 def compute():
     wide, meta = read_all_prices()
     meta = meta.loc[wide.columns]
@@ -250,7 +263,7 @@ def compute():
     sc2 = sc.loc[start:]
     comp = (sc2["C"] * WEIGHTS["C"] + sc2["D"] * WEIGHTS["D"] + sc2["X"] * WEIGHTS["X"]) / sum(WEIGHTS.values())
     comp = comp.where(sc2.notna().all(axis=1))
-    Ls = comp.rolling(SMOOTH_WEEKS * P, min_periods=1).mean()
+    Ls = ema(comp, SMOOTH_WEEKS * P)
     lo = Ls.expanding(26 * P).quantile(1 / 3)
     hi = Ls.expanding(26 * P).quantile(2 / 3)
     level, lev = [], None
@@ -381,12 +394,12 @@ FAST_TEXT = [
     ("__FAST_NOTE__", "  <div class=\"exp\"><b>빠른 버전(참고용)</b>: 공식 시장 국면과 같은 세 지표·같은 배점이지만, 국면 점수를 65거래일이 아니라 <b>20거래일 평균</b>, 방향을 40거래일이 아니라 <b>20거래일 전 대비</b>로 봅니다. "
      "전환을 1~2달 빨리 잡지만(2026년 중소형 하락 ⑤ 6/5 vs 공식 6/25, 반등 8/12 vs 공식 10/7) 1년에 13번 정도 바뀌어 헛신호가 많고, 2022년 이후 정답률은 공식보다 낮았습니다(약 56% vs 70%). "
      "공식 국면으로 큰 방향을 보고, 이 페이지로 전환 조짐을 먼저 확인하는 용도로 보세요.</div>"),
-    ("국면 점수는 이것의 65거래일 평균", "이 페이지의 국면 점수는 이것의 20거래일 평균"),
-    ("비중으로 평균하고, 13주 평균을 국면 점수로 씁니다.", "비중으로 평균하고, 20거래일 평균을 국면 점수로 씁니다."),
+    ("국면 점수는 이것의 65일 지수이동평균(EMA)", "이 페이지의 국면 점수는 이것의 20거래일 평균"),
+    ("비중으로 평균하고, 65일 지수이동평균(EMA)을 국면 점수로 씁니다.", "비중으로 평균하고, 20거래일 평균을 국면 점수로 씁니다."),
     ("8주 전보다 오르는 중이면(8주 변화가", "20거래일 전보다 오르는 중이면(20거래일 변화가"),
-    ("국면은 65거래일 평균 점수의 수준과 40거래일 전 대비 변화로 판단", "국면은 20거래일 평균 점수의 수준과 20거래일 전 대비 변화로 판단"),
+    ("국면은 65일 EMA 점수의 수준과 40거래일 전 대비 변화로 판단", "국면은 20거래일 평균 점수의 수준과 20거래일 전 대비 변화로 판단"),
     ("8주 전 대비가 ±2점 이내면", "20거래일 전 대비가 ±2점 이내면"),
-    ("국면 점수(65거래일 평균)", "국면 점수(20거래일 평균)"),
+    ("국면 점수(65일 EMA)", "국면 점수(20거래일 평균)"),
 ]
 
 
@@ -479,7 +492,7 @@ __FAST_NOTE__
 
   <div class="chart-box">
     <h2>일별 점수 (평균 전, 0~100) <span class="now" id="nowRaw"></span></h2>
-    <div class="desc">세 지표 점수를 배점대로 평균한 매일의 값입니다(국면 점수는 이것의 65거래일 평균). 국면 판단에는 쓰지 않는 참고용이며, 국면 점수보다 1~2달 먼저 움직이지만 헛신호가 많습니다. 굵은 선은 20거래일 평균입니다.</div>
+    <div class="desc">세 지표 점수를 배점대로 평균한 매일의 값입니다(국면 점수는 이것의 65일 지수이동평균(EMA)). 국면 판단에는 쓰지 않는 참고용이며, 국면 점수보다 1~2달 먼저 움직이지만 헛신호가 많습니다. 굵은 선은 20거래일 평균입니다.</div>
     <div class="chart-wrap" style="height:260px"><canvas id="cRaw"></canvas></div>
   </div>
 
@@ -502,7 +515,7 @@ __FAST_NOTE__
   </div>
 
   <div class="exp">
-    <b>점수 만드는 법</b>: 세 지표를 각각 <b>그 시점까지의 과거 값 대비 백분위(0~100점)</b>로 바꾼 뒤(미래 정보 없음) <b>밸류 하단 3점 · 공격-방어 2점 · 120일선 위 2점</b> 비중으로 평균하고, 13주 평균을 국면 점수로 씁니다.
+    <b>점수 만드는 법</b>: 세 지표를 각각 <b>그 시점까지의 과거 값 대비 백분위(0~100점)</b>로 바꾼 뒤(미래 정보 없음) <b>밸류 하단 3점 · 공격-방어 2점 · 120일선 위 2점</b> 비중으로 평균하고, 65일 지수이동평균(EMA)을 국면 점수로 씁니다.
     밸류 하단 비율은 거꾸로(비율이 낮을수록 높은 점수) 반영합니다. 점수 자체에는 코스피 지수 값이 들어가지 않습니다(코스피는 정답지·이후 수익률 측정에만 사용).<br>
     <b>국면 판정</b>: 점수가 그 시점까지 점수 분포의 하위 1/3이면 낮음, 상위 1/3이면 높음, 그 사이는 중간. 8주 전보다 오르는 중이면(8주 변화가 2점 이하면 직전 방향 유지, 낮음·높음 기준선은 2점 넘게 넘어야 수준 변경)
     낮음 ① 반등시작 · 중간 ② 중소형 확산 · 높음 ③ 전면 확산, 내리는 중이면 높음 ④ 고점 · 중간 ⑤ 중소형 하락 · 낮음 ⑥ 대형주까지 바닥입니다.<br>
@@ -513,14 +526,14 @@ __FAST_NOTE__
   <div class="panel">
     <h3>최근 변동 <span id="lastChg" style="font-size:12px;font-weight:normal;color:#c9ccd1;margin-left:6px"></span></h3>
     <div class="tblwrap"><table class="st" id="tblRecent"></table></div>
-    <div class="note">전일 대비는 참고용이고 국면 판단에는 쓰지 않습니다(국면은 65거래일 평균 점수의 수준과 40거래일 전 대비 변화로 판단). 국면이 바뀐 날은 강조 표시됩니다. 8주 전 대비가 ±2점 이내면 방향을 바꾸지 않고, 낮음·높음 기준선은 2점 넘게 넘어야 수준이 바뀝니다.</div>
+    <div class="note">전일 대비는 참고용이고 국면 판단에는 쓰지 않습니다(국면은 65일 EMA 점수의 수준과 40거래일 전 대비 변화로 판단). 국면이 바뀐 날은 강조 표시됩니다. 8주 전 대비가 ±2점 이내면 방향을 바꾸지 않고, 낮음·높음 기준선은 2점 넘게 넘어야 수준이 바뀝니다.</div>
   </div>
 
 <script>
 const DATA = __DATA__;
 const N = DATA.dates.length;
 const PER = DATA.per || 1;   // 1주 = PER점(일간이면 5거래일)
-const SMLBL = DATA.mode === 'fast' ? '20거래일' : '13주', KLBL = DATA.mode === 'fast' ? '20거래일' : '8주';
+const SMLBL = DATA.mode === 'fast' ? '20거래일' : '65일 EMA', KLBL = DATA.mode === 'fast' ? '20거래일' : '8주';
 const PH = DATA.phases;
 const PHC = {1: '#9be3b0', 2: '#4cc47a', 3: '#1f8a4c', 4: '#f2a25c', 5: '#e8684a', 6: '#b5252b'};
 const PHDESC = {
@@ -563,9 +576,14 @@ function computeModel(c) {
   let up = null, lev = null;
   const q = p => { const pos = (sorted.length - 1) * p, f = Math.floor(pos), cc = Math.ceil(pos); return sorted[f] + (sorted[cc] - sorted[f]) * (pos - f); };
   for (let i = Math.max(start, 0); i < N && start >= 0; i++) {
-    let s = 0, n = 0;
-    for (let j = Math.max(start, i - c.sm + 1); j <= i; j++) if (nn(comp[j])) { s += comp[j]; n++; }
-    if (n) Ls[i] = s / n;
+    if (c.ema) {   // 지수이동평균(Python ema()와 같은 재귀식, 빈 날은 직전 값 유지)
+      const a = 2 / (c.sm + 1), prevL = i > start ? Ls[i - 1] : null;
+      Ls[i] = nn(comp[i]) ? (nn(prevL) ? a * comp[i] + (1 - a) * prevL : comp[i]) : prevL;
+    } else {
+      let s = 0, n = 0;
+      for (let j = Math.max(start, i - c.sm + 1); j <= i; j++) if (nn(comp[j])) { s += comp[j]; n++; }
+      if (n) Ls[i] = s / n;
+    }
     if (nn(Ls[i])) {
       let a = 0, b = sorted.length;
       while (a < b) { const m = (a + b) >> 1; if (sorted[m] < Ls[i]) a = m + 1; else b = m; }
@@ -681,7 +699,7 @@ function buildCharts() {
   charts.raw = new Chart($('cRaw'), {type: 'line', plugins: [bgPlugin(phAt, '33')], data: {labels: sl(DATA.dates), datasets: [
     {label: '20거래일 평균', data: sl(RAW20), borderColor: '#4dabf7', borderWidth: 2.2, pointRadius: 0},
     {label: '일별 점수', data: sl(RAW), borderColor: '#4dabf766', borderWidth: 1, pointRadius: 0},
-    {label: '국면 점수(65거래일 평균)', data: sl(M.Ls), borderColor: '#ffd43b', borderWidth: 1.2, borderDash: [4, 3], pointRadius: 0}
+    {label: '국면 점수(65일 EMA)', data: sl(M.Ls), borderColor: '#ffd43b', borderWidth: 1.2, borderDash: [4, 3], pointRadius: 0}
   ]}, options: baseOpts({scales: {x: xAxis(), y: {min: 0, max: 100}}})});
   charts.s = new Chart($('cScore'), {type: 'line', plugins: [bgPlugin(phAt, '33')], data: {labels: sl(DATA.dates), datasets: [
     {label: '국면 점수', data: sl(M.Ls), borderColor: '#ffd43b', borderWidth: 2, pointRadius: 0},
@@ -730,7 +748,7 @@ function renderCards() {
   $('cards').innerHTML =
     '<div class="card main"><div class="lbl">현재 국면 (' + DATA.dates[iP] + ')</div><span class="badge" style="background:' + PHC[p] + '">' + PH[p] + '</span>' +
     '<div class="sub">' + PHDESC[p] + '</div><div class="sub">최근 30거래일 국면 흐름(왼쪽이 과거)</div><div class="strip">' + strip + '</div></div>' +
-    cd('국면 점수 (' + SMLBL + ' 평균)', fmt(s) + '<span style="font-size:13px;color:#9aa0a6"> / 100</span>', '낮음 &lt; ' + fmt(M.lo[iS]) + ' · 높음 &gt; ' + fmt(M.hi[iS]) + '<br>' + KLBL + ' 전 ' + fmt(sk) + ' → <span class="' + (s - sk >= 0 ? 'pos' : 'neg') + '">' + sgn(s - sk) + '</span>') +
+    cd('국면 점수 (' + SMLBL + (MODE === 'fast' ? ' 평균' : '') + ')', fmt(s) + '<span style="font-size:13px;color:#9aa0a6"> / 100</span>', '낮음 &lt; ' + fmt(M.lo[iS]) + ' · 높음 &gt; ' + fmt(M.hi[iS]) + '<br>' + KLBL + ' 전 ' + fmt(sk) + ' → <span class="' + (s - sk >= 0 ? 'pos' : 'neg') + '">' + sgn(s - sk) + '</span>') +
     cd('공격-방어 상대강도(1달)', '<span class="' + (DATA.D[iD] >= 0 ? 'pos' : 'neg') + '">' + sgn(DATA.D[iD]) + '%p</span>', '점수 ' + fmt(DATA.sD[iD], 0) + '점 · 배점 ' + CFG.wD) +
     cd('밸류 하단 종목 비율', fmt(DATA.C[iC]) + '%', '점수 ' + fmt(DATA.sC[iC], 0) + '점 · 배점 ' + CFG.wC + ' (비율 낮을수록 점수 높음) · ' + DATA.cN.toLocaleString() + '종목') +
     cd('120일선 위 종목 비율', fmt(DATA.X[iX]) + '%', '점수 ' + fmt(DATA.sX[iX], 0) + '점 · 배점 ' + CFG.wX);
@@ -740,7 +758,7 @@ function renderCards() {
   const iSm = lastIdx(DATA.smIdx);
   $('nowSm').textContent = '현재 ' + fmt(DATA.smIdx[iSm]) + ' · 최근 1달 ' + sgn((DATA.smIdx[iSm] / DATA.smIdx[iSm - 4 * PER] - 1) * 100) + '% · 코스피 ' + sgn((DATA.kospi[iSm] / DATA.kospi[iSm - 4 * PER] - 1) * 100) + '%';
   $('nowScore').textContent = '현재 ' + fmt(s) + ' (' + KLBL + ' 전 ' + fmt(sk) + ')';
-  $('descScore').textContent = '배점 밸류 하단 ' + CFG.wC + ' · 공격-방어 ' + CFG.wD + ' · 120일선 위 ' + CFG.wX + ', ' + SMLBL + ' 평균. 점선은 그 시점까지 점수 분포의 하위 1/3(낮음 기준)·상위 1/3(높음 기준)입니다.';
+  $('descScore').textContent = '배점 밸류 하단 ' + CFG.wC + ' · 공격-방어 ' + CFG.wD + ' · 120일선 위 ' + CFG.wX + ', ' + SMLBL + (MODE === 'fast' ? ' 평균' : '') + '. 점선은 그 시점까지 점수 분포의 하위 1/3(낮음 기준)·상위 1/3(높음 기준)입니다.';
   $('nowD').textContent = '현재 ' + sgn(DATA.D[iD]) + '%p · ' + fmt(DATA.sD[iD], 0) + '점';
   $('nowC').textContent = '현재 ' + fmt(DATA.C[iC]) + '% · ' + fmt(DATA.sC[iC], 0) + '점';
   $('nowX').textContent = '현재 ' + fmt(DATA.X[iX]) + '% · ' + fmt(DATA.sX[iX], 0) + '점';
@@ -748,7 +766,7 @@ function renderCards() {
 
 const thrVal = v => (v === 'exp' || v === 'fix') ? v : +v;
 const MODE = DATA.mode || 'main';   // 'fast' = 일별 점수 국면 페이지(20거래일 평균·20거래일 방향)
-const CFG = {wC: DATA.weights.C, wD: DATA.weights.D, wX: DATA.weights.X, sm: (MODE === 'fast' ? 4 : DATA.smooth) * PER, k: (MODE === 'fast' ? 4 : DATA.dirWeeks) * PER, db: DATA.deadband, hb: DATA.levelBand, thr: 'exp'};
+const CFG = {wC: DATA.weights.C, wD: DATA.weights.D, wX: DATA.weights.X, sm: (MODE === 'fast' ? 4 : DATA.smooth) * PER, k: (MODE === 'fast' ? 4 : DATA.dirWeeks) * PER, db: DATA.deadband, hb: DATA.levelBand, thr: 'exp', ema: MODE !== 'fast'};
 function recalc() {
   M = computeModel(CFG);
   renderCards(); renderRecent(); buildCharts();
