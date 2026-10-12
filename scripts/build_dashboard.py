@@ -308,7 +308,7 @@ def build_panel(merged, window_df, panel_type, series_map):
     }
 
 
-def build_dual_panel(merged, window_df, left_map, right_map, extra_title=None, extra_left=None, extra_right=None, right_chart_type=None):
+def build_dual_panel(merged, window_df, left_map, right_map, extra_title=None, extra_left=None, extra_right=None, right_chart_type=None, ref_lines=None):
     """왼쪽/오른쪽 축이 다른 두 지표를 한 차트에 겹쳐 그린다 (예: 코스피 vs 분기 지수).
     두 지표가 모두 존재하는 교집합 구간만 보여준다 (한쪽이 짧으면 그 시작점부터).
     extra_*를 주면 같은 패널 카드 안에 완전히 독립된(자기 날짜범위·축을 따로 갖는)
@@ -326,6 +326,7 @@ def build_dual_panel(merged, window_df, left_map, right_map, extra_title=None, e
         "right": {name: col_or_none(trimmed, col) for name, col in right_map.items()},
         "has_data": any(has_data(trimmed, c) for c in cols),
         "right_type": right_chart_type,
+        "ref_lines": ref_lines or [],   # 왼쪽 축 기준 가로 점선(예: ADR 80/120, 2026-10-13)
     }
     if extra_left or extra_right:
         extra_cols = list((extra_left or {}).values()) + list((extra_right or {}).values())
@@ -614,6 +615,7 @@ def build_dashboard(merged, raw_latest):
             merged, recent,
             {"코스피 ADR(%)": "kospi_adr", "코스닥 ADR(%)": "kosdaq_adr"},
             {"코스피 종가": "kospi_close"},
+            ref_lines=[80, 120],
         ),
         "코스피 이격도(20일-100일)": build_dual_panel(
             merged, recent,
@@ -1016,9 +1018,13 @@ function makeLineChart(canvas, labels, datasets) {{
   registerChart(chart);
 }}
 
-function makeDualAxisChart(canvas, labels, leftSeries, rightSeries, rightType) {{
+function makeDualAxisChart(canvas, labels, leftSeries, rightSeries, rightType, refLines) {{
   const isBar = rightType === 'bar';
   const datasets = [
+    ...(refLines || []).map(v => ({{
+      type: 'line', label: v + ' 기준선', data: labels.map(() => v), yAxisID: 'y',
+      borderColor: '#9aa0a6', borderWidth: 1, borderDash: [4, 4], pointRadius: 0, order: 0,
+    }})),
     ...Object.entries(leftSeries).map(([name, data], i) => ({{
       type: 'line',
       label: name, data, yAxisID: 'y', borderColor: COLORS[i % COLORS.length],
@@ -1082,7 +1088,7 @@ function renderPanel(title, panel, section) {{
     const canvas = document.createElement('canvas');
     wrap.appendChild(canvas);
     card.appendChild(wrap);
-    makeDualAxisChart(canvas, panel.labels, panel.left, panel.right, panel.right_type);
+    makeDualAxisChart(canvas, panel.labels, panel.left, panel.right, panel.right_type, panel.ref_lines);
     if (panel.extra && panel.extra.has_data) {{
       const extraTitle = document.createElement('h3');
       extraTitle.style.cssText = 'font-size:14px; margin:20px 0 8px 0; color:#c7cbd1;';
