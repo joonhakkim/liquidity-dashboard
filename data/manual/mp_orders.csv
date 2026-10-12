@@ -186,3 +186,21 @@
 2026-10-12,mingu_mp,increase_pct,피노,033790,3.0,,2026-10-12T20:06:11.389751
 2026-10-12,mingu_mp,increase_pct,엘티씨,170920,3.0,,2026-10-12T20:06:11.389751
 2026-10-12,mingu_mp,new_entry_pct,아모텍,052710,5.0,,2026-10-12T20:06:11.389751
+2026-10-12,kosdaq_long_short_index,increase_pct,제우스,079370,1.0,,2026-10-13T08:49:28.407567
+2026-10-12,kosdaq_long_short_index,reduce_pct,코미코,183300,1.0,,2026-10-13T08:49:28.407567
+2026-10-12,kosdaq_long_short_index,exit,원익IPS,240810,,,2026-10-13T08:49:28.407567
+2026-10-12,kosdaq_long_short_index,new_entry_pct,두산테스나,131970,6.0,,2026-10-13T08:49:28.407567
+2026-10-12,kosdaq_long_short_index,reduce_pct,알테오젠,196170,2.0,,2026-10-13T08:49:28.407567
+2026-10-12,kosdaq_long_short_index,exit,씨젠,096530,,,2026-10-13T08:49:28.407567
+2026-10-12,kosdaq_long_short_index,exit,한스바이오메드,042520,,,2026-10-13T08:49:28.407567
+2026-10-12,kosdaq_long_short_index,new_entry_pct,엘앤씨바이오,290650,3.0,,2026-10-13T08:49:28.407567
+2026-10-12,kosdaq_long_short_index,exit,에스티팜,237690,,,2026-10-13T08:49:28.407567
+2026-10-12,kosdaq_long_short_index,new_entry_pct,HLB,028300,6.0,,2026-10-13T08:49:28.407567
+2026-10-12,kosdaq_long_short_index,exit,비에이치아이,083650,,,2026-10-13T08:49:28.407567
+2026-10-12,kosdaq_long_short_index,new_entry_pct,씨에스베어링,297090,3.0,,2026-10-13T08:49:28.407567
+2026-10-12,kosdaq_long_short_index,new_entry_pct,서진시스템,178320,2.0,,2026-10-13T08:49:28.407567
+2026-10-12,kosdaq_long_short_index,reduce_pct,KODEX 코스닥150선물인버스,251340,5.0,숏 5%p 축소,2026-10-13T08:49:28.407567
+2026-10-13,troy_mp,exit,한전기술,052690,,,
+2026-10-13,troy_mp,exit,삼성생명,032830,,,
+2026-10-13,troy_mp,new_entry_pct,DB손해보험,005830,2,,
+2026-10-13,troy_mp,new_entry_pct,서진시스템,178320,2,,
