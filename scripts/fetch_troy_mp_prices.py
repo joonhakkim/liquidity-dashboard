@@ -37,14 +37,38 @@ def fetch_price_history(code, count=3650):
     return pd.DataFrame(rows, columns=["date", "close"])
 
 
-def fetch_for_portfolio(trades_path, out_path, label):
+ORDERS_PATH = os.path.join(DATA_DIR, "manual", "mp_orders.csv")
+
+
+def pending_order_codes(portfolio_id):
+    """아직 처리 안 된 지시서(mp_orders.csv)에 나오는 종목코드 - 신규편입(new_entry_pct/target_pct)과
+    교체(swap, note의 "새이름|새코드") 대상까지. 매매일지에 아직 없는 새 종목도 지시 처리 전에 가격 이력을
+    미리 받아두기 위함(2026-10-12 - 새 종목이 가격 파일에 없으면 처리 당일 평가금액·AUM이 빠지는 문제 방지)."""
+    if not os.path.exists(ORDERS_PATH):
+        return []
+    o = pd.read_csv(ORDERS_PATH, dtype=str)
+    if "processed" not in o.columns:
+        o["processed"] = ""
+    o = o[(o["portfolio"] == portfolio_id) & (o["processed"].isna() | (o["processed"] == ""))]
+    codes = [c.zfill(6) for c in o["code"].dropna() if c.strip()]
+    for note in o.loc[o["action"] == "swap", "note"].dropna():
+        if "|" in note:
+            codes.append(note.split("|", 1)[1].strip().zfill(6))
+    return codes
+
+
+def fetch_for_portfolio(trades_path, out_path, label, portfolio_id=None):
     if not os.path.exists(trades_path):
         print(f"[{label}] 매매일지 파일이 없습니다: {trades_path}")
         return
     trades = pd.read_csv(trades_path, dtype={"code": str})
     trades = trades.dropna(subset=["code"])
     trades["code"] = trades["code"].str.zfill(6)
-    codes = sorted(trades["code"].unique())
+    extra = pending_order_codes(portfolio_id) if portfolio_id else []
+    codes = sorted(set(trades["code"].unique()) | set(extra))
+    new_codes = sorted(set(extra) - set(trades["code"].unique()))
+    if new_codes:
+        print(f"[{label}] 지시서의 신규 종목 가격도 미리 수집: {', '.join(new_codes)}")
     if not codes:
         print(f"[{label}] 아직 편입된 종목이 없습니다. 건너뜁니다.")
         return
@@ -71,7 +95,7 @@ def fetch_for_portfolio(trades_path, out_path, label):
 
 def main():
     for p in ALL_PORTFOLIOS + PRIVATE_PORTFOLIOS:
-        fetch_for_portfolio(p["trades_path"], p["prices_path"], p["name"])
+        fetch_for_portfolio(p["trades_path"], p["prices_path"], p["name"], p.get("id"))
 
 
 if __name__ == "__main__":
