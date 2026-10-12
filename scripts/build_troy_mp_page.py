@@ -600,6 +600,47 @@ def compute_twr_index_ls(trades, prices_wide, bm_series):
     return dates_out, mp_index, bm_out, net_exposure_out
 
 
+def compute_long_book_index(trades, prices_wide, dates_out):
+    """롱숏 MP에서 롱 북만 떼어낸 지수(2026-10-12 사용자 요청 - "롱만 빼서 수익률, 누적 수익률,
+    코스닥 대비 초과수익률"). compute_twr_index_ls와 같은 날짜·같은 매매 반영 규칙(종가 체결,
+    그날 매매는 다음날 수익률부터)으로, 매일 전일 보유 롱 종목(경제적 방향이 롱 = 인버스ETF처럼
+    EXPOSURE_BETA가 음수인 상품 제외)의 평가액 변화율만 연쇄복리한다. 현금·숏은 빠지므로
+    "롱 종목들을 100% 들고 있었다면"의 수익률이다."""
+    if not dates_out:
+        return []
+    codes = sorted(trades["code"].unique())
+    long_codes = [c for c in codes if EXPOSURE_BETA.get(c, 1.0) > 0]
+    shares = {c: 0.0 for c in codes}
+    trades_by_date = {d: g for d, g in trades.groupby("date")}
+
+    def apply(d):
+        if d in trades_by_date:
+            for _, row in trades_by_date[d].iterrows():
+                qty = row["amount"] / row["price"]
+                if row["action"] in ("BUY", "COVER"):
+                    shares[row["code"]] += qty
+                elif row["action"] in ("SELL", "SHORT"):
+                    shares[row["code"]] -= qty
+
+    def long_value(d):
+        return sum(shares[c] * prices_wide.at[d, c] for c in long_codes
+                   if shares[c] > 0 and c in prices_wide.columns and not pd.isna(prices_wide.at[d, c]))
+
+    # dates_out[0] 이전 매매(있다면)까지 반영 - compute_twr_index_ls는 편입 첫날부터 시작하므로 보통 없음
+    for d in sorted(trades_by_date):
+        if d < dates_out[0]:
+            apply(d)
+    out = [float(BASE_INDEX)]
+    apply(dates_out[0])
+    prev = dates_out[0]
+    for d in dates_out[1:]:
+        v0, v1 = long_value(prev), long_value(d)
+        out.append(out[-1] * (v1 / v0 if v0 > 0 else 1.0))
+        apply(d)
+        prev = d
+    return out
+
+
 def compute_mdd(index_series):
     """지수 시계열의 전체 기간 최대낙폭(MDD, %) - 그동안의 최고점 대비 현재 저점까지 최대
     하락폭. 항상 0 이하 값(하락이 없으면 0.0)."""
@@ -1316,10 +1357,13 @@ def main_long_short(portfolio, other_portfolios):
 
     holdings, total_eval = compute_holdings_table(trades, latest_prices, prev_prices, name_map, sector_map, show_cash_row=True, cash_mode="long_only")
     dates_out, mp_index, bm_kosdaq, net_exposure = compute_twr_index_ls(trades, prices_wide, kosdaq)
+    long_index = compute_long_book_index(trades, prices_wide, dates_out)   # 롱 북만(숏·현금 제외, 2026-10-12)
 
     dates_json = json.dumps([d.strftime("%Y-%m-%d") for d in dates_out])
     mp_json = json.dumps([round(v, 3) for v in mp_index])
     bm_kosdaq_json = json.dumps([round(v, 3) for v in bm_kosdaq])
+    long_json = json.dumps([round(v, 3) for v in long_index])
+    long_latest = long_index[-1] if long_index else float(BASE_INDEX)
     net_exposure_json = json.dumps([round(v, 2) for v in net_exposure])
 
     mp_latest = mp_index[-1] if mp_index else float(BASE_INDEX)
@@ -1348,6 +1392,12 @@ def main_long_short(portfolio, other_portfolios):
         "alpha_kosdaq_1m": fmt_alpha(compute_period_alpha(dates_out, mp_index, bm_kosdaq, days_back=30)),
         "alpha_kosdaq_6m": fmt_alpha(compute_period_alpha(dates_out, mp_index, bm_kosdaq, days_back=180)),
         "alpha_kosdaq_1y": fmt_alpha(compute_period_alpha(dates_out, mp_index, bm_kosdaq, days_back=365)),
+        "alpha_long_total": fmt_alpha(pct_return(long_latest) - pct_return(bm_kosdaq_latest)),
+        "alpha_long_1d": fmt_alpha(compute_period_alpha(dates_out, long_index, bm_kosdaq, prev_trading_day=True)),
+        "alpha_long_1w": fmt_alpha(compute_period_alpha(dates_out, long_index, bm_kosdaq, days_back=7)),
+        "alpha_long_1m": fmt_alpha(compute_period_alpha(dates_out, long_index, bm_kosdaq, days_back=30)),
+        "alpha_long_6m": fmt_alpha(compute_period_alpha(dates_out, long_index, bm_kosdaq, days_back=180)),
+        "alpha_long_1y": fmt_alpha(compute_period_alpha(dates_out, long_index, bm_kosdaq, days_back=365)),
     }
     own_periods = {
         "own_total": fmt_return(pct_return(mp_latest)),
@@ -1356,6 +1406,12 @@ def main_long_short(portfolio, other_portfolios):
         "own_1m": fmt_return(compute_period_return(dates_out, mp_index, days_back=30)),
         "own_6m": fmt_return(compute_period_return(dates_out, mp_index, days_back=180)),
         "own_1y": fmt_return(compute_period_return(dates_out, mp_index, days_back=365)),
+        "long_total": fmt_return(pct_return(long_latest)),
+        "long_1d": fmt_return(compute_period_return(dates_out, long_index, prev_trading_day=True)),
+        "long_1w": fmt_return(compute_period_return(dates_out, long_index, days_back=7)),
+        "long_1m": fmt_return(compute_period_return(dates_out, long_index, days_back=30)),
+        "long_6m": fmt_return(compute_period_return(dates_out, long_index, days_back=180)),
+        "long_1y": fmt_return(compute_period_return(dates_out, long_index, days_back=365)),
     }
 
     ref_date = dates_out[-1] if dates_out else None
@@ -1454,6 +1510,8 @@ def main_long_short(portfolio, other_portfolios):
         dates_json=dates_json,
         mp_json=mp_json,
         bm_kosdaq_json=bm_kosdaq_json,
+        long_json=long_json,
+        long_latest=f"{long_latest:,.2f}",
         net_exposure_json=net_exposure_json,
         mp_latest=f"{mp_latest:,.2f}",
         bm_kosdaq_latest=f"{bm_kosdaq_latest:,.2f}",
@@ -1504,6 +1562,7 @@ TEMPLATE_LS = """<!doctype html>
   .badge .value {{ font-size:20px; font-weight:bold; margin-top:4px; }}
   .badge.mp .value {{ color:#ff8787; }}
   .badge.bm .value {{ color:#4dabf7; }}
+  .badge.long .value {{ color:#39ff14; }}
   .badge.exposure .value {{ color:#ffd43b; }}
   .badge.mdd .value {{ color:#ff2ec4; }}
   .badge.risk .value {{ color:#9775fa; }}
@@ -1548,6 +1607,7 @@ TEMPLATE_LS = """<!doctype html>
   <div class="badges">
     <div class="badge mp"><div class="label">{page_name} 지수</div><div class="value">{mp_latest}</div></div>
     <div class="badge bm"><div class="label">코스닥(BM) 지수</div><div class="value">{bm_kosdaq_latest}</div></div>
+    <div class="badge long"><div class="label">롱만(숏·현금 제외) 지수</div><div class="value">{long_latest}</div></div>
     <div class="badge exposure"><div class="label">NET EXPOSURE(롱비중+숏비중)</div><div class="value">{net_exposure_latest}</div></div>
     <div class="badge mdd"><div class="label">MDD(전체기간 최대낙폭)</div><div class="value">{mdd}</div></div>
   </div>
@@ -1561,12 +1621,14 @@ TEMPLATE_LS = """<!doctype html>
       <thead><tr><th>포트폴리오 자체 수익률</th><th>총 누적(시작일~)</th><th>1일</th><th>1주일</th><th>1개월</th><th>6개월</th><th>1년</th></tr></thead>
       <tbody>
         <tr><td>{page_name}</td><td>{own_total}</td><td>{own_1d}</td><td>{own_1w}</td><td>{own_1m}</td><td>{own_6m}</td><td>{own_1y}</td></tr>
+        <tr><td>롱만(숏 제외)</td><td>{long_total}</td><td>{long_1d}</td><td>{long_1w}</td><td>{long_1m}</td><td>{long_6m}</td><td>{long_1y}</td></tr>
       </tbody>
     </table>
     <table class="alpha-table">
       <thead><tr><th>구간별 초과성과</th><th>총 누적(시작일~)</th><th>1일</th><th>1주일</th><th>1개월</th><th>6개월</th><th>1년</th></tr></thead>
       <tbody>
         <tr><td>vs 코스닥</td><td>{alpha_kosdaq_total}</td><td>{alpha_kosdaq_1d}</td><td>{alpha_kosdaq_1w}</td><td>{alpha_kosdaq_1m}</td><td>{alpha_kosdaq_6m}</td><td>{alpha_kosdaq_1y}</td></tr>
+        <tr><td>롱만 vs 코스닥</td><td>{alpha_long_total}</td><td>{alpha_long_1d}</td><td>{alpha_long_1w}</td><td>{alpha_long_1m}</td><td>{alpha_long_6m}</td><td>{alpha_long_1y}</td></tr>
       </tbody>
     </table>
   </div>
@@ -1620,6 +1682,9 @@ TEMPLATE_LS = """<!doctype html>
     있어도(공매도로 담으면 이중반전되어 버그가 됨) NET EXPOSURE 계산에서는 -1배로 보정해서 실제
     시장 방향성(코스닥 하락 베팅)이 정확히 반영되도록 합니다 - 매입금액/평가금액/수익률 자체는
     보정 없이 실제 매수 그대로입니다.<br><br>
+    <b>롱만(숏 제외)</b> — 숏(인버스ETF)과 현금을 빼고 롱 종목들만 들고 있었다고 보고 계산한 지수입니다.
+    MP 지수와 같은 방식(일별 TWR 연쇄복리, 그날 매매는 다음날부터 반영)으로, 매일 전일 보유 롱 종목
+    평가액의 변화율만 이어 붙입니다. 롱 종목 선택 자체의 성과(코스닥 대비 초과수익)를 볼 때 씁니다.<br><br>
     <b>MDD</b> — 편입 시작일 이후 지금까지 지수가 직전 최고점 대비 가장 많이 빠졌던 낙폭(%).<br><br>
     <b>연율화 표준편차</b> — 일별수익률의 표본표준편차 × &radic;252. MP 자체의 변동성(위험)을
     나타내는 가장 기본적인 지표입니다.<br><br>
@@ -1643,6 +1708,7 @@ TEMPLATE_LS = """<!doctype html>
 const dates = {dates_json};
 const mpIndex = {mp_json};
 const bmKosdaqIndex = {bm_kosdaq_json};
+const longIndex = {long_json};
 
 // 기간별 차트 보기(2026-09-15 추가, 롱온리 템플릿과 동일 로직) - 시작이후가 아닌 구간을 고르면
 // 그 구간 첫날을 100으로 리베이스해서 MP vs BM 상대 성과를 바로 비교할 수 있게 한다.
@@ -1679,6 +1745,7 @@ function renderChart(range) {{
       datasets: [
         {{ label: '{page_name}', data: rebase(mpIndex, idx0, doRebase), borderColor: '#ff8787', backgroundColor: 'transparent', tension: 0.1, pointRadius: 0, borderWidth: 2, yAxisID: 'y' }},
         {{ label: '코스닥(BM)', data: rebase(bmKosdaqIndex, idx0, doRebase), borderColor: '#4dabf7', backgroundColor: 'transparent', tension: 0.1, pointRadius: 0, borderWidth: 2, borderDash: [5,3], yAxisID: 'y' }},
+        {{ label: '롱만(숏 제외)', data: rebase(longIndex, idx0, doRebase), borderColor: '#39ff14', backgroundColor: 'transparent', tension: 0.1, pointRadius: 0, borderWidth: 1.6, yAxisID: 'y' }},
       ]
     }},
     options: {{

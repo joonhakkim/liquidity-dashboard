@@ -23,6 +23,7 @@
   .badge .value { font-size:20px; font-weight:bold; margin-top:4px; }
   .badge.mp .value { color:#ff8787; }
   .badge.bm .value { color:#4dabf7; }
+  .badge.long .value { color:#39ff14; }
   .badge.exposure .value { color:#ffd43b; }
   .badge.mdd .value { color:#ff2ec4; }
   .badge.risk .value { color:#9775fa; }
@@ -62,11 +63,12 @@
   <a class="back" href="index.html">&larr; 홈</a>
   <h1>코스닥 롱숏(지수) 트래커</h1>
   <div class="mp-tabs"><a class="mp-tab" href="troy_mp.html">트로이 MP</a><a class="mp-tab" href="momentum_mp.html">모멘텀 MP</a><span class="mp-tab active">코스닥 롱숏(지수)</span><a class="mp-tab" href="mingu_mp.html">민구MP</a></div>
-  <div class="updated">최종 갱신: 2026-10-12 15:47 &middot; 편입 시작일 2026-09-09 (=10,000 기준) &middot; 보유 21종목 &middot; 평가금액 합계 1,019,035,067원</div>
+  <div class="updated">최종 갱신: 2026-10-12 16:01 &middot; 편입 시작일 2026-09-09 (=10,000 기준) &middot; 보유 21종목 &middot; 평가금액 합계 1,019,035,067원</div>
 
   <div class="badges">
     <div class="badge mp"><div class="label">코스닥 롱숏(지수) 지수</div><div class="value">10,190.35</div></div>
     <div class="badge bm"><div class="label">코스닥(BM) 지수</div><div class="value">10,226.65</div></div>
+    <div class="badge long"><div class="label">롱만(숏·현금 제외) 지수</div><div class="value">10,597.45</div></div>
     <div class="badge exposure"><div class="label">NET EXPOSURE(롱비중+숏비중)</div><div class="value">+30.5%</div></div>
     <div class="badge mdd"><div class="label">MDD(전체기간 최대낙폭)</div><div class="value">-4.48%</div></div>
   </div>
@@ -80,12 +82,14 @@
       <thead><tr><th>포트폴리오 자체 수익률</th><th>총 누적(시작일~)</th><th>1일</th><th>1주일</th><th>1개월</th><th>6개월</th><th>1년</th></tr></thead>
       <tbody>
         <tr><td>코스닥 롱숏(지수)</td><td><span style="color:#39ff14; text-shadow:0 0 6px #39ff1488;">+1.90%</span></td><td><span style="color:#ff2ec4; text-shadow:0 0 6px #ff2ec488;">-0.96%</span></td><td><span style="color:#ff2ec4; text-shadow:0 0 6px #ff2ec488;">-4.48%</span></td><td><span style="color:#39ff14; text-shadow:0 0 6px #39ff1488;">+1.74%</span></td><td><span style="color:#6b7280">N/A</span></td><td><span style="color:#6b7280">N/A</span></td></tr>
+        <tr><td>롱만(숏 제외)</td><td><span style="color:#39ff14; text-shadow:0 0 6px #39ff1488;">+5.97%</span></td><td><span style="color:#ff2ec4; text-shadow:0 0 6px #ff2ec488;">-4.24%</span></td><td><span style="color:#ff2ec4; text-shadow:0 0 6px #ff2ec488;">-6.80%</span></td><td><span style="color:#39ff14; text-shadow:0 0 6px #39ff1488;">+7.59%</span></td><td><span style="color:#6b7280">N/A</span></td><td><span style="color:#6b7280">N/A</span></td></tr>
       </tbody>
     </table>
     <table class="alpha-table">
       <thead><tr><th>구간별 초과성과</th><th>총 누적(시작일~)</th><th>1일</th><th>1주일</th><th>1개월</th><th>6개월</th><th>1년</th></tr></thead>
       <tbody>
         <tr><td>vs 코스닥</td><td><span style="color:#ff2ec4; text-shadow:0 0 6px #ff2ec488;">-0.36%p</span></td><td><span style="color:#39ff14; text-shadow:0 0 6px #39ff1488;">+3.87%p</span></td><td><span style="color:#39ff14; text-shadow:0 0 6px #39ff1488;">+0.45%p</span></td><td><span style="color:#ff2ec4; text-shadow:0 0 6px #ff2ec488;">-1.74%p</span></td><td><span style="color:#6b7280">N/A</span></td><td><span style="color:#6b7280">N/A</span></td></tr>
+        <tr><td>롱만 vs 코스닥</td><td><span style="color:#39ff14; text-shadow:0 0 6px #39ff1488;">+3.71%p</span></td><td><span style="color:#39ff14; text-shadow:0 0 6px #39ff1488;">+0.59%p</span></td><td><span style="color:#ff2ec4; text-shadow:0 0 6px #ff2ec488;">-1.86%p</span></td><td><span style="color:#39ff14; text-shadow:0 0 6px #39ff1488;">+4.11%p</span></td><td><span style="color:#6b7280">N/A</span></td><td><span style="color:#6b7280">N/A</span></td></tr>
       </tbody>
     </table>
   </div>
@@ -1065,6 +1069,9 @@
     있어도(공매도로 담으면 이중반전되어 버그가 됨) NET EXPOSURE 계산에서는 -1배로 보정해서 실제
     시장 방향성(코스닥 하락 베팅)이 정확히 반영되도록 합니다 - 매입금액/평가금액/수익률 자체는
     보정 없이 실제 매수 그대로입니다.<br><br>
+    <b>롱만(숏 제외)</b> — 숏(인버스ETF)과 현금을 빼고 롱 종목들만 들고 있었다고 보고 계산한 지수입니다.
+    MP 지수와 같은 방식(일별 TWR 연쇄복리, 그날 매매는 다음날부터 반영)으로, 매일 전일 보유 롱 종목
+    평가액의 변화율만 이어 붙입니다. 롱 종목 선택 자체의 성과(코스닥 대비 초과수익)를 볼 때 씁니다.<br><br>
     <b>MDD</b> — 편입 시작일 이후 지금까지 지수가 직전 최고점 대비 가장 많이 빠졌던 낙폭(%).<br><br>
     <b>연율화 표준편차</b> — 일별수익률의 표본표준편차 × &radic;252. MP 자체의 변동성(위험)을
     나타내는 가장 기본적인 지표입니다.<br><br>
@@ -1168,6 +1175,7 @@
 const dates = ["2026-09-09", "2026-09-10", "2026-09-11", "2026-09-14", "2026-09-15", "2026-09-16", "2026-09-17", "2026-09-18", "2026-09-21", "2026-09-22", "2026-09-23", "2026-09-28", "2026-09-29", "2026-09-30", "2026-10-01", "2026-10-02", "2026-10-06", "2026-10-07", "2026-10-08", "2026-10-12"];
 const mpIndex = [10000.0, 9897.533, 10016.279, 9931.591, 10062.183, 10101.22, 10187.826, 10264.595, 10303.674, 10153.208, 10348.518, 10176.945, 10480.999, 10487.451, 10548.577, 10668.656, 10596.641, 10307.103, 10289.062, 10190.351];
 const bmKosdaqIndex = [10000.0, 10078.88, 9882.823, 9716.03, 9783.711, 9826.704, 9901.369, 9960.861, 10071.053, 10048.292, 10169.924, 10195.214, 10233.992, 10307.574, 10769.777, 10757.735, 11078.435, 10819.635, 10745.451, 10226.646];
+const longIndex = [10000.0, 10063.935, 9849.767, 9580.467, 9792.255, 9913.324, 10018.792, 10110.207, 10278.427, 10053.383, 10368.129, 10181.988, 10587.976, 10675.903, 11286.891, 11370.716, 11662.86, 11165.371, 11066.746, 10597.449];
 
 // 기간별 차트 보기(2026-09-15 추가, 롱온리 템플릿과 동일 로직) - 시작이후가 아닌 구간을 고르면
 // 그 구간 첫날을 100으로 리베이스해서 MP vs BM 상대 성과를 바로 비교할 수 있게 한다.
@@ -1204,6 +1212,7 @@ function renderChart(range) {
       datasets: [
         { label: '코스닥 롱숏(지수)', data: rebase(mpIndex, idx0, doRebase), borderColor: '#ff8787', backgroundColor: 'transparent', tension: 0.1, pointRadius: 0, borderWidth: 2, yAxisID: 'y' },
         { label: '코스닥(BM)', data: rebase(bmKosdaqIndex, idx0, doRebase), borderColor: '#4dabf7', backgroundColor: 'transparent', tension: 0.1, pointRadius: 0, borderWidth: 2, borderDash: [5,3], yAxisID: 'y' },
+        { label: '롱만(숏 제외)', data: rebase(longIndex, idx0, doRebase), borderColor: '#39ff14', backgroundColor: 'transparent', tension: 0.1, pointRadius: 0, borderWidth: 1.6, yAxisID: 'y' },
       ]
     },
     options: {
