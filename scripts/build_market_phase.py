@@ -35,6 +35,7 @@ SUMMARY_PATH = os.path.join(DATA_DIR, "screening", "market_phase_daily.csv")
 LOG_PATH = os.path.join(DATA_DIR, "screening", "market_phase_log.csv")   # 판정 기록(덧붙이기만, 고치지 않음)
 MODEL_TAG = "v1 C10x3+D20x2+X120x2 sma65 dir40 db2 hb2 exp-tercile"
 PAGE_OUT_PATH = os.path.join(DOCS_DIR, "market_phase.html")
+FAST_PAGE_PATH = os.path.join(DOCS_DIR, "market_phase_fast.html")   # 일별 점수 국면(빠른 버전, 2026-10-12)
 
 WEIGHTS = {"C": 3, "D": 2, "X": 2}
 SMOOTH_WEEKS = 13
@@ -330,8 +331,21 @@ def main():
             .replace("__ASOF__", payload["asof"])
             .replace("__DATA__", json.dumps(payload, ensure_ascii=False, separators=(",", ":"))))
     os.makedirs(os.path.dirname(PAGE_OUT_PATH), exist_ok=True)
+    main_html = (html.replace("__OTHER_HREF__", "market_phase_fast.html").replace("__OTHER_LABEL__", "일별 점수 국면(빠른 버전)")
+                 .replace("__FAST_NOTE__", ""))
     with open(PAGE_OUT_PATH, "w", encoding="utf-8") as f:
-        f.write(html)
+        f.write(main_html)
+    # 일별 점수 국면 페이지: 같은 화면, 국면만 일별 점수 20거래일 평균 x 20거래일 전 대비로(2026-10-12 사용자 요청 - "따로 만들어줘")
+    fast_payload = dict(payload, mode="fast")
+    fast_html = (TEMPLATE.replace("__UPDATED__", datetime.now().strftime("%Y-%m-%d %H:%M")).replace("__ASOF__", payload["asof"])
+                 .replace("__DATA__", json.dumps(fast_payload, ensure_ascii=False, separators=(",", ":")))
+                 .replace("__OTHER_HREF__", "market_phase.html").replace("__OTHER_LABEL__", "시장 국면 점수(공식)"))
+    for a_, b_ in FAST_TEXT:
+        assert a_ in fast_html, a_
+        fast_html = fast_html.replace(a_, b_)
+    with open(FAST_PAGE_PATH, "w", encoding="utf-8") as f:
+        f.write(fast_html)
+    print(f"저장 완료: {FAST_PAGE_PATH}")
     append_log(asof, out, P)
     print(f"저장 완료: {SUMMARY_PATH}")
     print(f"저장 완료: {PAGE_OUT_PATH}")
@@ -358,6 +372,22 @@ def append_log(asof, out, P):
             return
     pd.DataFrame([rec]).to_csv(LOG_PATH, mode="a", header=not os.path.exists(LOG_PATH), index=False, encoding="utf-8")
     print(f"판정 기록 추가: {rec['asof']} {rec['phase_name']} 점수 {rec['score']}")
+
+# 일별 점수 국면 페이지에서 바꿔 쓰는 문구
+FAST_TEXT = [
+    ("<title>시장 국면 점수</title>", "<title>일별 점수 국면</title>"),
+    ("<h1>시장 국면 점수<span class=\"sub\">밸류 하단 · 공격-방어 · 120일선 위 종목으로 본 6국면 (매일 갱신)</span></h1>",
+     "<h1>일별 점수 국면<span class=\"sub\">시장 국면 점수의 빠른 버전 - 일별 점수 20거래일 평균으로 본 6국면 (참고용)</span></h1>"),
+    ("__FAST_NOTE__", "  <div class=\"exp\"><b>빠른 버전(참고용)</b>: 공식 시장 국면과 같은 세 지표·같은 배점이지만, 국면 점수를 65거래일이 아니라 <b>20거래일 평균</b>, 방향을 40거래일이 아니라 <b>20거래일 전 대비</b>로 봅니다. "
+     "전환을 1~2달 빨리 잡지만(2026년 중소형 하락 ⑤ 6/5 vs 공식 6/25, 반등 8/12 vs 공식 10/7) 1년에 13번 정도 바뀌어 헛신호가 많고, 2022년 이후 정답률은 공식보다 낮았습니다(약 56% vs 70%). "
+     "공식 국면으로 큰 방향을 보고, 이 페이지로 전환 조짐을 먼저 확인하는 용도로 보세요.</div>"),
+    ("국면 점수는 이것의 65거래일 평균", "이 페이지의 국면 점수는 이것의 20거래일 평균"),
+    ("비중으로 평균하고, 13주 평균을 국면 점수로 씁니다.", "비중으로 평균하고, 20거래일 평균을 국면 점수로 씁니다."),
+    ("8주 전보다 오르는 중이면(8주 변화가", "20거래일 전보다 오르는 중이면(20거래일 변화가"),
+    ("국면은 65거래일 평균 점수의 수준과 40거래일 전 대비 변화로 판단", "국면은 20거래일 평균 점수의 수준과 20거래일 전 대비 변화로 판단"),
+    ("8주 전 대비가 ±2점 이내면", "20거래일 전 대비가 ±2점 이내면"),
+    ("국면 점수(65거래일 평균)", "국면 점수(20거래일 평균)"),
+]
 
 
 TEMPLATE = r"""<!doctype html>
@@ -415,9 +445,11 @@ TEMPLATE = r"""<!doctype html>
 <body>
   <a class="back" href="index.html">&larr; 홈</a>
   <a class="back" href="relative_strength.html">종목·섹터 상대강도 순위 &rarr;</a>
+  <a class="back" href="__OTHER_HREF__">__OTHER_LABEL__ &rarr;</a>
   <h1>시장 국면 점수<span class="sub">밸류 하단 · 공격-방어 · 120일선 위 종목으로 본 6국면 (매일 갱신)</span></h1>
   <div class="updated">최종 갱신: __UPDATED__ &middot; 데이터 기준일: __ASOF__ &middot; 매 거래일 기준</div>
 
+__FAST_NOTE__
   <div class="cards" id="cards"></div>
 
   <div class="range-bar ctl" id="rangeBar" style="margin-bottom:12px">
@@ -488,6 +520,7 @@ TEMPLATE = r"""<!doctype html>
 const DATA = __DATA__;
 const N = DATA.dates.length;
 const PER = DATA.per || 1;   // 1주 = PER점(일간이면 5거래일)
+const SMLBL = DATA.mode === 'fast' ? '20거래일' : '13주', KLBL = DATA.mode === 'fast' ? '20거래일' : '8주';
 const PH = DATA.phases;
 const PHC = {1: '#9be3b0', 2: '#4cc47a', 3: '#1f8a4c', 4: '#f2a25c', 5: '#e8684a', 6: '#b5252b'};
 const PHDESC = {
@@ -676,7 +709,7 @@ function buildCharts() {
 
 function renderRecent() {
   const iE = lastIdx(M.ph);
-  let h = '<tr><th>날짜</th><th>국면</th><th>국면 점수</th><th>전일 대비</th><th>' + DATA.dirWeeks + '주 전 대비</th><th>밸류 하단</th><th>공격-방어</th><th>120일선 위</th></tr>';
+  let h = '<tr><th>날짜</th><th>국면</th><th>국면 점수</th><th>전일 대비</th><th>' + KLBL + ' 전 대비</th><th>밸류 하단</th><th>공격-방어</th><th>120일선 위</th></tr>';
   for (let i = iE; i >= Math.max(0, iE - 14); i--) {
     const chg = i > 0 && M.ph[i - 1] && M.ph[i] !== M.ph[i - 1];
     const d1 = M.Ls[i] - M.Ls[i - 1], dk = M.Ls[i] - M.Ls[i - CFG.k];
@@ -697,7 +730,7 @@ function renderCards() {
   $('cards').innerHTML =
     '<div class="card main"><div class="lbl">현재 국면 (' + DATA.dates[iP] + ')</div><span class="badge" style="background:' + PHC[p] + '">' + PH[p] + '</span>' +
     '<div class="sub">' + PHDESC[p] + '</div><div class="sub">최근 30거래일 국면 흐름(왼쪽이 과거)</div><div class="strip">' + strip + '</div></div>' +
-    cd('국면 점수 (' + DATA.smooth + '주 평균)', fmt(s) + '<span style="font-size:13px;color:#9aa0a6"> / 100</span>', '낮음 &lt; ' + fmt(M.lo[iS]) + ' · 높음 &gt; ' + fmt(M.hi[iS]) + '<br>' + DATA.dirWeeks + '주 전 ' + fmt(sk) + ' → <span class="' + (s - sk >= 0 ? 'pos' : 'neg') + '">' + sgn(s - sk) + '</span>') +
+    cd('국면 점수 (' + SMLBL + ' 평균)', fmt(s) + '<span style="font-size:13px;color:#9aa0a6"> / 100</span>', '낮음 &lt; ' + fmt(M.lo[iS]) + ' · 높음 &gt; ' + fmt(M.hi[iS]) + '<br>' + KLBL + ' 전 ' + fmt(sk) + ' → <span class="' + (s - sk >= 0 ? 'pos' : 'neg') + '">' + sgn(s - sk) + '</span>') +
     cd('공격-방어 상대강도(1달)', '<span class="' + (DATA.D[iD] >= 0 ? 'pos' : 'neg') + '">' + sgn(DATA.D[iD]) + '%p</span>', '점수 ' + fmt(DATA.sD[iD], 0) + '점 · 배점 ' + CFG.wD) +
     cd('밸류 하단 종목 비율', fmt(DATA.C[iC]) + '%', '점수 ' + fmt(DATA.sC[iC], 0) + '점 · 배점 ' + CFG.wC + ' (비율 낮을수록 점수 높음) · ' + DATA.cN.toLocaleString() + '종목') +
     cd('120일선 위 종목 비율', fmt(DATA.X[iX]) + '%', '점수 ' + fmt(DATA.sX[iX], 0) + '점 · 배점 ' + CFG.wX);
@@ -706,15 +739,16 @@ function renderCards() {
   $('nowRaw').textContent = '현재 ' + fmt(RAW[iR]) + ' · 20거래일 평균 ' + fmt(RAW20[iR]) + ' · 국면 점수 ' + fmt(M.Ls[iR]);
   const iSm = lastIdx(DATA.smIdx);
   $('nowSm').textContent = '현재 ' + fmt(DATA.smIdx[iSm]) + ' · 최근 1달 ' + sgn((DATA.smIdx[iSm] / DATA.smIdx[iSm - 4 * PER] - 1) * 100) + '% · 코스피 ' + sgn((DATA.kospi[iSm] / DATA.kospi[iSm - 4 * PER] - 1) * 100) + '%';
-  $('nowScore').textContent = '현재 ' + fmt(s) + ' (' + DATA.dirWeeks + '주 전 ' + fmt(sk) + ')';
-  $('descScore').textContent = '배점 밸류 하단 ' + CFG.wC + ' · 공격-방어 ' + CFG.wD + ' · 120일선 위 ' + CFG.wX + ', ' + DATA.smooth + '주 평균. 점선은 그 시점까지 점수 분포의 하위 1/3(낮음 기준)·상위 1/3(높음 기준)입니다.';
+  $('nowScore').textContent = '현재 ' + fmt(s) + ' (' + KLBL + ' 전 ' + fmt(sk) + ')';
+  $('descScore').textContent = '배점 밸류 하단 ' + CFG.wC + ' · 공격-방어 ' + CFG.wD + ' · 120일선 위 ' + CFG.wX + ', ' + SMLBL + ' 평균. 점선은 그 시점까지 점수 분포의 하위 1/3(낮음 기준)·상위 1/3(높음 기준)입니다.';
   $('nowD').textContent = '현재 ' + sgn(DATA.D[iD]) + '%p · ' + fmt(DATA.sD[iD], 0) + '점';
   $('nowC').textContent = '현재 ' + fmt(DATA.C[iC]) + '% · ' + fmt(DATA.sC[iC], 0) + '점';
   $('nowX').textContent = '현재 ' + fmt(DATA.X[iX]) + '% · ' + fmt(DATA.sX[iX], 0) + '점';
 }
 
 const thrVal = v => (v === 'exp' || v === 'fix') ? v : +v;
-const CFG = {wC: DATA.weights.C, wD: DATA.weights.D, wX: DATA.weights.X, sm: DATA.smooth * PER, k: DATA.dirWeeks * PER, db: DATA.deadband, hb: DATA.levelBand, thr: 'exp'};
+const MODE = DATA.mode || 'main';   // 'fast' = 일별 점수 국면 페이지(20거래일 평균·20거래일 방향)
+const CFG = {wC: DATA.weights.C, wD: DATA.weights.D, wX: DATA.weights.X, sm: (MODE === 'fast' ? 4 : DATA.smooth) * PER, k: (MODE === 'fast' ? 4 : DATA.dirWeeks) * PER, db: DATA.deadband, hb: DATA.levelBand, thr: 'exp'};
 function recalc() {
   M = computeModel(CFG);
   renderCards(); renderRecent(); buildCharts();
