@@ -91,6 +91,8 @@ SLOW_STEPS = [
 CATCHUP_STEPS = [
     ("fetch_adr.py", "[재시도] 코스피/코스닥 ADR (KRX 발표 지연 대비)"),
     ("fetch_bollinger_prices.py", "[재시도] 볼린저밴드 돌파종목수용 종가 (KRX 발표 지연 대비)"),
+    ("fetch_krx.py", "[재시도] 코스피 시가총액·거래대금(KRX 종목별 합산 - 07:30엔 전일분이 아직 없을 때가 많음, 2026-10-13 추가)"),
+    ("build_tv_signal.py", "[재시도] 거래대금 신호 재빌드"),
     ("build_bollinger_breakout.py", "[재시도] 볼린저밴드 돌파 종목수 트래커 재빌드"),
     ("build_relative_strength.py", "[재시도] 종목 상대강도 순위 페이지 재빌드"),
     ("build_market_phase.py", "[재시도] 시장 국면 점수 페이지 재빌드"),
