@@ -203,7 +203,7 @@ def process_sheet_v2(ws):
         # 이월해서 쓴다 - 소스가 며칠~몇 주씩 일시적으로 컨센서스를 안 주는 경우 TTM으로
         # 확 떨어지는 착시를 막는다. "상향추세" 판정용 원본 시계열(series_fy1_raw 등)은
         # 이 이월과 무관하게 아래에서 항상 원본 그대로 따로 채운다(지어내지 않음).
-        FY_FFILL_LIMIT = 20
+        FY_FFILL_LIMIT = 60   # 2026-10-13 20 -> 60거래일(약 3달): 에스티아이처럼 컨센서스가 한 달 넘게 비면 TTM으로 떨어지던 문제(FnGuide도 보통 3달 지난 보고서는 집계에서 뺌)
         fy1_all = [row_vals[nfy1_idx] if nfy1_idx is not None else None for row_vals in data_rows]
         fy2_all = [row_vals[nfy2_idx] if nfy2_idx is not None else None for row_vals in data_rows]
         fy1_filled = ffill_short_gaps(fy1_all, FY_FFILL_LIMIT)
@@ -257,8 +257,17 @@ def process_sheet_v2(ws):
             series_fy1_raw.append(fy1_raw)
             series_fy2_raw.append(fy2_raw)
 
+        # 최신 시점에 원본 컨센서스는 비어 있는데 직전 추정치를 이월해서 쓰는 중이면 그 일수(페이지 표시용)
+        carry = 0
+        for i in range(len(data_rows) - 1, -1, -1):
+            raw_none = (nfy1_idx is None or data_rows[i][nfy1_idx] is None) and (nfy2_idx is None or data_rows[i][nfy2_idx] is None)
+            filled = fy1_filled[i] is not None or fy2_filled[i] is not None
+            if raw_none and filled:
+                carry += 1
+            else:
+                break
         if series_dates:
-            results[code] = {"name": name, "dates": series_dates, "mult": series_mult,
+            results[code] = {"name": name, "dates": series_dates, "mult": series_mult, "est_carry_days": carry,
                               "op": series_op, "mktcap": series_mktcap,
                               "latest_has_estimate": latest_has_estimate,
                               "has_2027": latest_fy2_present,
@@ -294,6 +303,7 @@ def build_row(code, data, sector_map, naver_sector_map, latest_overall):
         "latest_mktcap": round(data["mktcap"][-1], 0) if data.get("mktcap") else None,
         "has_2027": bool(data.get("has_2027")),
         "is_override": bool(data.get("is_override")),
+        "est_carry_days": int(data.get("est_carry_days") or 0),
     }
     # 추정치 상향 추세(2026-09-22 추가) - NFY1/NFY2 원본 컨센서스 값 자체를 스위칭/보간 없이
     # N거래일 전과 비교(build_estimate_revision.py와 동일 로직 재사용). "선행OP"(위 mult 분모)는
@@ -632,7 +642,7 @@ function applyFilters() {{
   document.getElementById('count').textContent = rows.length + '종목 (행 클릭하면 밴드 차트)';
   document.getElementById('tbody').innerHTML = rows.slice(0, 400).map(r => `
     <tr data-code="${{r.code}}">
-      <td>${{r.is_override ? '<span class="ov-badge" title="애널리스트 자체추정치가 컨센서스 대신 적용됨">자체</span>' : ''}}${{r.name}}</td><td class="sub">${{r.code}}</td><td class="sub">${{r.sector || '-'}}</td>
+      <td>${{r.is_override ? '<span class="ov-badge" title="애널리스트 자체추정치가 컨센서스 대신 적용됨">자체</span>' : ''}}${{r.est_carry_days > 0 ? '<span class="ov-badge" style="background:#5c4a1a;color:#ffd43b" title="원본 컨센서스가 비어 직전 추정치를 이월 중(최대 60거래일)">이월 ' + r.est_carry_days + '일</span>' : ''}}${{r.name}}</td><td class="sub">${{r.code}}</td><td class="sub">${{r.sector || '-'}}</td>
       <td>${{fmtMktcap(r.latest_mktcap)}}</td>
       <td>${{r.latest_mult.toFixed(2)}}x</td>
       <td>${{r[bKey].toFixed(2)}}x</td>
