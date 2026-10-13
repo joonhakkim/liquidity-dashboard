@@ -212,3 +212,13 @@
 2026-10-13,mingu_mp,increase_pct,엘티씨,170920,1.0,,2026-10-13T20:06:16.071384
 2026-10-13,momentum_mp,swap,DN오토모티브,007340,,엑시콘|092870,2026-10-13T20:06:16.186649
 2026-10-13,momentum_mp,swap,GS건설,006360,,디아이|003160,2026-10-13T20:06:16.186649
+2026-10-13,kosdaq_long_short_index,exit,코미코,183300,,네오셈으로 교체,2026-10-14T08:39:29.433882
+2026-10-13,kosdaq_long_short_index,target_pct,네오셈,253590,8.0,코미코 대신 8%,2026-10-14T08:39:29.433882
+2026-10-13,kosdaq_long_short_index,reduce_pct,에프에스티,036810,1.0,,2026-10-14T08:39:29.433882
+2026-10-13,kosdaq_long_short_index,reduce_pct,유니테스트,086390,1.0,,2026-10-14T08:39:29.433882
+2026-10-13,kosdaq_long_short_index,new_entry_pct,에이엘티,172670,2.0,,2026-10-14T08:39:29.433882
+2026-10-13,kosdaq_long_short_index,reduce_pct,로보티즈,108490,2.0,,2026-10-14T08:39:29.433882
+2026-10-13,kosdaq_long_short_index,reduce_pct,라이콤,388790,2.0,,2026-10-14T08:39:29.433882
+2026-10-13,kosdaq_long_short_index,increase_pct,코세스,089890,1.0,,2026-10-14T08:39:29.433882
+2026-10-13,kosdaq_long_short_index,target_pct,KODEX 코스닥150선물인버스,251340,55.0,숏 55%로 축소(추가 지시로 5%p 축소 대체),2026-10-14T08:39:29.433882
+2026-10-13,kosdaq_long_short_index,increase_pct,엘앤씨바이오,290650,1.0,,2026-10-14T08:39:29.433882
