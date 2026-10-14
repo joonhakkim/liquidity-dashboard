@@ -67,13 +67,11 @@ WARN_INPUTS_PATH = os.path.join(DATA_DIR, "phase_warning_inputs.csv")
 MERGED_PATH = os.path.join(DATA_DIR, "merged.csv")
 
 
-def sector_returns(members, usable, asof):
+def sector_returns(members, usable, series):
     """섹터 등락률(구성종목 단순평균, 2026-10-14 사용자 요청 - 섹터 일간 등락률 막대 차트).
-    수익률은 종가(bollinger_prices) 일간 수익률을 이어붙여 계산 - 하루 31% 넘는 변동(분할 등)은 제외."""
-    df = pd.read_csv(PRICES_PATH, usecols=["date", "code", "close"], dtype={"date": "int32", "code": "str", "close": "float32"})
-    df = df[(df["date"] >= int((asof - pd.Timedelta(days=60)).strftime("%Y%m%d"))) & df["code"].isin(usable)]
-    df["date"] = pd.to_datetime(df["date"].astype(str), format="%Y%m%d")
-    px = df.pivot_table(index="date", columns="code", values="close", aggfunc="last").sort_index().loc[:asof]
+    수익률은 이평선 계산과 같은 시계열(기업밴드찾기2 일별 시총, 없으면 종가)의 일간 변화를 이어붙여 계산 -
+    KRX 종가보다 하루 빨리 들어옴(장마감 당일 워크북 갱신분). 하루 31% 넘는 변동(분할·증자 등)은 제외."""
+    px = series[usable].iloc[-40:]
     R = px.pct_change(fill_method=None)
     R[R.abs() > 0.31] = np.nan
     lr = np.log1p(R)
@@ -101,7 +99,7 @@ def sector_returns(members, usable, asof):
         hdr = []
         for nm, ser in idx.items():
             a, b = ser.loc[:d1], ser.loc[:d0]
-            if len(a) and len(b) and a.index[-1] >= d1 - pd.Timedelta(days=3):
+            if len(a) and len(b) and (d1 - a.index[-1]).days <= 3:
                 hdr.append({"name": nm, "v": round(float(a.iloc[-1]), 1), "ch": round(float((a.iloc[-1] / b.iloc[-1] - 1) * 100), 1)})
         res[key] = {"from": d0.strftime("%Y-%m-%d"), "rows": sorted(rows, key=lambda x: -x["r"]), "hdr": hdr}
     return res
@@ -169,7 +167,7 @@ def main():
         out["stocks"][c] = {"name": nm, "cap": round(float(cap.iloc[-1]) / 1e8) if len(cap) else None,
                             "src": "시총" if c in caps.columns else "종가",
                             "g": {str(w): (None if not np.isfinite(gaps[w].at[last, c]) else round(float(gaps[w].at[last, c]), 1)) for w in WINDOWS}}
-    out["ret"] = sector_returns(members, usable, asof)
+    out["ret"] = sector_returns(members, usable, series)
     os.makedirs(os.path.dirname(SUMMARY_PATH), exist_ok=True)
     pd.DataFrame(rows).sort_values("above20", ascending=False).to_csv(SUMMARY_PATH, index=False, encoding="utf-8-sig", float_format="%.1f")
     html = (TEMPLATE.replace("__UPDATED__", datetime.now().strftime("%Y-%m-%d %H:%M")).replace("__ASOF__", out["asof"])
