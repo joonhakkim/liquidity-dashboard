@@ -24,7 +24,7 @@ import numpy as np
 import pandas as pd
 
 sys.path.insert(0, os.path.dirname(__file__))
-from build_relative_strength import assign_sectors  # noqa: E402
+from build_relative_strength import assign_sectors, load_kospi_series  # noqa: E402
 
 BASE_DIR = os.path.join(os.path.dirname(__file__), "..")
 DATA_DIR = os.path.join(BASE_DIR, "data")
@@ -60,6 +60,51 @@ def load_series(codes_needed):
             df["date"] = pd.to_datetime(df["date"].astype(str), format="%Y%m%d")
             px = df.pivot_table(index="date", columns="code", values="close", aggfunc="last").reindex(caps.index)
     return caps[have], px, missing
+
+
+RET_PERIODS = {"1": 1, "5": 5, "20": 20}   # 섹터 등락률: 1일 / 1주(5거래일) / 1달(20거래일)
+WARN_INPUTS_PATH = os.path.join(DATA_DIR, "phase_warning_inputs.csv")
+MERGED_PATH = os.path.join(DATA_DIR, "merged.csv")
+
+
+def sector_returns(members, usable, asof):
+    """섹터 등락률(구성종목 단순평균, 2026-10-14 사용자 요청 - 섹터 일간 등락률 막대 차트).
+    수익률은 종가(bollinger_prices) 일간 수익률을 이어붙여 계산 - 하루 31% 넘는 변동(분할 등)은 제외."""
+    df = pd.read_csv(PRICES_PATH, usecols=["date", "code", "close"], dtype={"date": "int32", "code": "str", "close": "float32"})
+    df = df[(df["date"] >= int((asof - pd.Timedelta(days=60)).strftime("%Y%m%d"))) & df["code"].isin(usable)]
+    df["date"] = pd.to_datetime(df["date"].astype(str), format="%Y%m%d")
+    px = df.pivot_table(index="date", columns="code", values="close", aggfunc="last").sort_index().loc[:asof]
+    R = px.pct_change(fill_method=None)
+    R[R.abs() > 0.31] = np.nan
+    lr = np.log1p(R)
+    traded = px.iloc[-1].notna()
+    idx = {}
+    try:
+        idx["코스피"] = pd.Series({pd.Timestamp(k): float(v) for k, v in load_kospi_series().items()}).sort_index()
+    except SystemExit:
+        pass
+    if os.path.exists(WARN_INPUTS_PATH):
+        idx["코스닥"] = pd.read_csv(WARN_INPUTS_PATH, parse_dates=["date"]).set_index("date")["kosdaq_close"].dropna()
+    if os.path.exists(MERGED_PATH):
+        idx["원/달러"] = pd.read_csv(MERGED_PATH, usecols=["date", "usd_krw"], parse_dates=["date"]).set_index("date")["usd_krw"].dropna()
+    res = {"date": px.index[-1].strftime("%Y-%m-%d")}
+    for key, k in RET_PERIODS.items():
+        if len(px) <= k:
+            continue
+        rk = (np.expm1(lr.iloc[-k:].sum(min_count=1)) * 100).where(traded)
+        rows = []
+        for sec, cs in members.items():
+            v = rk.reindex(cs).dropna()
+            if len(v) >= MIN_MEMBERS:
+                rows.append({"name": sec, "r": round(float(v.mean()), 2), "n": int(len(v)), "up": int((v > 0).sum())})
+        d1, d0 = px.index[-1], px.index[-1 - k]
+        hdr = []
+        for nm, ser in idx.items():
+            a, b = ser.loc[:d1], ser.loc[:d0]
+            if len(a) and len(b) and a.index[-1] >= d1 - pd.Timedelta(days=3):
+                hdr.append({"name": nm, "v": round(float(a.iloc[-1]), 1), "ch": round(float((a.iloc[-1] / b.iloc[-1] - 1) * 100), 1)})
+        res[key] = {"from": d0.strftime("%Y-%m-%d"), "rows": sorted(rows, key=lambda x: -x["r"]), "hdr": hdr}
+    return res
 
 
 def main():
@@ -124,6 +169,7 @@ def main():
         out["stocks"][c] = {"name": nm, "cap": round(float(cap.iloc[-1]) / 1e8) if len(cap) else None,
                             "src": "시총" if c in caps.columns else "종가",
                             "g": {str(w): (None if not np.isfinite(gaps[w].at[last, c]) else round(float(gaps[w].at[last, c]), 1)) for w in WINDOWS}}
+    out["ret"] = sector_returns(members, usable, asof)
     os.makedirs(os.path.dirname(SUMMARY_PATH), exist_ok=True)
     pd.DataFrame(rows).sort_values("above20", ascending=False).to_csv(SUMMARY_PATH, index=False, encoding="utf-8-sig", float_format="%.1f")
     html = (TEMPLATE.replace("__UPDATED__", datetime.now().strftime("%Y-%m-%d %H:%M")).replace("__ASOF__", out["asof"])
@@ -172,6 +218,14 @@ TEMPLATE = r"""<!doctype html>
   .chk { cursor:pointer; }
   .members td { font-size:11px; color:#c9ccd1; background:#0f1218; }
   .tblwrap { overflow-x:auto; }
+  .rb { display:grid; grid-template-columns:110px 70px 1fr; align-items:center; gap:6px; font-size:12px; height:23px; }
+  .rb .nm { text-align:right; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .rb .sb { color:#7c828b; font-size:11px; white-space:nowrap; }
+  .rb .tr { position:relative; height:16px; }
+  .rb .z { position:absolute; left:50%; top:-4px; bottom:-4px; border-left:1px solid #6b7280; }
+  .rb .b { position:absolute; top:2px; height:12px; border-radius:2px; }
+  .rb .v { position:absolute; top:0; font-size:11px; font-weight:700; white-space:nowrap; }
+  @media (max-width: 640px) { .rb { grid-template-columns:84px 56px 1fr; } }
   .note { font-size:12px; color:#9aa0a6; line-height:1.7; background:#1a1d24; border-radius:10px; padding:12px 16px; }
   .note b { color:#ffa94d; }
   @media (max-width: 640px) { body { padding:16px; } .chart-wrap { height:260px; } }
@@ -190,6 +244,12 @@ TEMPLATE = r"""<!doctype html>
   </div>
 
   <div class="cards" id="cards"></div>
+
+  <div class="box">
+    <h2>섹터 등락률 <span id="retSub" style="font-size:12px;font-weight:normal;color:#9aa0a6"></span></h2>
+    <div class="ctl" style="margin-bottom:8px"><span class="seg" id="segR"><button data-r="1" class="active">1일</button><button data-r="5">1주</button><button data-r="20">1달</button></span><span id="retHdr"></span></div>
+    <div id="retBars"></div>
+  </div>
 
   <div class="box">
     <h2>추이 <span id="chartTitle" style="font-size:12px;font-weight:normal;color:#9aa0a6"></span></h2>
@@ -330,6 +390,21 @@ $('segW').innerHTML = D.windows.map(w => `<button data-w="${w}" class="${w === W
 $('segW').onclick = e => { const b = e.target.closest('button'); if (!b) return; W = +b.dataset.w; document.querySelectorAll('#segW button').forEach(x => x.classList.toggle('active', x === b)); renderAll(); };
 $('segK').onclick = e => { const b = e.target.closest('button'); if (!b) return; K = b.dataset.k; document.querySelectorAll('#segK button').forEach(x => x.classList.toggle('active', x === b)); renderAll(); };
 $('segP').onclick = e => { const b = e.target.closest('button'); if (!b) return; PERIOD = +b.dataset.p; document.querySelectorAll('#segP button').forEach(x => x.classList.toggle('active', x === b)); renderChart(); };
+let RP = '1';
+function renderRet() {
+  const R = D.ret && D.ret[RP]; if (!R) { $('retBars').innerHTML = '<div class="desc">자료 없음</div>'; return; }
+  $('retSub').textContent = (RP === '1' ? D.ret.date : R.from + ' → ' + D.ret.date) + ' 종가 · 구성종목 단순평균 · 섹터 정리 기준';
+  $('retHdr').innerHTML = R.hdr.map(h => `${h.name} <b>${h.v.toLocaleString(undefined, {maximumFractionDigits: 1})}</b> <span class="${h.ch >= 0 ? 'pos' : 'neg'}">${h.ch >= 0 ? '+' : ''}${h.ch.toFixed(1)}%</span>`).join(' &nbsp;·&nbsp; ');
+  const mx = Math.max(...R.rows.map(x => Math.abs(x.r)), 0.1);
+  $('retBars').innerHTML = R.rows.map(x => {
+    const w = Math.abs(x.r) / mx * 40, pos = x.r >= 0, lbl = (pos ? '+' : '') + x.r.toFixed(1) + '%';
+    const bar = pos ? `<span class="b" style="left:50%;width:${w}%;background:#ff6b6b"></span><span class="v pos" style="left:calc(50% + ${w}% + 4px)">${lbl}</span>`
+                    : `<span class="b" style="right:50%;width:${w}%;background:#4dabf7"></span><span class="v neg" style="right:calc(50% + ${w}% + 4px)">${lbl}</span>`;
+    return `<div class="rb"><span class="nm">${x.name}</span><span class="sb">${x.n}중 ${x.up}↑</span><span class="tr"><span class="z"></span>${bar}</span></div>`;
+  }).join('');
+}
+$('segR').onclick = e => { const b = e.target.closest('button'); if (!b) return; RP = b.dataset.r; document.querySelectorAll('#segR button').forEach(x => x.classList.toggle('active', x === b)); renderRet(); };
+renderRet();
 renderAll();
 </script>
 </body>
