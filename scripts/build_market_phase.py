@@ -457,7 +457,7 @@ def main():
     print(f"데이터 기준일 {asof.date()} | 국면 {PHASES[int(last['phase'])]} | 점수 {last['score']:.1f} (낮음<{last['lo']:.1f}, 높음>{last['hi']:.1f}) | 8주 전 {prev.iloc[-1 - DIR_WEEKS * P]:.1f}")
     print(f"  밸류 하단 비율 {out['C'].iloc[-1] * 100:.1f}% ({c_n}종목) | 공격-방어 {out['D'].iloc[-1] * 100:+.1f}%p | 120일선 위 {out['X'].iloc[-1] * 100:.1f}%")
     on_now = [nm for k, nm, _ in VULN if out[f"w_{k}"].iloc[-1]]
-    print(f"  대응 단계 {STAGES.get(int(last['stage']), '-')} | 대형주만 버팀 {out['capn60'].iloc[-1]:+.1f}%p | 취약 신호 {int(out['vuln_n'].iloc[-1])}/9 {on_now}")
+    print(f"  대응 단계 {STAGES.get(int(last['stage']), '-')[2:]} | 대형주만 버팀 {out['capn60'].iloc[-1]:+.1f}%p | 취약 신호 {int(out['vuln_n'].iloc[-1])}/9 {on_now}")
     os.makedirs(os.path.dirname(SUMMARY_PATH), exist_ok=True)
     out.rename_axis("date").to_csv(SUMMARY_PATH, encoding="utf-8-sig", float_format="%.5g")
 
