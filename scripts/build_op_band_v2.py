@@ -157,6 +157,13 @@ def ffill_short_gaps(values, limit):
     return out
 
 
+# 종목별 일별 시가총액(원) - build_sector_ma_breadth.py(섹터별 이동평균선 아래 종목 비율)가 쓴다.
+# 워크북을 두 번 읽지 않도록 OP밴드 빌드 때 같이 저장(gitignore 경로 - 용량이 커서 저장소에 안 올림).
+MKTCAP_DAILY = {}
+MKTCAP_DAILY_FROM = datetime(2022, 1, 1)
+MKTCAP_DAILY_PATH = os.path.join(os.path.dirname(__file__), "..", "data", "screening", "cache", "op_band_mktcap_daily.pkl")
+
+
 def process_sheet_v2(ws):
     max_col = ws.max_column
     max_row = ws.max_row
@@ -193,6 +200,10 @@ def process_sheet_v2(ws):
                     nfy1_idx = k
                 elif base == "NFY2":
                     nfy2_idx = k
+        # 섹터 이동평균 비율 페이지용 일별 시가총액(2026-10-14) - 추정치 유무와 상관없이 시총만 있으면 모아둔다
+        if mktcap_idx is not None and code not in MKTCAP_DAILY:
+            MKTCAP_DAILY[code] = {d: row_vals[mktcap_idx] for d, row_vals in zip(dates, data_rows)
+                                  if row_vals[mktcap_idx] is not None and d >= MKTCAP_DAILY_FROM}
         # v2는 신형(NFY1/NFY2 직접값) 파일만 대상 - 구형 분기합산 파일은 보간 자체가 불가능
         if mktcap_idx is None or (nfy1_idx is None and nfy2_idx is None):
             continue
@@ -350,6 +361,11 @@ def main():
         for code, data in res.items():
             all_results.setdefault(code, data)
         print(f"  {len(res)}개 종목(12개월 선행 보간)")
+    if MKTCAP_DAILY:
+        import pandas as _pd
+        os.makedirs(os.path.dirname(MKTCAP_DAILY_PATH), exist_ok=True)
+        _pd.DataFrame({c: _pd.Series(v) for c, v in MKTCAP_DAILY.items()}).sort_index().astype("float64").to_pickle(MKTCAP_DAILY_PATH)
+        print(f"일별 시가총액 저장: {MKTCAP_DAILY_PATH} ({len(MKTCAP_DAILY)}종목)")
 
     # FnGuide(Naver WiseReport) 컨센서스 교차검증 보정 - 기존 OP밴드(v1)에만 있던 걸
     # 2026-09-14 v2에도 포팅. 애널리스트 추정치가 아예 없어서 TTM/직전값으로 때워지고 있던
