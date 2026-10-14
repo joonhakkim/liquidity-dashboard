@@ -8,7 +8,7 @@
 - 종목별 일별 시계열: '기업 밴드 찾기 2' 워크북의 일별 시가총액(build_op_band_v2.py가 읽을 때
   data/screening/cache/op_band_mktcap_daily.pkl로 같이 저장). 시총은 액면분할에도 끊기지 않아
   미수정 종가보다 이평선 계산에 안전하다. 워크북에 없는 종목만 가격 패널(bollinger_prices.csv) 종가로 대신.
-- 이동평균선 N일(5/10/20/60/120/200, 페이지에서 선택 - 기본 20): 시총(또는 종가)이 자기 N일 평균 이상이면 '위'.
+- 이동평균선 N일(10/15/20/60/120/200, 페이지에서 선택 - 기본 20): 시총(또는 종가)이 자기 N일 평균 이상이면 '위'.
 - 섹터 비율 = 위 종목 수 / 이평선 계산 가능한 종목 수 (3종목 미만이면 빈칸).
   시총 가중 = 위 종목 시총 합 / 섹터 시총 합(워크북 시총이 있는 종목만).
 - 위 비율이 높을수록 그 섹터가 강하다. 처음엔 '아래 비율'(낮을수록 강함)이었으나 같은 날 사용자 요청으로
@@ -33,7 +33,7 @@ PRICES_PATH = os.path.join(DATA_DIR, "bollinger_prices.csv")
 SECTOR_MAP_PATH = os.path.join(DATA_DIR, "sector_map.csv")
 OUT_PATH = os.path.join(BASE_DIR, "docs", "sector_ma_breadth.html")
 SUMMARY_PATH = os.path.join(DATA_DIR, "screening", "sector_ma_breadth_summary.csv")
-WINDOWS = [5, 10, 20, 60, 120, 200]
+WINDOWS = [10, 15, 20, 60, 120, 200]   # 2026-10-14 사용자 요청: 5일 빼고 15일 추가
 DEFAULT_WINDOW = 20
 HISTORY_FROM = "2023-01-01"
 MIN_MEMBERS = 3
