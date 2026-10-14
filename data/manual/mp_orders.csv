@@ -222,9 +222,13 @@
 2026-10-13,kosdaq_long_short_index,increase_pct,코세스,089890,1.0,,2026-10-14T08:39:29.433882
 2026-10-13,kosdaq_long_short_index,target_pct,KODEX 코스닥150선물인버스,251340,55.0,숏 55%로 축소(추가 지시로 5%p 축소 대체),2026-10-14T08:39:29.433882
 2026-10-13,kosdaq_long_short_index,increase_pct,엘앤씨바이오,290650,1.0,,2026-10-14T08:39:29.433882
-2026-10-14,troy_mp,new_entry_pct,도우인시스,484120,2,,
-2026-10-14,mingu_mp,increase_pct,아스플로,159010,1.0,,
-2026-10-14,mingu_mp,increase_pct,한양디지텍,078350,1.0,,
-2026-10-14,mingu_mp,increase_pct,RF머트리얼즈,327260,3.0,,
-2026-10-14,mingu_mp,increase_pct,엘티씨,170920,3.0,,
-2026-10-14,mingu_mp,increase_pct,아모텍,052710,3.0,,
+2026-10-14,troy_mp,new_entry_pct,도우인시스,484120,2.0,,2026-10-14T20:06:20.150418
+2026-10-14,mingu_mp,increase_pct,아스플로,159010,1.0,,2026-10-14T20:06:20.026604
+2026-10-14,mingu_mp,increase_pct,한양디지텍,078350,1.0,,2026-10-14T20:06:20.026604
+2026-10-14,mingu_mp,increase_pct,RF머트리얼즈,327260,3.0,,2026-10-14T20:06:20.026604
+2026-10-14,mingu_mp,increase_pct,엘티씨,170920,3.0,,2026-10-14T20:06:20.026604
+2026-10-14,mingu_mp,increase_pct,아모텍,052710,3.0,,2026-10-14T20:06:20.026604
+2026-10-14,kosdaq_long_short_index,reduce_pct,제우스,079370,1.0,,2026-10-14T20:06:19.986601
+2026-10-14,kosdaq_long_short_index,reduce_pct,알테오젠,196170,4.0,,2026-10-14T20:06:19.986601
+2026-10-14,kosdaq_long_short_index,exit,로보티즈,108490,,,2026-10-14T20:06:19.986601
+2026-10-14,kosdaq_long_short_index,exit,알멕,354320,,,2026-10-14T20:06:19.986601
