@@ -37,6 +37,11 @@ WINDOWS = [10, 15, 20, 60, 120, 200]   # 2026-10-14 사용자 요청: 5일 빼�
 DEFAULT_WINDOW = 20
 HISTORY_FROM = "2023-01-01"
 MIN_MEMBERS = 3
+# 장기 약세 기준(2026-10-14 검증, 섹터 정리 42섹터 2016~, 수익률 누적 로그가격): 120·200일선 위 비율이 40% 아래인 섹터는
+# 이후 120거래일 다른 섹터 평균보다 200일선 -3.0%p(t-2.5, 2016~20) / -5.6%p(t-2.3, 2021~), 120일선 -3.2%p(t-2.7) / -3.0%p(t-1.2).
+# 아래에 1~3달 머물수록 더 약함(200일선 3달+ -3.4 / -7.9%p). 10~60일선은 어느 문턱에서도 일관된 차이가 없어 기준을 두지 않음.
+# '처음 내려간 날' 자체는 예측력이 없음(이후 반등도 잦음) - 머문 상태를 봐야 함.
+LONG_WEAK = {120: 40, 200: 40}
 
 
 def load_series(codes_needed):
@@ -77,7 +82,7 @@ def main():
     dates = series.index[hist]
     capw = caps.reindex(columns=series.columns)          # 가중치용(종가 대체 종목은 NaN -> 가중에서 제외)
     out = {"asof": asof.strftime("%Y-%m-%d"), "dates": [d.strftime("%Y-%m-%d") for d in dates], "windows": WINDOWS,
-           "default": DEFAULT_WINDOW, "sectors": [], "all": {}, "stocks": {}}
+           "default": DEFAULT_WINDOW, "weak": {str(k): v for k, v in LONG_WEAK.items()}, "sectors": [], "all": {}, "stocks": {}}
     gaps = {}
     above_by_w = {}
     for w in WINDOWS:
@@ -188,7 +193,7 @@ TEMPLATE = r"""<!doctype html>
 
   <div class="box">
     <h2>추이 <span id="chartTitle" style="font-size:12px;font-weight:normal;color:#9aa0a6"></span></h2>
-    <div class="desc">아래 표에서 섹터 앞 체크박스로 선택(기본: 지금 가장 강한 3개·가장 약한 3개). 점선 = 섹터 정리 전체 종목. <b style="color:#ffa94d">높을수록 강함</b>(대부분 종목이 이평선 위).</div>
+    <div class="desc">아래 표에서 섹터 앞 체크박스로 선택(기본: 지금 가장 강한 3개·가장 약한 3개). 점선 = 섹터 정리 전체 종목. <b style="color:#ffa94d">높을수록 강함</b>(대부분 종목이 이평선 위). <span id="weakNote"></span></div>
     <div class="chart-wrap"><canvas id="cLine"></canvas></div>
   </div>
 
@@ -206,7 +211,8 @@ TEMPLATE = r"""<!doctype html>
     <b>계산</b>: 섹터는 '섹터 정리' 엑셀의 종목만 씁니다. 종목별로 '기업 밴드 찾기 2'의 일별 시가총액이 자기 N일 이동평균 이상이면 '위'로 셉니다
     (시총은 액면분할에도 끊기지 않아 미수정 종가보다 안전합니다. 워크북에 없는 종목만 종가로 대신 계산).
     위 비율 = 위 종목 수 ÷ 계산 가능한 종목 수, 시총 가중 = 위 종목 시총 합 ÷ 섹터 시총 합. 3종목 미만인 날은 비웁니다.<br>
-    <b>보는 법</b>: 비율이 높을수록 섹터 내 대부분 종목이 상승 추세(강함), 낮을수록 약함. 1주·1달 전 대비 변화로 강해지는 중인지 약해지는 중인지 봅니다.
+    <b>보는 법</b>: 비율이 높을수록 섹터 내 대부분 종목이 상승 추세(강함), 낮을수록 약함. 1주·1달 전 대비 변화로 강해지는 중인지 약해지는 중인지 봅니다.<br>
+    <b>장기 약세 기준 40%</b>(120·200일선, 빨간 점선): 2016년 이후 이 아래에 있던 섹터는 이후 6달 동안 다른 섹터보다 평균 3~6%p 약했습니다(앞뒤 두 구간 모두). 아래에 오래 머물수록 더 약했고, 처음 내려간 날 자체는 의미가 없었습니다. 10~60일선에는 이런 기준이 없어 선을 긋지 않습니다(단기 흐름용). 시장 전체가 약할 땐 대부분 섹터가 기준 아래라 섹터 간 비교로 보세요.
     20일선은 단기, 60·120일선은 중기 추세입니다.
   </div>
 
@@ -261,7 +267,7 @@ function renderTable(st) {
     const a = x.s[key]; const cells = a.slice(-recent).map(v => `<span title="${fmt(v)}%" style="display:inline-block;width:9px;height:14px;margin-right:1px;background:${heatColor(v)}"></span>`).join('');
     const on = selected.has(x.s.name);
     h += `<tr class="sec" data-name="${x.s.name}"><td><input type="checkbox" class="chk" data-name="${x.s.name}" ${on ? 'checked' : ''}></td><td>${r + 1}. ${x.s.name}</td><td>${x.s.n}</td>` +
-      `<td><b>${fmt(x.cur)}%</b><span class="bar" style="width:${nn(x.cur) ? Math.round(x.cur * 0.6) : 0}px;background:${heatColor(x.cur)}"></span></td>` +
+      `<td><b>${fmt(x.cur)}%</b><span class="bar" style="width:${nn(x.cur) ? Math.round(x.cur * 0.6) : 0}px;background:${heatColor(x.cur)}"></span>${weakTag(a)}</td>` +
       `<td>${fmt(x.w1)}%</td><td>${fmt(x.m1)}%</td><td class="${nn(x.d1) && x.d1 > 0 ? 'pos' : 'neg'}">${sgn(x.d1)}%p</td><td class="${nn(x.dm) && x.dm > 0 ? 'pos' : 'neg'}">${sgn(x.dm)}%p</td><td style="text-align:left">${cells}</td></tr>`;
   });
   $('tbl').innerHTML = h;
@@ -280,11 +286,19 @@ function toggleMembers(tr) {
   tr.after(row);
 }
 let chart = null;
+function weakTag(a) {
+  const thr = D.weak[String(W)]; if (!thr) return '';
+  let k = 0; for (let i = a.length - 1; i >= 0 && nn(a[i]) && a[i] < thr; i--) k++;
+  return k ? ` <span style="color:#ff8787;font-size:11px" title="${W}일선 위 비율 ${thr}% 아래 연속 거래일">약세 ${k}일째</span>` : '';
+}
 function renderChart() {
   const key = K + W; const st = PERIOD ? Math.max(0, N - PERIOD) : 0;
   const labels = D.dates.slice(st);
   const ds = [{label: '섹터 정리 전체', data: D.all[key].slice(st), borderColor: '#9aa0a6', borderDash: [5, 4], borderWidth: 1.5, pointRadius: 0}];
   [...selected].forEach((nm, i) => { const s = D.sectors.find(x => x.name === nm); if (s) ds.push({label: nm, data: s[key].slice(st), borderColor: COLORS[i % COLORS.length], borderWidth: 1.8, pointRadius: 0}); });
+  const thr = D.weak[String(W)];
+  if (thr) ds.push({label: `장기 약세 기준 ${thr}%`, data: labels.map(() => thr), borderColor: '#ff6b6b', borderDash: [6, 4], borderWidth: 1.2, pointRadius: 0});
+  $('weakNote').innerHTML = thr ? `<b style="color:#ff8787">빨간 점선 = 장기 약세 기준 ${thr}%</b>(이 아래에 머문 섹터는 이후 6달 다른 섹터보다 평균 3~6%p 약했음).` : '10~60일선은 장기 약세를 가르는 기준이 없어 선이 없습니다(120·200일선에서 표시).';
   if (chart) chart.destroy();
   chart = new Chart($('cLine'), {type: 'line', data: {labels, datasets: ds}, options: {responsive: true, maintainAspectRatio: false, animation: false,
     interaction: {mode: 'index', intersect: false},
