@@ -630,7 +630,7 @@ __FAST_NOTE__
 
   <div class="chart-box">
     <h2>중소형 지수와 국면 <span class="now" id="nowSm"></span></h2>
-    <div class="desc">중소형 지수 = 매주 시가총액 상위 100 종목을 뺀 코스피·코스닥 보통주 동일가중 지수(2016-01 = 100, 로그 축). 국면 점수가 보통 종목 흐름을 따라가므로 코스피보다 이 지수와 더 잘 맞습니다.</div>
+    <div class="desc">중소형 지수 = 매주 시가총액 상위 100 종목을 뺀 코스피·코스닥 보통주 동일가중 지수(2016-01 = 100, 로그 축). 국면 점수가 보통 종목 흐름을 따라가므로 코스피보다 이 지수와 더 잘 맞습니다. 흰 점선 = 120일선(아래면 중소형 하락 추세).</div>
     <div class="chart-wrap"><canvas id="cSm"></canvas></div>
   </div>
 
@@ -827,6 +827,15 @@ function rolling(arr, n) {
 const D13 = rolling(DATA.D, 13 * PER);
 const RAW = DATA.sC.map((c, i) => nn(c) && nn(DATA.sD[i]) && nn(DATA.sX[i]) ? (c * DATA.weights.C + DATA.sD[i] * DATA.weights.D + DATA.sX[i] * DATA.weights.X) / (DATA.weights.C + DATA.weights.D + DATA.weights.X) : null);
 const RAW20 = rolling(RAW, 4 * PER);
+// 중소형 추세(2026-10-14 사용자 요청 "중소형 잡는 게 더 중요"): 중소형 지수가 120일선 아래면 하락 추세.
+// 2018~ 중소형 15% 하락 8번을 모두 잡았고 고점 뒤 평균 4.5주(공식 ⑤는 8~12주). 하락을 '미리' 알리진 못하고 헛신호도 있음.
+const SM120 = DATA.smIdx.map((v, i) => { if (!nn(v) || i < 119) return null; let s = 0, c = 0; for (let j = i - 119; j <= i; j++) if (nn(DATA.smIdx[j])) { s += DATA.smIdx[j]; c++; } return c >= 100 ? s / c : null; });
+function smTrendCard() {
+  const i = lastIdx(SM120), v = DATA.smIdx[i], m = SM120[i], down = v < m;
+  let k = 0; for (let j = i; j >= 0 && nn(SM120[j]) && (DATA.smIdx[j] < SM120[j]) === down; j--) k++;
+  return '<div class="card"><div class="lbl">중소형 추세 (120일선, ' + DATA.dates[i] + ')</div><div class="val" style="color:' + (down ? '#74a7ff' : '#ff8787') + '">' + (down ? '🔻 하락 추세' : '🔺 상승 추세') + '</div>' +
+    '<div class="sub">중소형 지수 ' + fmt(v) + ' · 120일선 ' + fmt(m) + ' (' + sgn((v / m - 1) * 100) + '%) · ' + k + '거래일째<br>국면보다 빨리 중소형 하락을 확인(2018~ 15% 하락 8번 모두, 고점 뒤 평균 4.5주). 헛신호 있음</div></div>';
+}
 function baseOpts(extra) {
   return Object.assign({
     responsive: true, maintainAspectRatio: false, animation: false,
@@ -852,9 +861,10 @@ function buildCharts() {
     scales: {x: xAxis(), y: {type: 'logarithmic', ticks: {callback: v => Number(v).toLocaleString()}}}
   })});
   charts.sm = new Chart($('cSm'), {type: 'line', plugins: [bgPlugin(phAt, '88')], data: {labels: sl(DATA.dates), datasets: [
-    {label: '중소형 지수', data: sl(DATA.smIdx), borderColor: '#ffd43b', borderWidth: 1.6, pointRadius: 0}
+    {label: '중소형 지수', data: sl(DATA.smIdx), borderColor: '#ffd43b', borderWidth: 1.6, pointRadius: 0},
+    {label: '120일선', data: sl(SM120), borderColor: '#e6e6e6', borderWidth: 1.2, borderDash: [5, 4], pointRadius: 0}
   ]}, options: baseOpts({
-    plugins: {legend: {display: false}, tooltip: {callbacks: {label: c => '중소형 지수: ' + (c.parsed.y === null ? '-' : c.parsed.y.toFixed(1)), afterBody: items => { const q = phAt[items[0].dataIndex]; return q ? '국면: ' + PH[q] : ''; }}}},
+    plugins: {legend: {display: false}, tooltip: {callbacks: {label: c => c.dataset.label + ': ' + (c.parsed.y === null ? '-' : c.parsed.y.toFixed(1)), afterBody: items => { const q = phAt[items[0].dataIndex]; return q ? '국면: ' + PH[q] : ''; }}}},
     scales: {x: xAxis(), y: {type: 'logarithmic', ticks: {callback: v => Number(v).toFixed(0)}}}
   })});
   charts.raw = new Chart($('cRaw'), {type: 'line', plugins: [bgPlugin(phAt, '33')], data: {labels: sl(DATA.dates), datasets: [
@@ -934,7 +944,7 @@ function renderCards() {
   $('cards').innerHTML =
     '<div class="card main"><div class="lbl">현재 국면 (' + DATA.dates[iP] + ')</div><span class="badge" style="background:' + PHC[p] + '">' + PH[p] + '</span>' +
     '<div class="sub">' + PHDESC[p] + '</div><div class="sub">최근 30거래일 국면 흐름(왼쪽이 과거)</div><div class="strip">' + strip + '</div></div>' +
-    (MODE !== 'fast' ? warnCard() : '') +
+    smTrendCard() + (MODE !== 'fast' ? warnCard() : '') +
     cd('국면 점수 (' + SMLBL + (MODE === 'fast' ? ' 평균' : '') + ')', fmt(s) + '<span style="font-size:13px;color:#9aa0a6"> / 100</span>', '낮음 &lt; ' + fmt(M.lo[iS]) + ' · 높음 &gt; ' + fmt(M.hi[iS]) + '<br>' + KLBL + ' 전 ' + fmt(sk) + ' → <span class="' + (s - sk >= 0 ? 'pos' : 'neg') + '">' + sgn(s - sk) + '</span>') +
     cd('공격-방어 상대강도(1달)', '<span class="' + (DATA.D[iD] >= 0 ? 'pos' : 'neg') + '">' + sgn(DATA.D[iD]) + '%p</span>', '점수 ' + fmt(DATA.sD[iD], 0) + '점 · 배점 ' + CFG.wD) +
     cd('밸류 하단 종목 비율', fmt(DATA.C[iC]) + '%', '점수 ' + fmt(DATA.sC[iC], 0) + '점 · 배점 ' + CFG.wC + ' (비율 낮을수록 점수 높음) · ' + DATA.cN.toLocaleString() + '종목') +
