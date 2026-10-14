@@ -157,7 +157,7 @@ def ffill_short_gaps(values, limit):
     return out
 
 
-# 종목별 일별 시가총액(원) - build_sector_ma_breadth.py(섹터별 이동평균선 아래 종목 비율)가 쓴다.
+# 종목별 일별 시가총액(원) - build_sector_ma_breadth.py(섹터별 이동평균선 위 종목 비율)가 쓴다.
 # 워크북을 두 번 읽지 않도록 OP밴드 빌드 때 같이 저장(gitignore 경로 - 용량이 커서 저장소에 안 올림).
 MKTCAP_DAILY = {}
 MKTCAP_DAILY_FROM = datetime(2022, 1, 1)
