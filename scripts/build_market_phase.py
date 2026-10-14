@@ -55,6 +55,131 @@ AGGRESSIVE = ["MLCC/기판", "전력기기", "로직", "반도체 장비", "후�
 DEFENSIVE = ["유틸리티", "통신", "음식료", "보험", "은행", "지주", "유통"]
 PHASES = {1: "① 반등시작", 2: "② 중소형 확산", 3: "③ 전면 확산", 4: "④ 고점", 5: "⑤ 중소형 하락", 6: "⑥ 대형주까지 바닥"}
 
+# ---- 대응 단계(보조경고, 2026-10-14 사용자 요청 "경고+⑤면 빠르게 바꾸고, 경고만이면 조심") ----
+# 정답 = 20거래일 안 코스닥 또는 중소형 지수 -10%, 2018-07~2022-06 / 2022-07~ 두 구간 모두에서 버틴 것만 채택.
+#  2 빠른 대응: ⑤ 국면 + '대형주만 버팀'(섹터 정리 종목의 60일선 위 비율, 시총 가중 - 종목 수 > 15%p)
+#     -> 20일 안 -10% 55%/61%(평소 16/17%), 이후 20일 중소형 평균 -3.6%/-4.0%, 오른 확률 27%/18%. 문턱 5~25에서 단조롭게 안정.
+#  1 변동성 주의: ①②③ 국면 + 취약 신호 9개 중 2개 이상 -> 20일 안 -10% 23%/19%(같은 국면 평균 14/12%).
+#     단 이후 수익률은 앞 -1.7% / 뒤 +0.6%로 방향이 일정하지 않음(크게 빠질 확률·크게 오를 확률이 둘 다 높음)
+#     -> 매도·매수 중단 신호가 아니라 '나눠서 사기' 정도의 정보로만 표시(사용자 합의).
+#  다른 지표를 붙인 조합(조정 경고 페이지 15개, 거래대금 신호, 로지스틱, 섹터 쏠림 등)은 빠른 대응을 개선하지 못함.
+WARN_INPUTS_PATH = os.path.join(DATA_DIR, "phase_warning_inputs.csv")   # fetch_phase_warning_inputs.py
+MERGED_PATH = os.path.join(DATA_DIR, "merged.csv")
+CAPN_THR = 15.0
+STAGES = {0: "⚪ 특이 없음", 1: "🟡 변동성 주의", 2: "🔴 빠른 대응"}
+VULN = [   # (키, 이름, 기준 설명)
+    ("n1", "대형주만 버팀", "섹터 정리 종목 60일선 위 비율: 시총 가중 - 종목 수 > 15%p"),
+    ("n2", "대형 100 vs 나머지", "시총 상위 100 vs 나머지 60일선 위 비율 차 > 15%p"),
+    ("n3", "지수만 버팀", "코스피 60일선 위 & 중소형 지수 60일선 아래"),
+    ("b2", "주도 섹터 균열", "20거래일 전 60일선 위 비율 상위 5개 섹터의 지금 20일선 위 비율 < 30%"),
+    ("b4", "코스닥 변동성 확대", "코스닥 20일 변동성 / 120일 변동성 > 1.3"),
+    ("b6", "원화 약세", "원/달러 20거래일 +2% 이상"),
+    ("b8", "미국 반도체 약세", "필라델피아 반도체지수(SOX) 50일선 아래(1일 늦춤)"),
+    ("baa", "신용 스프레드 급등", "무디스 Baa 스프레드 20일 변화가 최근 500일 상위 20%(1일 늦춤)"),
+    ("kadr", "코스닥 등락 약세", "코스닥 ADR(20일)이 최근 500일 하위 20%"),
+]
+SPREADS = [("ice_ccc_oas", "CCC 이하"), ("ice_b_oas", "B"), ("ice_bb_oas", "BB"), ("ice_bbb_oas", "BBB"), ("ice_a_oas", "A")]
+
+
+def _on_days(s, days, lag=0):
+    """다른 달력의 시계열을 한국 거래일로(그날까지 마지막 값), lag 거래일 늦춤."""
+    s = s.dropna().sort_index()
+    s = s[~s.index.duplicated(keep="last")]
+    return s.reindex(s.index.union(days)).ffill().reindex(days).shift(lag)
+
+
+def _pct_flag(s, win, high, q=0.2):
+    p = s.rolling(win, min_periods=min(win, 120)).rank(pct=True)
+    return ((p >= 1 - q) if high else (p <= q)).astype(float).where(p.notna())   # 1 = 발동, 0 = 아님, NaN = 기간 부족
+
+
+def warning_signals(L, active, wide, meta, members, caps, Kd, SM, days):
+    """취약 신호 9개(거래일 x bool)와 표시용 값. 외부 자료가 없으면 그 신호는 꺼짐으로 둔다."""
+    ma60, ma20 = L.rolling(60).mean(), L.rolling(20).mean()
+    up60 = ((L > ma60) & active).reindex(days)
+    v60 = (active & ma60.notna()).reindex(days)
+    up20 = ((L > ma20) & active).reindex(days)
+    v20 = (active & ma20.notna()).reindex(days)
+    sec_codes = sorted({c for v in members.values() for c in v if c in L.columns})
+    cc = [c for c in sec_codes if c in caps.columns]
+    cw = caps[cc].where(v60[cc])
+    capn60 = (cw.where(up60[cc]).sum(axis=1) / cw.sum(axis=1, min_count=1)
+              - up60[cc].sum(axis=1) / v60[cc].sum(axis=1).replace(0, np.nan)) * 100
+    big = (caps.shift(5).rank(axis=1, ascending=False) <= LARGE_N).reindex(columns=L.columns, fill_value=False)
+    n2v = ((up60 & big).sum(axis=1) / (v60 & big).sum(axis=1).replace(0, np.nan)
+           - (up60 & ~big).sum(axis=1) / (v60 & ~big).sum(axis=1).replace(0, np.nan)) * 100
+    kg_gap = Kd.reindex(days) / Kd.rolling(60).mean().reindex(days) - 1
+    sm_gap = SM.reindex(days) / SM.rolling(60).mean().reindex(days) - 1
+    S20, S60 = {}, {}
+    for s, cs in members.items():
+        cs = [c for c in cs if c in L.columns]
+        n20, n60 = v20[cs].sum(axis=1), v60[cs].sum(axis=1)
+        S20[s] = (up20[cs].sum(axis=1) / n20.replace(0, np.nan) * 100).where(n20 >= 3)
+        S60[s] = (up60[cs].sum(axis=1) / n60.replace(0, np.nan) * 100).where(n60 >= 3)
+    a20, a60 = pd.DataFrame(S20).values, pd.DataFrame(S60).values
+    lead = np.full(len(days), np.nan)
+    for i in range(20, len(days)):
+        prev = a60[i - 20]
+        ok = ~np.isnan(prev)
+        if ok.sum() >= 10:
+            top = np.argsort(-np.where(ok, prev, -np.inf), kind="stable")[:5]
+            lead[i] = np.nanmean(a20[i, top])
+    lead = pd.Series(lead, index=days)
+    inp = pd.read_csv(WARN_INPUTS_PATH, parse_dates=["date"]).set_index("date") if os.path.exists(WARN_INPUTS_PATH) else pd.DataFrame()
+    nan_s = pd.Series(np.nan, index=days)
+    if "kosdaq_close" in inp:
+        lr = np.log(_on_days(inp["kosdaq_close"], days)).diff()
+        kvol = lr.rolling(20).std() / lr.rolling(120).std()
+    else:
+        kvol = nan_s
+    if os.path.exists(MERGED_PATH):
+        mg = pd.read_csv(MERGED_PATH, usecols=["date", "usd_krw"], parse_dates=["date"]).set_index("date")["usd_krw"]
+        fx = _on_days(mg, days)
+        fx20 = fx / fx.shift(20) - 1
+    else:
+        fx20 = nan_s
+    if "sox_close" in inp:
+        sx = _on_days(inp["sox_close"], days, lag=1)
+        sox_gap = sx / sx.rolling(50).mean() - 1
+    else:
+        sox_gap = nan_s
+    if "baa_spread" in inp:
+        b = inp["baa_spread"].dropna()
+        bch = b - b.shift(20)
+        baa_flag = _on_days(_pct_flag(bch, 500, True), days, lag=1) > 0.5
+        baa_ch = _on_days(bch, days, lag=1)
+    else:
+        baa_flag, baa_ch = pd.Series(False, index=days), nan_s
+    kc = [c for c in wide.columns if meta.at[c, "market"] == "KOSDAQ"]
+    rk = wide[kc].pct_change(fill_method=None)
+    kadr = ((rk > 0).sum(axis=1).rolling(20).sum() / (rk < 0).sum(axis=1).rolling(20).sum() * 100).reindex(days)
+    flags = pd.DataFrame({
+        "n1": capn60 > CAPN_THR, "n2": n2v > 15, "n3": (kg_gap > 0) & (sm_gap < 0), "b2": lead < 30, "b4": kvol > 1.3,
+        "b6": fx20 > 0.02, "b8": sox_gap < 0, "baa": baa_flag, "kadr": _pct_flag(kadr, 500, False) > 0.5,
+    }, index=days).astype(bool)
+    i = len(days) - 1
+    f1 = lambda v, d=1, u="": "-" if v != v else f"{v:+.{d}f}{u}"   # noqa: E731
+    shown = {
+        "n1": f"{f1(capn60.iloc[i])}%p", "n2": f"{f1(n2v.iloc[i])}%p",
+        "n3": f"코스피 60일선 대비 {f1(kg_gap.iloc[i] * 100)}%, 중소형 {f1(sm_gap.iloc[i] * 100)}%",
+        "b2": "-" if lead.iloc[i] != lead.iloc[i] else f"{lead.iloc[i]:.0f}%", "b4": "-" if kvol.iloc[i] != kvol.iloc[i] else f"{kvol.iloc[i]:.2f}배",
+        "b6": f"{f1(fx20.iloc[i] * 100)}%", "b8": f"50일선 대비 {f1(sox_gap.iloc[i] * 100)}%",
+        "baa": "-" if baa_ch.iloc[i] != baa_ch.iloc[i] else f"20일 {baa_ch.iloc[i] * 100:+.0f}bp (지금 {inp['baa_spread'].dropna().iloc[-1]:.2f}%p)",
+        "kadr": "-" if kadr.iloc[i] != kadr.iloc[i] else f"{kadr.iloc[i]:.0f}",
+    }
+    spreads = []
+    for col, nm in SPREADS:
+        if col not in inp:
+            continue
+        s = inp[col].dropna()
+        if len(s) < 30:
+            continue
+        w = s.iloc[-250:]
+        spreads.append({"name": nm, "date": s.index[-1].strftime("%Y-%m-%d"), "v": round(float(s.iloc[-1]), 2),
+                        "pct": round(float((w < s.iloc[-1]).mean() * 100)), "lo": round(float(w.min()), 2), "hi": round(float(w.max()), 2),
+                        "ch20": round(float((s.iloc[-1] - s.iloc[-21]) * 100)) if len(s) > 21 else None})
+    return flags, capn60, shown, spreads
+
 
 def read_all_prices():
     df = pd.read_csv(PRICES_PATH, usecols=["date", "market", "code", "name", "close"],
@@ -226,6 +351,8 @@ def compute():
     large_d = large_w.shift(1).reindex(R.index, method="ffill").fillna(0).astype(bool)
     SM = (1 + R.where(~large_d).mean(axis=1).fillna(0)).cumprod()
     SMw = SM.reindex(grid, method="ffill")
+    # 대응 단계용 취약 신호(매 거래일 그리드에서만 - 검증을 일별로 했음)
+    wflags, capn60, wshown, wspreads = warning_signals(L, active, wide, meta, members, caps, Kd, SM, grid)
     # 사후 실제 국면(15% 되돌림)
     t0 = pd.Timestamp("2016-01-01")
     tK, pivK = truth_phase(Kd.loc[t0:], 0.15, grid)
@@ -300,7 +427,18 @@ def compute():
         out[f"adr{n}"] = s
     for wk, s in highs.items():
         out[f"hi{wk}"] = s
-    return asof, out, agg_list, def_list, int(Cn.iloc[-1]), peaksK, pivS, P
+    phg = out["phase"]
+    vuln_n = wflags.sum(axis=1)
+    stage = pd.Series(0.0, index=grid)
+    stage[phg.isin([1, 2, 3]) & (vuln_n >= 2)] = 1
+    stage[(phg == 5) & wflags["n1"]] = 2
+    out["capn60"] = capn60
+    out["vuln_n"] = vuln_n
+    out["stage"] = stage.where(phg.notna())
+    for k, _, _ in VULN:
+        out[f"w_{k}"] = wflags[k].astype(int)
+    warn = {"shown": wshown, "spreads": wspreads}
+    return asof, out, agg_list, def_list, int(Cn.iloc[-1]), peaksK, pivS, P, warn
 
 
 def main():
@@ -313,11 +451,13 @@ def main():
         PAGE_OUT_PATH = args.out
     if args.summary:
         SUMMARY_PATH = args.summary
-    asof, out, agg_list, def_list, c_n, peaksK, pivS, P = compute()
+    asof, out, agg_list, def_list, c_n, peaksK, pivS, P, warn = compute()
     last = out.dropna(subset=["phase"]).iloc[-1]
     prev = out["score"].dropna()
     print(f"데이터 기준일 {asof.date()} | 국면 {PHASES[int(last['phase'])]} | 점수 {last['score']:.1f} (낮음<{last['lo']:.1f}, 높음>{last['hi']:.1f}) | 8주 전 {prev.iloc[-1 - DIR_WEEKS * P]:.1f}")
     print(f"  밸류 하단 비율 {out['C'].iloc[-1] * 100:.1f}% ({c_n}종목) | 공격-방어 {out['D'].iloc[-1] * 100:+.1f}%p | 120일선 위 {out['X'].iloc[-1] * 100:.1f}%")
+    on_now = [nm for k, nm, _ in VULN if out[f"w_{k}"].iloc[-1]]
+    print(f"  대응 단계 {STAGES.get(int(last['stage']), '-')} | 대형주만 버팀 {out['capn60'].iloc[-1]:+.1f}%p | 취약 신호 {int(out['vuln_n'].iloc[-1])}/9 {on_now}")
     os.makedirs(os.path.dirname(SUMMARY_PATH), exist_ok=True)
     out.rename_axis("date").to_csv(SUMMARY_PATH, encoding="utf-8-sig", float_format="%.5g")
 
@@ -337,6 +477,9 @@ def main():
         "C": col("C", 100), "D": col("D", 100), "X": col("X", 100),
         "sC": col("sC"), "sD": col("sD"), "sX": col("sX"),
         "smIdx": col("sm_idx", 1, 2),
+        "capn60": col("capn60", 1, 1), "vulnN": ints("vuln_n"), "stage": ints("stage"), "capnThr": CAPN_THR, "stages": STAGES,
+        "vuln": [{"k": k, "name": nm, "rule": rule, "on": bool(out[f"w_{k}"].iloc[-1]), "val": warn["shown"].get(k, "-")} for k, nm, rule in VULN],
+        "spreads": warn["spreads"],
         "phases": PHASES, "weights": WEIGHTS, "aggr": agg_list, "dfn": def_list, "cN": c_n,
         "smooth": SMOOTH_WEEKS, "dirWeeks": DIR_WEEKS, "deadband": DIR_DEADBAND, "levelBand": LEVEL_BAND, "per": P, "evalStart": EVAL_START, "halfSplit": HALF_SPLIT,
     }
@@ -377,11 +520,18 @@ def append_log(asof, out, P):
         "chg_dir": round(float(row["score"] - out["score"].iloc[i - k]), 2), "daily_score": round(float(raw), 2),
         "C_pct": round(float(row["C"]) * 100, 2), "D_pctp": round(float(row["D"]) * 100, 2), "X_pct": round(float(row["X"]) * 100, 2),
         "kospi": round(float(row["kospi"]), 2), "sm_idx": round(float(row["sm_idx"]), 2), "model": MODEL_TAG,
+        # 대응 단계(2026-10-14 추가 - 그 전 기록은 빈칸)
+        "stage": int(row["stage"]) if row["stage"] == row["stage"] else "", "capn60": round(float(row["capn60"]), 2) if row["capn60"] == row["capn60"] else "",
+        "vuln_n": int(row["vuln_n"]), "vuln_on": "|".join(k for k, _, _ in VULN if row[f"w_{k}"]),
     }
     if os.path.exists(LOG_PATH):
         log = pd.read_csv(LOG_PATH, dtype=str)
         if rec["asof"] in set(log["asof"]):
             print(f"판정 기록: {rec['asof']} 이미 있음(그대로 둠)")
+            return
+        if set(rec) - set(log.columns):   # 새 열이 생기면 머리글을 늘려 다시 씀(기존 기록 값은 그대로)
+            pd.concat([log, pd.DataFrame([rec]).astype(str)], ignore_index=True).to_csv(LOG_PATH, index=False, encoding="utf-8")
+            print(f"판정 기록 추가(열 확장): {rec['asof']} {rec['phase_name']} 점수 {rec['score']}")
             return
     pd.DataFrame([rec]).to_csv(LOG_PATH, mode="a", header=not os.path.exists(LOG_PATH), index=False, encoding="utf-8")
     print(f"판정 기록 추가: {rec['asof']} {rec['phase_name']} 점수 {rec['score']}")
@@ -482,6 +632,17 @@ __FAST_NOTE__
     <h2>중소형 지수와 국면 <span class="now" id="nowSm"></span></h2>
     <div class="desc">중소형 지수 = 매주 시가총액 상위 100 종목을 뺀 코스피·코스닥 보통주 동일가중 지수(2016-01 = 100, 로그 축). 국면 점수가 보통 종목 흐름을 따라가므로 코스피보다 이 지수와 더 잘 맞습니다.</div>
     <div class="chart-wrap"><canvas id="cSm"></canvas></div>
+  </div>
+
+  <div class="chart-box" id="warnBox">
+    <h2>대응 단계 · 보조경고 <span class="now" id="nowWarn"></span></h2>
+    <div class="desc" id="descWarn"></div>
+    <div class="legend-ph"><span><i style="background:#ff6b6b"></i>🔴 빠른 대응(⑤ + 대형주만 버팀)</span><span><i style="background:#ffd43b"></i>🟡 변동성 주의(①②③ + 취약 신호 2개+)</span></div>
+    <div class="chart-wrap" style="height:260px"><canvas id="cWarn"></canvas></div>
+    <details style="margin-top:10px;font-size:12px"><summary style="cursor:pointer;color:#c9ccd1">취약 신호 9개 자세히 <span id="vulnDate" style="color:#9aa0a6"></span></summary>
+      <div class="tblwrap"><table class="st" id="tblVuln"></table></div></details>
+    <details style="margin-top:6px;font-size:12px"><summary style="cursor:pointer;color:#c9ccd1">참고: 미국 회사채 등급별 스프레드 <span style="color:#9aa0a6">(최근 3년치만 있어 판정에는 안 씀)</span></summary>
+      <div class="tblwrap"><table class="st" id="tblSpread"></table></div></details>
   </div>
 
   <div class="chart-box">
@@ -720,6 +881,28 @@ function buildCharts() {
         y2: {position: 'right', grid: {display: false}, ticks: {callback: v => Number(v).toLocaleString()}}}
     })});
   };
+  if (MODE !== 'fast') {
+    const sw = windowOf([DATA.capn60]);
+    const stAt = sw(DATA.stage);
+    const stagePlugin = {id: 'stageBg', beforeDatasetsDraw(chart) {
+      const {ctx, chartArea: a, scales: {x}} = chart; const n = chart.data.labels.length;
+      ctx.save();
+      for (let i = 0; i < n; i++) {
+        const q = stAt[i]; if (!q) continue;
+        const xc = x.getPixelForValue(i), x0 = i === 0 ? a.left : (x.getPixelForValue(i - 1) + xc) / 2, x1 = i === n - 1 ? a.right : (xc + x.getPixelForValue(i + 1)) / 2;
+        ctx.fillStyle = q === 2 ? '#ff6b6b55' : '#ffd43b22'; ctx.fillRect(x0, a.top, x1 - x0, a.bottom - a.top);
+      }
+      ctx.restore();
+    }};
+    charts.w = new Chart($('cWarn'), {type: 'line', plugins: [stagePlugin], data: {labels: sw(DATA.dates), datasets: [
+      {label: '대형주만 버팀(시총 가중 - 종목 수, %p)', data: sw(DATA.capn60), borderColor: '#ff8787', borderWidth: 1.6, pointRadius: 0, yAxisID: 'y', order: 1},
+      {label: '기준 ' + DATA.capnThr + '%p', data: sw(DATA.capn60).map(() => DATA.capnThr), borderColor: '#9aa0a6', borderWidth: 1, borderDash: [4, 4], pointRadius: 0, yAxisID: 'y', order: 2},
+      {type: 'bar', label: '취약 신호 수(오른쪽, 9개 중)', data: sw(DATA.vulnN), backgroundColor: '#4dabf755', borderWidth: 0, yAxisID: 'y2', order: 3, barPercentage: 1, categoryPercentage: 1}
+    ]}, options: baseOpts({
+      plugins: {tooltip: {callbacks: {afterBody: items => { const q = stAt[items[0].dataIndex]; return nn(q) ? '대응 단계: ' + DATA.stages[q] : ''; }}}},
+      scales: {x: xAxis(), y: {position: 'left', ticks: {callback: v => v + '%p'}}, y2: {position: 'right', min: 0, max: 9, grid: {display: false}, ticks: {stepSize: 1}}}
+    })});
+  }
   comp('cD', 'D', '주간 값', '#ffa94d', '%p', 0, D13);
   comp('cC', 'C', '밸류 하단 종목 비율', '#b197fc', '%');
   comp('cX', 'X', '120일선 위 종목 비율', '#63e6be', '%', 50);
@@ -727,11 +910,14 @@ function buildCharts() {
 
 function renderRecent() {
   const iE = lastIdx(M.ph);
-  let h = '<tr><th>날짜</th><th>국면</th><th>국면 점수</th><th>전일 대비</th><th>' + KLBL + ' 전 대비</th><th>밸류 하단</th><th>공격-방어</th><th>120일선 위</th></tr>';
+  const W = MODE !== 'fast';
+  const STI = {0: '⚪', 1: '🟡', 2: '🔴'};
+  let h = '<tr><th>날짜</th><th>국면</th>' + (W ? '<th>대응</th>' : '') + '<th>국면 점수</th><th>전일 대비</th><th>' + KLBL + ' 전 대비</th><th>밸류 하단</th><th>공격-방어</th><th>120일선 위</th></tr>';
   for (let i = iE; i >= Math.max(0, iE - 14); i--) {
     const chg = i > 0 && M.ph[i - 1] && M.ph[i] !== M.ph[i - 1];
     const d1 = M.Ls[i] - M.Ls[i - 1], dk = M.Ls[i] - M.Ls[i - CFG.k];
     h += '<tr' + (chg ? ' style="background:#2b2414"' : '') + '><td>' + DATA.dates[i] + '</td><td><span style="color:' + PHC[M.ph[i]] + '">■</span> ' + PH[M.ph[i]] + (chg ? ' <b style="color:#ffa94d">← ' + PH[M.ph[i - 1]] + '</b>' : '') + '</td>' +
+      (W ? '<td title="' + (nn(DATA.stage[i]) ? DATA.stages[DATA.stage[i]] : '') + ' · 대형주만 버팀 ' + sgn(DATA.capn60[i]) + '%p">' + (nn(DATA.stage[i]) ? STI[DATA.stage[i]] : '-') + '</td>' : '') +
       '<td>' + fmt(M.Ls[i]) + '</td><td class="' + (d1 >= 0 ? 'pos' : 'neg') + '">' + sgn(d1, 2) + '</td><td class="' + (dk >= 0 ? 'pos' : 'neg') + '">' + sgn(dk) + '</td>' +
       '<td>' + fmt(DATA.C[i]) + '%</td><td>' + sgn(DATA.D[i]) + '%p</td><td>' + fmt(DATA.X[i]) + '%</td></tr>';
   }
@@ -748,6 +934,7 @@ function renderCards() {
   $('cards').innerHTML =
     '<div class="card main"><div class="lbl">현재 국면 (' + DATA.dates[iP] + ')</div><span class="badge" style="background:' + PHC[p] + '">' + PH[p] + '</span>' +
     '<div class="sub">' + PHDESC[p] + '</div><div class="sub">최근 30거래일 국면 흐름(왼쪽이 과거)</div><div class="strip">' + strip + '</div></div>' +
+    (MODE !== 'fast' ? warnCard() : '') +
     cd('국면 점수 (' + SMLBL + (MODE === 'fast' ? ' 평균' : '') + ')', fmt(s) + '<span style="font-size:13px;color:#9aa0a6"> / 100</span>', '낮음 &lt; ' + fmt(M.lo[iS]) + ' · 높음 &gt; ' + fmt(M.hi[iS]) + '<br>' + KLBL + ' 전 ' + fmt(sk) + ' → <span class="' + (s - sk >= 0 ? 'pos' : 'neg') + '">' + sgn(s - sk) + '</span>') +
     cd('공격-방어 상대강도(1달)', '<span class="' + (DATA.D[iD] >= 0 ? 'pos' : 'neg') + '">' + sgn(DATA.D[iD]) + '%p</span>', '점수 ' + fmt(DATA.sD[iD], 0) + '점 · 배점 ' + CFG.wD) +
     cd('밸류 하단 종목 비율', fmt(DATA.C[iC]) + '%', '점수 ' + fmt(DATA.sC[iC], 0) + '점 · 배점 ' + CFG.wC + ' (비율 낮을수록 점수 높음) · ' + DATA.cN.toLocaleString() + '종목') +
@@ -764,12 +951,38 @@ function renderCards() {
   $('nowX').textContent = '현재 ' + fmt(DATA.X[iX]) + '% · ' + fmt(DATA.sX[iX], 0) + '점';
 }
 
+// ---------- 대응 단계(보조경고)
+const STC = {0: '#c9ccd1', 1: '#ffd43b', 2: '#ff6b6b'};
+const STACT = {
+  0: '⑤ 국면에 대형주만 버팀이 겹치면 빠른 대응',
+  1: '흔들림이 커지는 구간(방향 신호 아님) - 사더라도 나눠서',
+  2: '⑤ + 대형주만 버팀 - 비중 빠르게 줄이기 검토'
+};
+function warnCard() {
+  const i = lastIdx(DATA.stage), q = DATA.stage[i], on = DATA.vuln.filter(v => v.on).map(v => v.name);
+  return '<div class="card"><div class="lbl">대응 단계 (' + DATA.dates[i] + ')</div><div class="val" style="color:' + STC[q] + '">' + DATA.stages[q] + '</div>' +
+    '<div class="sub">' + STACT[q] + '<br>대형주만 버팀 ' + sgn(DATA.capn60[i]) + '%p · 취약 신호 ' + DATA.vulnN[i] + '/9' + (on.length ? ' (' + on.join(', ') + ')' : '') + '</div></div>';
+}
+function renderWarn() {
+  if (MODE === 'fast') { $('warnBox').style.display = 'none'; return; }
+  const i = lastIdx(DATA.stage), q = DATA.stage[i];
+  $('nowWarn').innerHTML = '현재 <b style="color:' + STC[q] + '">' + DATA.stages[q] + '</b> · 대형주만 버팀 ' + sgn(DATA.capn60[i]) + '%p · 취약 신호 ' + DATA.vulnN[i] + '/9';
+  $('descWarn').innerHTML = '<b style="color:#ff6b6b">🔴 빠른 대응</b> = ⑤ + 대형주만 버팀(빨간 선이 ' + DATA.capnThr + '%p 위: 대형주만 60일선 위). 2018~ 검증에서 이후 20일 중소형 평균 -4% 안팎, 오른 확률 18~27%. ' +
+    '<b style="color:#ffd43b">🟡 변동성 주의</b> = ①②③ + 취약 신호(파란 막대) 2개 이상. 크게 빠질 확률·크게 오를 확률이 둘 다 높아 방향 신호는 아님 - 사더라도 나눠서.';
+  $('vulnDate').textContent = '(' + DATA.dates[i] + ' 기준, 켜진 것 ' + DATA.vulnN[i] + '개)';
+  $('tblVuln').innerHTML = '<tr><th>신호</th><th>지금</th><th>현재 값</th><th style="text-align:left">기준</th></tr>' +
+    DATA.vuln.map(v => '<tr><td>' + v.name + '</td><td>' + (v.on ? '<span class="warn-on">켜짐</span>' : '<span style="color:#7c828b">꺼짐</span>') + '</td><td>' + v.val + '</td><td style="text-align:left;white-space:normal;color:#9aa0a6">' + v.rule + '</td></tr>').join('');
+  $('tblSpread').innerHTML = DATA.spreads.length ? '<tr><th>등급</th><th>기준일</th><th>스프레드</th><th>20거래일 변화</th><th>최근 1년 백분위</th><th>최근 1년 범위</th></tr>' +
+    DATA.spreads.map(s => '<tr><td>' + s.name + '</td><td>' + s.date + '</td><td><b>' + s.v.toFixed(2) + '%p</b></td><td class="' + (s.ch20 > 0 ? 'pos' : 'neg') + '">' + (nn(s.ch20) ? (s.ch20 >= 0 ? '+' : '') + s.ch20 + 'bp' : '-') + '</td><td' + (s.pct >= 80 ? ' class="warn-on"' : '') + '>' + s.pct + '%</td><td>' + s.lo.toFixed(2) + ' ~ ' + s.hi.toFixed(2) + '</td></tr>').join('')
+    : '<tr><td>자료 없음</td></tr>';
+}
+
 const thrVal = v => (v === 'exp' || v === 'fix') ? v : +v;
 const MODE = DATA.mode || 'main';   // 'fast' = 일별 점수 국면 페이지(20거래일 평균·20거래일 방향)
 const CFG = {wC: DATA.weights.C, wD: DATA.weights.D, wX: DATA.weights.X, sm: (MODE === 'fast' ? 4 : DATA.smooth) * PER, k: (MODE === 'fast' ? 4 : DATA.dirWeeks) * PER, db: DATA.deadband, hb: DATA.levelBand, thr: 'exp', ema: MODE !== 'fast'};
 function recalc() {
   M = computeModel(CFG);
-  renderCards(); renderRecent(); buildCharts();
+  renderCards(); renderRecent(); renderWarn(); buildCharts();
 }
 $('phLegend').innerHTML = Object.keys(PH).map(k => '<span><i style="background:' + PHC[k] + '"></i>' + PH[k] + '</span>').join('');
 $('descD').innerHTML = '공격 섹터(코스피 대비 민감도 상위 ' + DATA.aggr.length + '개: ' + DATA.aggr.join(', ') + ') 동일가중 1달(20거래일) 수익률에서 ' +
