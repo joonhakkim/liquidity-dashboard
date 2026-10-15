@@ -261,7 +261,7 @@ TEMPLATE = r"""<!doctype html>
 
   <div class="box">
     <h2>추이 <span id="chartTitle" style="font-size:12px;font-weight:normal;color:#9aa0a6"></span></h2>
-    <div class="desc">아래 표에서 섹터 앞 체크박스로 선택(기본: 지금 가장 강한 3개·가장 약한 3개). 점선 = 섹터 정리 전체 종목. <b style="color:#ffa94d">높을수록 강함</b>(대부분 종목이 이평선 위). <span id="weakNote"></span></div>
+    <div class="desc">아래 표에서 섹터 앞 체크박스로 골라 추가합니다. 점선 = 섹터 정리 전체 종목. <b style="color:#ffa94d">높을수록 강함</b>(대부분 종목이 이평선 위). <span id="weakNote"></span></div>
     <div class="chart-wrap"><canvas id="cLine"></canvas></div>
   </div>
 
@@ -389,10 +389,7 @@ function renderHeat(st) {
 }
 function renderAll() {
   const st = stats();
-  if (selected === null) {
-    const ok = st.filter(x => nn(x.cur)).sort((a, b) => b.cur - a.cur);
-    selected = new Set([...ok.slice(0, 3), ...ok.slice(-3)].map(x => x.s.name));
-  }
+  if (selected === null) selected = new Set();   // 처음엔 아무 섹터도 체크 안 함(2026-10-15 사용자 요청) - 전체 점선만
   renderCards(st); renderTable(st); renderChart(); renderHeat(st);
 }
 $('segW').innerHTML = D.windows.map(w => `<button data-w="${w}" class="${String(w) === String(W) ? 'active' : ''}">${String(w).endsWith('w') ? String(w).slice(0, -1) + '주' : w + '일'}</button>`).join('');
