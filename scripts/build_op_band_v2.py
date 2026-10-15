@@ -661,7 +661,7 @@ function applyFilters() {{
     <tr data-code="${{r.code}}">
       <td>${{r.is_override ? '<span class="ov-badge" title="애널리스트 자체추정치가 컨센서스 대신 적용됨">자체</span>' : ''}}${{r.est_carry_days > 0 ? '<span class="ov-badge" style="background:#5c4a1a;color:#ffd43b" title="원본 컨센서스가 비어 직전 추정치를 이월 중(최대 60거래일)">이월 ' + r.est_carry_days + '일</span>' : ''}}${{r.name}}</td><td class="sub">${{r.code}}</td><td class="sub">${{r.sector || '-'}}</td>
       <td>${{fmtMktcap(r.latest_mktcap)}}</td>
-      <td>${{r.latest_mult.toFixed(2)}}x</td>
+      <td>${{r.latest_mult.toFixed(2)}}x${{r.live_ret != null ? ` <span style="font-size:11px;color:${{r.live_ret >= 0 ? '#ff8787' : '#74a7ff'}}">(${{r.live_ret >= 0 ? '+' : ''}}${{r.live_ret.toFixed(1)}}%)</span>` : ''}}</td>
       <td>${{r[bKey].toFixed(2)}}x</td>
       <td class="${{gapClass(r[gKey])}}">${{r[gKey] == null ? '-' : r[gKey].toFixed(1) + '%'}}</td>
       <td class="sub">${{r.min_mult.toFixed(2)}}x</td>
@@ -782,6 +782,11 @@ function currentBands() {{
 
 function openDetail(code) {{
   fetch(`op_band_data/${{code}}.json`).then(r => r.json()).then(data => {{
+    // 오늘 잠정: 차트 끝에 오늘 시총(어제 x (1 + 등락률)) 한 점 추가
+    const lx = LIVE_ON && LIVE.opband && LIVE.opband.ret ? LIVE.opband.ret[String(data.code).slice(-6)] : undefined;
+    if (typeof lx === 'number' && data.dates[data.dates.length - 1] < LIVE.date) {{
+      const m = data.dates.length - 1; data.dates.push(LIVE.date); data.mktcapEok.push(data.mktcapEok[m] * (1 + lx / 100)); data.opEok.push(data.opEok[m]);
+    }}
     currentDetail = data;
     const n = data.mktcapEok.length - 1;
     const latest = data.opEok[n] ? data.mktcapEok[n] / data.opEok[n] : null;
@@ -816,30 +821,55 @@ document.getElementById('overlay').addEventListener('click', e => {{
 
 applyFilters();
 
-function liveFetch(cb) {{
-  fetch('live/intraday.json?t=' + Date.now()).then(r => r.ok ? r.json() : null).then(j => {{
-    if (!j) return;
-    const today = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
-    if (j.date !== today) return;
-    cb(j);
-  }}).catch(() => {{}});
-}}
-function liveHead(j, title) {{
-  const ix = (k) => {{ const v = j.index[k]; return v ? k.replace('KOSPI', '코스피').replace('KOSDAQ', '코스닥') + ' ' + Number(v[0]).toLocaleString() + ' <span style="color:' + (v[1] >= 0 ? '#ff8787' : '#74a7ff') + '">' + (v[1] >= 0 ? '+' : '') + v[1].toFixed(2) + '%</span>' : ''; }};
-  return '<div style="font-size:15px;font-weight:bold;margin:0 0 6px 0">' + title + ' <span style="font-size:12px;font-weight:normal;color:#9aa0a6">장중 잠정 · ' + (j.ts || '').slice(11, 16) + ' 기준(15분마다 갱신) · ' + ix('KOSPI') + ' · ' + ix('KOSDAQ') + ' · 확정값은 다음 날 아침 갱신</span></div>';
-}}
 
-liveFetch(j => {{
-  const o = j.opband; if (!o) return;
-  const g = v => v === null || v === undefined ? '-' : (v >= 0 ? '+' : '') + v.toFixed(1) + '%';
-  const td = 'style="padding:3px 8px;text-align:right;white-space:nowrap"';
-  let h = '<table style="border-collapse:collapse;font-size:12px;width:100%"><tr style="color:#9aa0a6"><th style="text-align:left;padding:3px 8px">종목</th><th style="text-align:left;padding:3px 8px">섹터</th><th ' + td + '>오늘 등락률</th><th ' + td + '>바텀 대비 (어제 → 지금)</th></tr>';
-  o.list.forEach(r => h += '<tr style="border-top:1px solid #222"><td style="padding:3px 8px">' + r.name + ' <span style="color:#7c828b">' + r.code + '</span></td><td style="padding:3px 8px;color:#9aa0a6">' + (r.sector || '') + '</td><td ' + td + '><span style="color:' + (r.ret >= 0 ? '#ff8787' : '#74a7ff') + '">' + g(r.ret) + '</span></td><td ' + td + '>' + g(r.gap_y) + ' → <b>' + g(r.gap) + '</b></td></tr>');
-  h += '</table>';
-  const el = document.getElementById('livePanel'); el.style.display = '';
-  el.innerHTML = liveHead(j, 'OP밴드 바텀 대비') + '<div style="font-size:13px;color:#c9ccd1;margin-bottom:6px">3년 하위 10% 바텀 아래 종목 <b>' + o.below_now + '개</b> (어제 확정 ' + o.below_y + '개, 대상 ' + o.n + '종목) · 오늘 새로 바텀 아래로 들어간 종목 <b>' + (o.new_n ?? o.list.length) + '개</b>' + (o.list.length < (o.new_n ?? 0) ? ' (깊이 들어간 ' + o.list.length + '개만 표시)' : '') + '</div>' +
-    '<details><summary style="cursor:pointer;color:#c9ccd1;font-size:12px">새로 바텀 아래로 들어간 종목 펼치기</summary><div style="max-height:380px;overflow:auto">' + h + '</div></details>';
-}});
+// ---------- 장중 실시간(잠정) 반영 - 2026-10-15 사용자 "실시간 정보가 차트 등 뭐든 바로 반영되게, 확정값은 그 날짜가 끝나면 적용".
+// live/intraday.json(평일 09:05~15:35 15분마다 PC가 계산해 올림)의 오늘 값을 확정 시계열 끝에 붙여 다시 그린다.
+// 페이지 확정 데이터가 그 날짜를 따라잡으면(다음 날 아침 정규 갱신) 붙이지 않음 = 확정값으로 자동 교체. 열어 두면 2분마다 새 값 확인.
+let LIVE = null;
+function liveLabel(j) {{ const t = (j.ts || '').slice(11, 16); return (t >= '15:30' ? '장 마감 ' : '장중 ') + t + ' 기준'; }}
+function liveBanner(j, on) {{
+  const el = document.getElementById('livePanel'); if (!el) return;
+  if (!on) {{ el.style.display = 'none'; return; }}
+  const ix = k => {{ const v = j.index && j.index[k]; return v ? (k === 'KOSPI' ? '코스피 ' : '코스닥 ') + Number(v[0]).toLocaleString() + ' <span style="color:' + (v[1] >= 0 ? '#ff8787' : '#74a7ff') + '">' + (v[1] >= 0 ? '+' : '') + Number(v[1]).toFixed(2) + '%</span>' : ''; }};
+  el.style.display = '';
+  el.innerHTML = '<div style="font-size:13px;line-height:1.7"><b style="color:#4dabf7">오늘(' + j.date.slice(5).replace('-', '/') + ') 잠정치 반영 중</b> · ' + liveLabel(j) + ' · ' + ix('KOSPI') + ' · ' + ix('KOSDAQ') +
+    '<br><span style="color:#9aa0a6;font-size:12px">차트·카드·표의 마지막 날(' + j.date + ')이 잠정치입니다. 15분마다 다시 계산되고 페이지를 열어 두면 자동으로 바뀝니다. 확정값은 다음 날 아침 정규 갱신 때 들어오고 그때 잠정치는 빠집니다.</span></div>';
+}}
+function livePoll(apply) {{
+  const go = () => fetch('live/intraday.json?t=' + Date.now()).then(r => r.ok ? r.json() : null).then(j => {{
+    if (j && (!LIVE || j.built !== LIVE.built)) {{ LIVE = j; apply(j); }}
+  }}).catch(() => {{}});
+  go();
+  setInterval(() => {{ if (!document.hidden) go(); }}, 120000);
+}}
+let LIVE_ON = false;
+const ROWS0 = ROWS.map(r => Object.assign({{}}, r));
+const LATEST = ROWS0.length ? ROWS0.reduce((m, r) => r.latest_date > m ? r.latest_date : m, '') : '';
+function applyLive(j) {{
+  ROWS.forEach((r, i) => {{ Object.keys(r).forEach(k => {{ if (!(k in ROWS0[i])) delete r[k]; }}); Object.assign(r, ROWS0[i]); }});
+  LIVE_ON = false;
+  const R = j.opband && j.opband.ret;
+  if (R && j.date > LATEST) {{
+    ROWS.forEach((r, i) => {{
+      const x = R[String(r.code).slice(-6)]; if (typeof x !== 'number') return;
+      const m = ROWS0[i].latest_mult * (1 + x / 100);
+      r.latest_mult = Math.round(m * 100) / 100;
+      if (r.latest_mktcap != null) r.latest_mktcap = r.latest_mktcap * (1 + x / 100);
+      r.min_mult = Math.min(r.min_mult, r.latest_mult);
+      Object.keys(r).forEach(k => {{ if (k.startsWith('gap_')) {{ const b = r['b_' + k.slice(4)]; r[k] = (b != null && b > 0) ? Math.round((m - b) / b * 1000) / 10 : null; }} }});
+      r.latest_date = j.date; r.live_ret = x;
+    }});
+    LIVE_ON = true;
+  }}
+  applyFilters();
+  liveBanner(j, LIVE_ON);
+  if (LIVE_ON) {{
+    const below = a => a.filter((r, i) => ROWS0[i].latest_mult > 0 && r.gap_3y_p10 != null && r.gap_3y_p10 < 0).length;   // 표와 같은 기준(3년 하위 10%)
+    const el = document.getElementById('livePanel');
+    el.innerHTML += '<div style="font-size:12px;color:#c9ccd1;margin-top:4px">3년 하위 10% 바텀 아래 종목 <b>' + below(ROWS) + '개</b> (어제 확정 ' + below(ROWS0) + '개) · 표의 현재 배수 옆 괄호 = 오늘 등락률</div>';
+  }}
+}}
+livePoll(applyLive);
 </script>
 </body>
 </html>

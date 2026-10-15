@@ -759,7 +759,7 @@ __FAST_NOTE__
 
 <script>
 const DATA = __DATA__;
-const N = DATA.dates.length;
+let N = DATA.dates.length;
 const PER = DATA.per || 1;   // 1주 = PER점(일간이면 5거래일)
 const SMLBL = DATA.mode === 'fast' ? '20거래일' : '65일 EMA', KLBL = DATA.mode === 'fast' ? '20거래일' : '8주';
 // 화면 이름(2026-10-15 사용자 "⑤와 ⑥이 판단이 잘 안 선다"): 수준 + 방향이 그대로 읽히게. ④⑤⑥은 모두 비중 70%(겹치면 60%), 차이는 시장 위치뿐.
@@ -779,6 +779,7 @@ const $ = id => document.getElementById(id);
 const nn = v => v !== null && v !== undefined;
 const fmt = (v, d) => !nn(v) || isNaN(v) ? '-' : v.toFixed(d === undefined ? 1 : d);
 const sgn = (v, d) => !nn(v) || isNaN(v) ? '-' : (v >= 0 ? '+' : '') + v.toFixed(d === undefined ? 1 : d);
+function DL(i) { return DATA.dates[i] + (DATA.live && i === N - 1 ? ' 잠정' : ''); }
 function lastIdx(arr) { for (let i = arr.length - 1; i >= 0; i--) if (nn(arr[i])) return i; return -1; }
 function firstIdx(arr) { for (let i = 0; i < arr.length; i++) if (nn(arr[i])) return i; return -1; }
 function idxOnOrAfter(d) { for (let i = 0; i < N; i++) if (DATA.dates[i] >= d) return i; return N; }
@@ -894,17 +895,18 @@ function rolling(arr, n) {
   }
   return out;
 }
-const D13 = rolling(DATA.D, 13 * PER);
+let D13 = rolling(DATA.D, 13 * PER);
 const RAW_ORIG = DATA.sC.map((c, i) => nn(c) && nn(DATA.sD[i]) && nn(DATA.sX[i]) ? (c * DATA.weights.C + DATA.sD[i] * DATA.weights.D + DATA.sX[i] * DATA.weights.X) / (DATA.weights.C + DATA.weights.D + DATA.weights.X) : null);
 const RAW = DATA.cauRaw;   // 꺾임 판단에 쓰는 일별 점수(밸류 하단 비율만 3일 평균) - 주의선과 같은 기준
-const RAW20 = rolling(RAW, 4 * PER);
+let RAW20 = rolling(RAW, 4 * PER);
 // 중소형 추세(2026-10-14 사용자 요청 "중소형 잡는 게 더 중요"): 중소형 지수가 120일선 아래면 하락 추세.
 // 2018~ 중소형 15% 하락 8번을 모두 잡았고 고점 뒤 평균 4.5주(공식 ⑤는 8~12주). 하락을 '미리' 알리진 못하고 헛신호도 있음.
-const SM120 = DATA.smIdx.map((v, i) => { if (!nn(v) || i < 119) return null; let s = 0, c = 0; for (let j = i - 119; j <= i; j++) if (nn(DATA.smIdx[j])) { s += DATA.smIdx[j]; c++; } return c >= 100 ? s / c : null; });
+function calcSM120() { return DATA.smIdx.map((v, i) => { if (!nn(v) || i < 119) return null; let s = 0, c = 0; for (let j = i - 119; j <= i; j++) if (nn(DATA.smIdx[j])) { s += DATA.smIdx[j]; c++; } return c >= 100 ? s / c : null; }); }
+let SM120 = calcSM120();
 function smTrendCard() {
   const i = lastIdx(SM120), v = DATA.smIdx[i], m = SM120[i], down = v < m;
   let k = 0; for (let j = i; j >= 0 && nn(SM120[j]) && (DATA.smIdx[j] < SM120[j]) === down; j--) k++;
-  return '<div class="card"><div class="lbl">중소형 추세 (120일선, ' + DATA.dates[i] + ')</div><div class="val" style="color:' + (down ? '#74a7ff' : '#ff8787') + '">' + (down ? '🔻 하락 추세' : '🔺 상승 추세') + '</div>' +
+  return '<div class="card"><div class="lbl">중소형 추세 (120일선, ' + DL(i) + ')</div><div class="val" style="color:' + (down ? '#74a7ff' : '#ff8787') + '">' + (down ? '🔻 하락 추세' : '🔺 상승 추세') + '</div>' +
     '<div class="sub">중소형 지수 ' + fmt(v) + ' · 120일선 ' + fmt(m) + ' (' + sgn((v / m - 1) * 100) + '%) · ' + k + '거래일째<br>국면보다 빨리 중소형 하락을 확인(2018~ 15% 하락 8번 모두, 고점 뒤 평균 4.5주). 헛신호 있음</div></div>';
 }
 function baseOpts(extra) {
@@ -1005,7 +1007,7 @@ function renderRecent() {
   for (let i = iE; i >= Math.max(0, iE - 14); i--) {
     const chg = i > 0 && M.ph[i - 1] && M.ph[i] !== M.ph[i - 1];
     const d1 = M.Ls[i] - M.Ls[i - 1], dk = M.Ls[i] - M.Ls[i - CFG.k];
-    h += '<tr' + (chg ? ' style="background:#2b2414"' : '') + '><td>' + DATA.dates[i] + '</td><td><span style="color:' + PHC[M.ph[i]] + '">■</span> ' + PH[M.ph[i]] + (chg ? ' <b style="color:#ffa94d">← ' + PH[M.ph[i - 1]] + '</b>' : '') + '</td>' +
+    h += '<tr' + (chg ? ' style="background:#2b2414"' : '') + '><td>' + DL(i) + '</td><td><span style="color:' + PHC[M.ph[i]] + '">■</span> ' + PH[M.ph[i]] + (chg ? ' <b style="color:#ffa94d">← ' + PH[M.ph[i - 1]] + '</b>' : '') + '</td>' +
       (W ? '<td title="' + (nn(DATA.stage[i]) ? DATA.stages[DATA.stage[i]] : '') + ' · 대형주만 버팀 ' + sgn(DATA.capn60[i]) + '%p">' + (nn(DATA.stage[i]) ? STI[DATA.stage[i]] : '-') + '</td>' : '') +
       '<td>' + fmt(M.Ls[i]) + '</td><td class="' + (d1 >= 0 ? 'pos' : 'neg') + '">' + sgn(d1, 2) + '</td><td class="' + (dk >= 0 ? 'pos' : 'neg') + '">' + sgn(dk) + '</td>' +
       '<td>' + fmt(DATA.C[i]) + '%</td><td>' + sgn(DATA.D[i]) + '%p</td><td>' + fmt(DATA.X[i]) + '%</td></tr>';
@@ -1026,7 +1028,7 @@ function renderCards() {
   const cd = (lbl, val, sub) => '<div class="card"><div class="lbl">' + lbl + '</div><div class="val">' + val + '</div><div class="sub">' + sub + '</div></div>';
   const iC = lastIdx(DATA.C), iD = lastIdx(DATA.D), iX = lastIdx(DATA.X);
   $('cards').innerHTML =
-    '<div class="card main"><div class="lbl">현재 국면 (' + DATA.dates[iP] + ')</div><span class="badge" style="background:' + PHC[p] + '">' + PH[p] + ' · 비중 ' + ({0: '100%', 1: '60%'})[DATA.stage[iP]] + '</span>' + cauBadge() +
+    '<div class="card main"><div class="lbl">현재 국면 (' + DL(iP) + ')</div><span class="badge" style="background:' + PHC[p] + '">' + PH[p] + ' · 비중 ' + ({0: '100%', 1: '60%'})[DATA.stage[iP]] + '</span>' + cauBadge() +
     '<div class="sub">세부: ' + PH6[M.ph6[iP]] + ' · 느린 점수(65일 평균) 기준 ' + PH6[M.ph0[iP]] + (DATA.caution[iP] ? ' · 꺾임 주의 켜짐' : '') + '</div>' +
     '<div class="sub">' + PHDESC[p] + '</div><div class="sub">최근 30거래일 국면 흐름(왼쪽이 과거)</div><div class="strip">' + strip + '</div></div>' +
     smTrendCard() + (MODE !== 'fast' ? warnCard() : '') +
@@ -1054,12 +1056,12 @@ const STACT = {
 };
 function warnCard() {
   const i = lastIdx(DATA.stage), q = DATA.stage[i], on = DATA.vuln.filter(v => v.on).map(v => v.name);
-  return '<div class="card"><div class="lbl">대응 단계 (' + DATA.dates[i] + ')</div><div class="val" style="color:' + STC[q] + '">' + DATA.stages[q] + '</div>' +
+  return '<div class="card"><div class="lbl">대응 단계 (' + DL(i) + ')</div><div class="val" style="color:' + STC[q] + '">' + DATA.stages[q] + '</div>' +
     '<div class="sub">' + STACT[q] + '<br>꺾임 주의 ' + (DATA.caution[i] ? '켜짐' : '꺼짐') + ' · 느린 점수 기준 ' + (M.ph0[i] === 5 ? '⑤' : '⑤ 아님') + '</div></div>';
 }
 function renderWarn() {
   if (MODE === 'fast') { $('warnBox').style.display = 'none'; return; }
-  const i = lastIdx(DATA.stage), q = DATA.stage[i];
+  const i = lastIdx(DATA.vulnN), q = DATA.stage[i];   // 참고 지표는 장중 계산이 없어 마지막 확정일 기준
   if ($('nowWarn')) $('nowWarn').innerHTML = '';
   $('descWarn').innerHTML = '아래는 연구 중 시험했지만 비중 규칙을 개선하지 못해 <b>참고용으로만</b> 남긴 지표입니다. 빨간 선 = 대형주만 버팀(섹터 정리 종목 60일선 위 비율, 시총 가중 - 종목 수, 지금 ' + sgn(DATA.capn60[i]) + '%p), 파란 막대 = 취약 신호 수(지금 ' + DATA.vulnN[i] + '/9), 배경 = 대응 단계.';
   $('vulnDate').textContent = '(' + DATA.dates[i] + ' 기준, 켜진 것 ' + DATA.vulnN[i] + '개)';
@@ -1084,7 +1086,7 @@ function renderGuide() {
     '<td class="' + (e.chg < 0 ? 'neg' : 'pos') + '">' + (e.chg === null ? '-' : (e.chg >= 0 ? '+' : '') + e.chg.toFixed(1) + '%') + '</td><td>' + (e.e === null ? '-' : (e.chg < 0 ? '하락을 줄임' : '헛신호(반등 일부 놓침)')) + '</td></tr>').join('');
   $('guide').innerHTML =
     '<h3 style="font-size:15px">오늘의 목표 비중 <span style="font-size:24px;color:' + STC[q] + ';margin-left:8px">' + STG[q] + ' ' + TGT[q] + '%</span>' +
-    '<span style="font-size:12px;font-weight:normal;color:#9aa0a6;margin-left:10px">' + DATA.dates[i] + ' 종가 기준 · ' + (q ? k + '거래일째' : '평소') + '</span></h3>' +
+    '<span style="font-size:12px;font-weight:normal;color:#9aa0a6;margin-left:10px">' + (DATA.live && i === N - 1 ? DATA.dates[i] + ' ' + liveLabel(LIVE) + ' 잠정치 · ' : DATA.dates[i] + ' 종가 기준 · ') + (q ? k + '거래일째' : '평소') + '</span></h3>' +
     '<div class="note" style="margin-top:4px;color:#c9ccd1">' +
     '<b>쓰는 법(기계적으로 그대로 실행)</b><br>' +
     '1) 매일 아침 갱신(7:30) 뒤 이 칸의 <b>목표 비중</b>만 확인합니다.<br>' +
@@ -1107,6 +1109,7 @@ function recalc() {
   const LEV = {1: 0, 6: 0, 2: 1, 5: 1, 3: 2, 4: 2};
   if (MODE !== 'fast') M.ph = M.ph.map((q, i) => { if (!q) return q; const lv = LEV[q], dn = DATA.caution[i] === 1 || q === 5; return dn ? 6 - lv : lv + 1; });
   M.ph6 = M.ph.slice(); M.ph = M.ph6.map(TO3);
+  if (DATA.live) DATA.stage[N - 1] = (M.ph6[N - 1] === 5 || M.ph6[N - 1] === 6) ? 1 : 0;   // 오늘 잠정: 비중 규칙(화면 국면 ⑤·⑥ -> 60%)
   renderGuide(); renderCards(); renderRecent(); renderWarn(); buildCharts();
 }
 $('phLegend').innerHTML = Object.keys(PH).map(k => '<span><i style="background:' + PHC[k] + '"></i>' + PH[k] + '</span>').join('');
@@ -1130,31 +1133,46 @@ $('rangeBtns').addEventListener('click', e => {
 }));
 recalc();
 
-function liveFetch(cb) {
-  fetch('live/intraday.json?t=' + Date.now()).then(r => r.ok ? r.json() : null).then(j => {
-    if (!j) return;
-    const today = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
-    if (j.date !== today) return;
-    cb(j);
-  }).catch(() => {});
-}
-function liveHead(j, title) {
-  const ix = (k) => { const v = j.index[k]; return v ? k.replace('KOSPI', '코스피').replace('KOSDAQ', '코스닥') + ' ' + Number(v[0]).toLocaleString() + ' <span style="color:' + (v[1] >= 0 ? '#ff8787' : '#74a7ff') + '">' + (v[1] >= 0 ? '+' : '') + v[1].toFixed(2) + '%</span>' : ''; };
-  return '<div style="font-size:15px;font-weight:bold;margin:0 0 6px 0">' + title + ' <span style="font-size:12px;font-weight:normal;color:#9aa0a6">장중 잠정 · ' + (j.ts || '').slice(11, 16) + ' 기준(15분마다 갱신) · ' + ix('KOSPI') + ' · ' + ix('KOSDAQ') + ' · 확정값은 다음 날 아침 갱신</span></div>';
-}
 
-liveFetch(j => {
-  if (j.date <= DATA.asof) return;
-  const p = j.phase, s = j.sm, nm = {1: '상승', 2: '고점권 조정', 3: '하락'};
-  const col = p.target === 60 ? '#ff6b6b' : '#c9ccd1';
-  const sg = v => '<span style="color:' + (v >= 0 ? '#ff8787' : '#74a7ff') + '">' + (v >= 0 ? '+' : '') + v.toFixed(2) + '%</span>';
-  const el = document.getElementById('livePanel'); el.style.display = '';
-  el.innerHTML = liveHead(j, '지금 가격으로 마감하면') +
-    '<div style="font-size:13px;line-height:1.7;color:#c9ccd1">국면 <b>' + nm[p.three] + '</b> · 목표 비중 <b style="color:' + col + ';font-size:16px">' + p.target + '%</b> (어제 확정 ' + p.target_y + '%)' + (p.target !== p.target_y ? ' <b style="color:#ff922b">← 오늘 바뀔 수 있음</b>' : '') + '<br>' +
-    '꺾임 판단 점수 <b>' + p.raw + '</b> (어제 ' + p.raw_y + ' · 20일 고점 ' + p.max20 + ' · 켜지는 선 ' + p.line + ' · 꺼지는 선 ' + p.release + ') → 꺾임 주의 <b>' + (p.caution ? '켜짐' : '꺼짐') + '</b>' + (p.caution !== p.caution_y ? ' (어제와 달라짐)' : '') + '<br>' +
-    '<span style="color:#9aa0a6">재료(어제 → 지금): 밸류 하단 종목 ' + p.C_y + '% → <b>' + p.C + '%</b> · 공격-방어 ' + p.D_y + ' → <b>' + p.D + '%p</b> · 120일선 위 종목 ' + p.X_y + '% → <b>' + p.X + '%</b> · ' +
-    '중소형 지수 ' + s.idx + ' (' + sg(s.chg) + '), 120일선(' + s.ma120 + ') ' + (s.below ? '<b>아래</b>' : '위') + '</span></div>';
-});
+// ---------- 장중 실시간(잠정) 반영 - 2026-10-15 사용자 "실시간 정보가 차트 등 뭐든 바로 반영되게, 확정값은 그 날짜가 끝나면 적용".
+// live/intraday.json(평일 09:05~15:35 15분마다 PC가 계산해 올림)의 오늘 값을 확정 시계열 끝에 붙여 다시 그린다.
+// 페이지 확정 데이터가 그 날짜를 따라잡으면(다음 날 아침 정규 갱신) 붙이지 않음 = 확정값으로 자동 교체. 열어 두면 2분마다 새 값 확인.
+let LIVE = null;
+function liveLabel(j) { const t = (j.ts || '').slice(11, 16); return (t >= '15:30' ? '장 마감 ' : '장중 ') + t + ' 기준'; }
+function liveBanner(j, on) {
+  const el = document.getElementById('livePanel'); if (!el) return;
+  if (!on) { el.style.display = 'none'; return; }
+  const ix = k => { const v = j.index && j.index[k]; return v ? (k === 'KOSPI' ? '코스피 ' : '코스닥 ') + Number(v[0]).toLocaleString() + ' <span style="color:' + (v[1] >= 0 ? '#ff8787' : '#74a7ff') + '">' + (v[1] >= 0 ? '+' : '') + Number(v[1]).toFixed(2) + '%</span>' : ''; };
+  el.style.display = '';
+  el.innerHTML = '<div style="font-size:13px;line-height:1.7"><b style="color:#4dabf7">오늘(' + j.date.slice(5).replace('-', '/') + ') 잠정치 반영 중</b> · ' + liveLabel(j) + ' · ' + ix('KOSPI') + ' · ' + ix('KOSDAQ') +
+    '<br><span style="color:#9aa0a6;font-size:12px">차트·카드·표의 마지막 날(' + j.date + ')이 잠정치입니다. 15분마다 다시 계산되고 페이지를 열어 두면 자동으로 바뀝니다. 확정값은 다음 날 아침 정규 갱신 때 들어오고 그때 잠정치는 빠집니다.</span></div>';
+}
+function livePoll(apply) {
+  const go = () => fetch('live/intraday.json?t=' + Date.now()).then(r => r.ok ? r.json() : null).then(j => {
+    if (j && (!LIVE || j.built !== LIVE.built)) { LIVE = j; apply(j); }
+  }).catch(() => {});
+  go();
+  setInterval(() => { if (!document.hidden) go(); }, 120000);
+}
+const N0 = DATA.dates.length;
+const LIVE_SER = ['dates', 'kospi', 'score', 'lo', 'hi', 'phase', 'C', 'D', 'X', 'sC', 'sD', 'sX', 'smIdx', 'capn60', 'vulnN', 'stage', 'caution', 'cautionLine', 'cauRaw'];
+function applyLive(j) {
+  LIVE_SER.forEach(k => { if (Array.isArray(DATA[k])) DATA[k].length = N0; });
+  DATA.live = false;
+  const p = j.phase;
+  if (j.date > DATA.asof && p && nn(p.sC) && nn(p.sD) && nn(p.sX)) {
+    const v = {dates: j.date, kospi: j.index.KOSPI[0], score: null, lo: null, hi: null, phase: null, C: p.C, D: p.D, X: p.X, sC: p.sC, sD: p.sD, sX: p.sX,
+      smIdx: j.sm ? j.sm.idx : null, capn60: null, vulnN: null, stage: null, caution: p.caution, cautionLine: p.line, cauRaw: p.raw};
+    LIVE_SER.forEach(k => { if (Array.isArray(DATA[k])) DATA[k].push(v[k]); });
+    DATA.live = true;
+  }
+  N = DATA.dates.length;
+  D13 = rolling(DATA.D, 13 * PER); RAW20 = rolling(RAW, 4 * PER); SM120 = calcSM120();
+  $('dFrom').max = $('dTo').max = DATA.dates[N - 1];
+  recalc();
+  liveBanner(j, DATA.live);
+}
+livePoll(applyLive);
 </script>
 </body>
 </html>

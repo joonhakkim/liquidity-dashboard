@@ -1,15 +1,14 @@
 """
-장중 실시간(15분마다) 잠정치 - 2026-10-15 사용자 요청("별 두 개짜리까지는 그렇게 하자").
-네이버 모바일 API로 전 종목 현재가·등락률·시총과 코스피·코스닥 지수를 한 번 받아 아래 다섯 가지를 다시 계산하고
-docs/live/intraday.json 하나로 저장한다(각 페이지가 이 파일을 읽어 '장중 잠정' 칸에 표시).
- 1) 시장 국면 꺾임 주의·대응 단계 미리보기: 아침 빌드가 저장한 기초값(phase_live_base.pkl)에 오늘 등락을 붙여
-    밸류 하단 비율·공격-방어·120일선 위 비율 -> 일별 점수(꺾임 판단용) -> 꺾임 주의 -> 오늘 종가로 마감하면 될 대응 단계.
-    느린 점수 국면(65일 평균)은 어제 확정값을 그대로 씀(하루 사이 거의 안 바뀜).
- 2) 섹터 이평선 위 비율(20일·20주·60일·120일·200일, 지금 vs 어제) - live_sector_breadth.compute
- 3) 섹터 등락률(오늘, 구성종목 단순평균)
- 4) 중소형 지수(시총 상위 100 제외 동일가중)와 120일선
- 5) OP밴드 3년 하위 10% 바텀 대비 %(장중 시총으로) - 바텀 아래 종목 수와 가까운 순 목록
-장 마감 뒤 확정치는 다음 날 아침 정규 갱신이 기준이다.
+장중 실시간(15분마다) 잠정치 - 2026-10-15 사용자 요청("별 두 개짜리까지는 그렇게 하자", 이어서 "실시간 정보가 차트 등 뭐든 바로 반영되게,
+확정된 값은 그 날짜가 끝나면 적용").
+네이버 모바일 API로 전 종목 현재가·등락률·시총과 코스피·코스닥 지수를 한 번 받아 오늘 하루치 값을 다시 계산하고
+docs/live/intraday.json 하나로 저장한다. 각 페이지 JS가 이 파일을 읽어 확정 시계열 끝에 '오늘(잠정)' 값으로 붙인다
+(차트·카드·표가 모두 그대로 반영됨). 페이지 확정 데이터가 그 날짜를 따라잡으면(다음 날 아침 정규 갱신) 잠정값은 자동으로 빠진다.
+ 1) 시장 국면: 밸류 하단 비율·공격-방어·120일선 위 비율과 각 점수(sC·sD·sX), 꺾임 판단 점수·주의선·꺾임 주의, 중소형 지수.
+    느린 점수 국면(65일 EMA)은 페이지 JS가 오늘 점수를 넣어 다시 계산(아래 slow는 같은 식으로 계산한 로그용 값).
+ 2) 섹터 이평선 위 비율(모든 이평선, 종목 수·시총 가중) + 종목별 이격 + 섹터 등락률 - build_sector_ma_breadth.live_payload
+    (페이지와 같은 계산 함수, 어제까지 시계열 x 오늘 등락률).
+ 3) OP밴드: 종목별 오늘 등락률(opret) - 페이지 JS가 현재 배수·바텀 대비 %를 다시 계산.
 """
 import bisect
 import json
@@ -24,7 +23,7 @@ import requests
 
 sys.path.insert(0, os.path.dirname(__file__))
 import build_market_phase as bmp  # noqa: E402
-import live_sector_breadth as lsb  # noqa: E402
+import build_sector_ma_breadth as bsm  # noqa: E402
 
 BASE_DIR = os.path.join(os.path.dirname(__file__), "..")
 OUT_PATH = os.path.join(BASE_DIR, "docs", "live", "intraday.json")
@@ -88,21 +87,24 @@ def phase_live(snap, base, daily):
                 sr.append(R_all[cs].mean(axis=1))
         return float(np.prod(1 + pd.concat(sr, axis=1).mean(axis=1).values) - 1)
     D = basket(base["aggr"]) - basket(base["dfn"])
-    # C: 밸류 하단 비율(장중 시총 / 최신 12개월 선행 영업이익 < 3년 하위 10% 배수)
+    # C: 밸류 하단 비율(어제 워크북 시총 x (1 + 오늘 등락률) / 최신 12개월 선행 영업이익 < 3년 하위 10% 배수)
     fl = []
     for code, (op, p10, elig, cap_last) in base["val"].items():
-        cap = snap["cap"].get(code, np.nan)
+        r = snap["ret"].get(code, np.nan)
+        cap = cap_last * (1 + (r if r == r and abs(r) <= bmp.MAX_DAILY_MOVE else 0.0))
         if not elig or not (op > 0) or p10 != p10 or cap != cap:
             continue
         fl.append(cap / op < p10)
     C = float(np.mean(fl)) if fl else np.nan
-    # 점수(꺾임 판단용: 밸류 하단 비율 3일 평균) - 과거 분포 대비 백분위
+    # 국면 점수 재료(페이지와 같은 식: 그날까지 과거 값 대비 백분위, 소수 둘째 자리)
+    sC = round(100 - pct_vs(daily["C"].values, C), 2)
+    sD = round(pct_vs(daily["D"].values, D), 2)
+    sX = round(pct_vs(daily["X"].values, X), 2)
+    w = bmp.WEIGHTS
+    # 꺾임 판단용 일별 점수(밸류 하단 비율만 3일 평균)
     C3_hist = daily["C"].rolling(bmp.CAUTION_SMOOTH_C, min_periods=1).mean()
     C3 = float(np.mean([daily["C"].iloc[-2], daily["C"].iloc[-1], C]))
     sC3 = 100 - pct_vs(C3_hist.values, C3)
-    sD = pct_vs(daily["D"].values, D)
-    sX = pct_vs(daily["X"].values, X)
-    w = bmp.WEIGHTS
     raw = (sC3 * w["C"] + sD * w["D"] + sX * w["X"]) / sum(w.values())
     hist = daily["cau_raw"].dropna()
     mx = max(float(hist.iloc[-(bmp.CAUTION_WIN - 1):].max()), raw)
@@ -113,15 +115,35 @@ def phase_live(snap, base, daily):
         cau = False
     else:
         cau = prev
-    slow = int(daily["phase"].iloc[-1])
-    lev = {1: 0, 6: 0, 2: 1, 5: 1, 3: 2, 4: 2}[slow]
+    # 느린 점수 국면(65일 EMA에 오늘 점수 한 번 더 - 기준선은 어제 값, 페이지 JS는 정확히 다시 계산)
+    comp = (sC * w["C"] + sD * w["D"] + sX * w["X"]) / sum(w.values())
+    sc = daily["score"].dropna()
+    P = 5 if bmp.GRID == "D" else 1   # 1주 = 5거래일(일간 판정)
+    L = float(sc.iloc[-1]) + 2.0 / (bmp.SMOOTH_WEEKS * P + 1) * (comp - float(sc.iloc[-1]))
+    ph_y = int(daily["phase"].iloc[-1])
+    lev = {1: 0, 6: 0, 2: 1, 5: 1, 3: 2, 4: 2}[ph_y]
+    a_, b_ = float(daily["lo"].iloc[-1]), float(daily["hi"].iloc[-1])
+    rawlv = 0 if L < a_ else (2 if L > b_ else 1)
+    if abs(rawlv - lev) == 2:
+        lev = rawlv
+    elif rawlv > lev and L > (a_ if lev == 0 else b_) + bmp.LEVEL_BAND:
+        lev = rawlv
+    elif rawlv < lev and L < (b_ if lev == 2 else a_) - bmp.LEVEL_BAND:
+        lev = rawlv
+    rising = ph_y in (1, 2, 3)
+    k = bmp.DIR_WEEKS * P
+    chg = L - float(sc.iloc[-k]) if len(sc) >= k else 0.0
+    if abs(chg) > bmp.DIR_DEADBAND:
+        rising = chg > 0
+    slow = (lev + 1) if rising else (6 - lev)
     down = cau or slow == 5
-    shown = (6 - lev) if down else (lev + 1)
+    lv2 = {1: 0, 6: 0, 2: 1, 5: 1, 3: 2, 4: 2}[slow]
+    shown = (6 - lv2) if down else (lv2 + 1)
     three = 1 if shown <= 3 else (2 if shown == 4 else 3)
-    return {"C": round(C * 100, 1), "D": round(D * 100, 1), "X": round(X * 100, 1),
+    return {"C": round(C * 100, 2), "D": round(D * 100, 2), "X": round(X * 100, 2), "sC": sC, "sD": sD, "sX": sX, "score": round(L, 2),
             "C_y": round(float(daily["C"].iloc[-1]) * 100, 1), "D_y": round(float(daily["D"].iloc[-1]) * 100, 1), "X_y": round(float(daily["X"].iloc[-1]) * 100, 1),
             "raw": round(raw, 1), "raw_y": round(float(hist.iloc[-1]), 1), "max20": round(mx, 1), "line": round(mx - bmp.CAUTION_DROP, 1),
-            "release": round(mx - bmp.CAUTION_REL, 1), "caution": int(cau), "caution_y": int(prev), "slow": slow,
+            "release": round(mx - bmp.CAUTION_REL, 1), "caution": int(cau), "caution_y": int(prev), "slow": int(slow),
             "shown": int(shown), "three": three, "target": 60 if shown in (5, 6) else 100,
             "target_y": 60 if int(daily["stage"].iloc[-1]) == 1 else 100}
 
@@ -140,20 +162,16 @@ def sm_live(snap, base, daily):
 
 
 def opband_live(snap):
+    """OP밴드 종목의 오늘 등락률(%, 소수 둘째 자리) - 페이지 JS가 현재 배수 = 확정 배수 x (1 + 등락률)로 바텀 대비 %를 다시 계산."""
     o = pd.read_csv(OPB_PATH, dtype={"code": str})
     o["c6"] = o["code"].str[-6:]
-    o["cap_live"] = o["c6"].map(snap["cap"]) * 1e8
-    o["ret"] = o["c6"].map(snap["ret"]) * 100
-    o = o.dropna(subset=["cap_live", "latest_mult", "b_3y_p10", "latest_mktcap"])
-    o = o[(o["b_3y_p10"] > 0) & (o["latest_mult"] > 0)]
-    o["gap_live"] = (o["latest_mult"] * o["cap_live"] / o["latest_mktcap"] / o["b_3y_p10"] - 1) * 100
-    # 목록: 오늘 새로 바텀 아래로 내려간 종목(어제 확정은 바텀 위, 지금 가격은 아래) - 바텀 아래로 많이 들어간 순
-    new = o[(o["gap_3y_p10"] >= 0) & (o["gap_live"] < 0)]
-    top = new.sort_values("gap_live").head(80)
-    return {"below_now": int((o["gap_live"] < 0).sum()), "below_y": int((o["gap_3y_p10"] < 0).sum()), "n": int(len(o)), "new_n": int(len(new)),
-            "list": [{"code": r.c6, "name": r.name if isinstance(r.name, str) else "", "sector": r.sector if isinstance(r.sector, str) else "",
-                      "gap": round(r.gap_live, 1), "gap_y": round(r.gap_3y_p10, 1) if r.gap_3y_p10 == r.gap_3y_p10 else None,
-                      "ret": round(r.ret, 1) if r.ret == r.ret else None} for r in top.itertuples()]}
+    o["ret"] = o["c6"].map(snap["ret"])
+    o = o[o["ret"].notna() & (o["ret"].abs() <= bmp.MAX_DAILY_MOVE)]
+    live = o["latest_mult"] * (1 + o["ret"])
+    ok = (o["b_3y_p10"] > 0) & (o["latest_mult"] > 0)
+    below_now = int(((live < o["b_3y_p10"]) & ok).sum())
+    below_y = int(((o["latest_mult"] < o["b_3y_p10"]) & ok).sum())
+    return {"ret": {c: round(float(r) * 100, 2) for c, r in zip(o["c6"], o["ret"])}, "below_now": below_now, "below_y": below_y, "n": int(ok.sum())}
 
 
 def build():
@@ -161,24 +179,12 @@ def build():
     base = pd.read_pickle(bmp.LIVE_BASE_PATH)
     daily = pd.read_csv(DAILY_PATH, parse_dates=["date"], index_col="date")
     daily = daily.loc[:base["asof"]]
-    out = {"ts": ts, "date": (ts or "")[:10], "built": datetime.now().strftime("%Y-%m-%d %H:%M"), "base_date": str(base["asof"].date()),
+    date = (ts or "")[:10]
+    out = {"ts": ts, "date": date, "built": datetime.now().strftime("%Y-%m-%d %H:%M"), "base_date": str(base["asof"].date()),
            "index": idx, "n_live": int(snap["cap"].notna().sum())}
     out["phase"] = phase_live(snap, base, daily)
     out["sm"] = sm_live(snap, base, daily)
-    T, last_day, n_live = lsb.compute(snap["cap"].dropna() * 1e8)
-    sec_ret = {}
-    for sec, cs in base["members"].items():
-        r = snap["ret"].reindex(cs).dropna()
-        if len(r) >= 3:
-            sec_ret[sec] = round(float(r.mean() * 100), 2)
-    allc = sorted({c for cs in base["members"].values() for c in cs})
-    sec_ret["섹터 정리 전체"] = round(float(snap["ret"].reindex(allc).dropna().mean() * 100), 2)
-    rows = []
-    for r in T.to_dict("records"):
-        rows.append({"name": r["섹터"], "n": int(r["종목"]), "r1d": sec_ret.get(r["섹터"]),
-                     **{k: (None if r.get(f"{lb} 지금") is None or r.get(f"{lb} 지금") != r.get(f"{lb} 지금") else r.get(f"{lb} 지금")) for k, lb in (("w20", "20일"), ("w20w", "20w"), ("w60", "60일"), ("w200", "200일"))},
-                     **{k + "_y": (None if r.get(f"{lb} 어제") != r.get(f"{lb} 어제") else r.get(f"{lb} 어제")) for k, lb in (("w20", "20일"), ("w20w", "20w"), ("w60", "60일"), ("w200", "200일"))}})
-    out["sector"] = rows
+    out["sector"] = bsm.live_payload(snap["ret"], date, {"코스피": idx["KOSPI"][0], "코스닥": idx["KOSDAQ"][0]})
     out["opband"] = opband_live(snap)
     os.makedirs(os.path.dirname(OUT_PATH), exist_ok=True)
     with open(OUT_PATH, "w", encoding="utf-8") as f:

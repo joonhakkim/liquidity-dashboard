@@ -68,7 +68,7 @@ WARN_INPUTS_PATH = os.path.join(DATA_DIR, "phase_warning_inputs.csv")
 MERGED_PATH = os.path.join(DATA_DIR, "merged.csv")
 
 
-def sector_returns(members, usable, series):
+def sector_returns(members, usable, series, live_idx=None):
     """섹터 등락률(구성종목 단순평균, 2026-10-14 사용자 요청 - 섹터 일간 등락률 막대 차트).
     수익률은 이평선 계산과 같은 시계열(기업밴드찾기2 일별 시총, 없으면 종가)의 일간 변화를 이어붙여 계산 -
     KRX 종가보다 하루 빨리 들어옴(장마감 당일 워크북 갱신분). 하루 31% 넘는 변동(분할·증자 등)은 제외."""
@@ -86,6 +86,13 @@ def sector_returns(members, usable, series):
         idx["코스닥"] = pd.read_csv(WARN_INPUTS_PATH, parse_dates=["date"]).set_index("date")["kosdaq_close"].dropna()
     if os.path.exists(MERGED_PATH):
         idx["원/달러"] = pd.read_csv(MERGED_PATH, usecols=["date", "usd_krw"], parse_dates=["date"]).set_index("date")["usd_krw"].dropna()
+    if live_idx is not None:   # 장중: 오늘 지수 값을 붙이고, 오늘 값이 없는 지표(원/달러)는 빼서 어제 값이 오늘처럼 보이지 않게
+        day = px.index[-1]
+        for nm in list(idx):
+            if nm in live_idx:
+                idx[nm] = pd.concat([idx[nm].loc[:day - pd.Timedelta(days=1)], pd.Series({day: float(live_idx[nm])})])
+            else:
+                del idx[nm]
     res = {"date": px.index[-1].strftime("%Y-%m-%d")}
     for key, k in RET_PERIODS.items():
         if len(px) <= k:
@@ -106,7 +113,8 @@ def sector_returns(members, usable, series):
     return res
 
 
-def main():
+def load_universe():
+    """섹터 정리 종목과 일별 시계열(워크북 시총 우선, 없으면 종가)."""
     sm = pd.read_csv(SECTOR_MAP_PATH, dtype=str)
     meta = pd.DataFrame({"name": sm.iloc[:, 1].values}, index=sm.iloc[:, 0].str.zfill(6).values)
     meta = meta[~meta.index.duplicated()]
@@ -119,10 +127,13 @@ def main():
     caps, px, missing = load_series(codes)
     series = pd.concat([caps, px[[c for c in px.columns if c not in caps.columns]]], axis=1).ffill(limit=3)
     no_data = [c for c in codes if c not in series.columns or series[c].notna().sum() < 30]
-    asof = series.index.max()
-    print(f"섹터 {len(members)}개, 종목 {len(codes)}개(시총 {caps.shape[1]}, 종가 대체 {len(codes) - caps.shape[1] - len(no_data)}, 데이터 없음 {len(no_data)}) | 기준일 {asof.date()}")
+    return meta, members, codes, caps, series, no_data, unmatched
 
-    hist = series.index >= pd.Timestamp(HISTORY_FROM)
+
+def compute_out(meta, members, codes, caps, series, no_data, hist_from, live_idx=None):
+    """페이지 데이터. hist_from 이후 날짜만 담는다(장중 계산은 오늘 하루만)."""
+    asof = series.index.max()
+    hist = series.index >= pd.Timestamp(hist_from)
     dates = series.index[hist]
     capw = caps.reindex(columns=series.columns)          # 가중치용(종가 대체 종목은 NaN -> 가중에서 제외)
     out = {"asof": asof.strftime("%Y-%m-%d"), "dates": [d.strftime("%Y-%m-%d") for d in dates], "windows": WINDOWS,
@@ -177,7 +188,39 @@ def main():
         out["stocks"][c] = {"name": nm, "cap": round(float(cap.iloc[-1]) / 1e8) if len(cap) else None,
                             "src": "시총" if c in caps.columns else "종가",
                             "g": {str(w): (None if not np.isfinite(gaps[w].at[last, c]) else round(float(gaps[w].at[last, c]), 1)) for w in WINDOWS}}
-    out["ret"] = sector_returns(members, usable, series)
+    out["ret"] = sector_returns(members, usable, series, live_idx)
+    return out, rows
+
+
+LIVE_TAIL = 320   # 장중 계산은 최근 320거래일만(200일선·20주선에 충분)
+
+
+def live_payload(ret, live_date, live_idx=None):
+    """장중 실시간(live_intraday.py가 15분마다 호출, 2026-10-15 사용자 "차트 등 뭐든 바로 반영되게").
+    ret: 종목코드(6자리) -> 오늘 등락률(소수). 어제까지 시계열에 오늘 값(마지막 값 x (1 + 등락률), 등락률 없으면 그대로)을 붙여
+    페이지와 똑같은 계산(compute_out)으로 오늘 하루치만 돌려준다 - 페이지 JS가 시계열 끝에 붙인다."""
+    meta, members, codes, caps, series, no_data, _ = load_universe()
+    day = pd.Timestamp(live_date)
+    series = series.loc[:day - pd.Timedelta(days=1)].iloc[-LIVE_TAIL:]
+    r = ret.reindex(series.columns)
+    r = r.where(r.abs() <= 0.31)
+    last = series.iloc[-1]
+    today = (last * (1 + r)).fillna(last)
+    series = pd.concat([series, today.to_frame(day).T])
+    caps = series[caps.columns]
+    out, _ = compute_out(meta, members, codes, caps, series, no_data, day, live_idx)
+    keys = [f"{k}{w}" for w in WINDOWS for k in ("n", "c")]
+    return {"keys": keys, "all": [out["all"][k][0] for k in keys],
+            "sec": {s["name"]: [s[k][0] for k in keys] for s in out["sectors"]},
+            "stocks": {c: [st["cap"]] + [st["g"][str(w)] for w in WINDOWS] for c, st in out["stocks"].items()},
+            "ret": out["ret"]}
+
+
+def main():
+    meta, members, codes, caps, series, no_data, unmatched = load_universe()
+    asof = series.index.max()
+    print(f"섹터 {len(members)}개, 종목 {len(codes)}개(시총 {caps.shape[1]}, 종가 대체 {len(codes) - caps.shape[1] - len(no_data)}, 데이터 없음 {len(no_data)}) | 기준일 {asof.date()}")
+    out, rows = compute_out(meta, members, codes, caps, series, no_data, HISTORY_FROM)
     os.makedirs(os.path.dirname(SUMMARY_PATH), exist_ok=True)
     pd.DataFrame(rows).sort_values(f"above_{DEFAULT_WINDOW}", ascending=False).to_csv(SUMMARY_PATH, index=False, encoding="utf-8-sig", float_format="%.1f")
     html = (TEMPLATE.replace("__UPDATED__", datetime.now().strftime("%Y-%m-%d %H:%M")).replace("__ASOF__", out["asof"])
@@ -291,7 +334,7 @@ const $ = id => document.getElementById(id);
 const nn = v => v !== null && v !== undefined && !isNaN(v);
 const fmt = (v, d) => nn(v) ? v.toFixed(d === undefined ? 0 : d) : '-';
 const sgn = v => nn(v) ? (v >= 0 ? '+' : '') + v.toFixed(0) : '-';
-const N = D.dates.length;
+let N = D.dates.length;
 let W = D.default, K = 'n', PERIOD = 126, SORT = 'cur', DESC = true;
 let selected = null;
 const COLORS = ['#ff8787', '#ffa94d', '#ffd43b', '#69db7c', '#4dabf7', '#9775fa', '#f783ac', '#63e6be', '#e599f7', '#a9e34b'];
@@ -317,7 +360,7 @@ function renderCards(st) {
   const weak = ok.slice(-5).reverse().map(x => `${x.s.name} ${fmt(x.cur)}%`).join('<br>');
   const up = st.filter(x => nn(x.d1)).sort((a, b) => b.d1 - a.d1).slice(0, 3).map(x => `${x.s.name} ${sgn(x.d1)}%p`).join('<br>');
   $('cards').innerHTML =
-    `<div class="card">섹터 정리 전체 종목 · ${LBL(W)} 위 비율<div class="val">${fmt(cur)}%</div>1주 전 ${fmt(valAgo(D.all[key], i, 5))}% · 1달 전 ${fmt(valAgo(D.all[key], i, 21))}%</div>` +
+    `<div class="card">섹터 정리 전체 종목 · ${LBL(W)} 위 비율${D.live ? ' (오늘 잠정)' : ''}<div class="val">${fmt(cur)}%</div>1주 전 ${fmt(valAgo(D.all[key], i, 5))}% · 1달 전 ${fmt(valAgo(D.all[key], i, 21))}%</div>` +
     `<div class="card">가장 강한 섹터(위 비율 높음)<div class="list">${strong}</div></div>` +
     `<div class="card">가장 약한 섹터(위 비율 낮음)<div class="list">${weak}</div></div>` +
     `<div class="card">1주 새 가장 강해진 섹터<div class="list">${up}</div></div>`;
@@ -400,7 +443,7 @@ $('segP').onclick = e => { const b = e.target.closest('button'); if (!b) return;
 let RP = '1';
 function renderRet() {
   const R = D.ret && D.ret[RP]; if (!R) { $('retBars').innerHTML = '<div class="desc">자료 없음</div>'; return; }
-  $('retSub').textContent = (RP === '1' ? D.ret.date : R.from + ' → ' + D.ret.date) + ' 종가 · 구성종목 단순평균 · 섹터 정리 기준';
+  $('retSub').textContent = (RP === '1' ? D.ret.date : R.from + ' → ' + D.ret.date) + (D.live ? ' ' + liveLabel(LIVE) + ' 잠정' : ' 종가') + ' · 구성종목 단순평균 · 섹터 정리 기준';
   $('retHdr').innerHTML = R.hdr.map(h => `${h.name} <b>${h.v.toLocaleString(undefined, {maximumFractionDigits: 1})}</b> <span class="${h.ch >= 0 ? 'pos' : 'neg'}">${h.ch >= 0 ? '+' : ''}${h.ch.toFixed(1)}%</span>`).join(' &nbsp;·&nbsp; ');
   const mx = Math.max(...R.rows.map(x => Math.abs(x.r)), 0.1);
   $('retBars').innerHTML = R.rows.map(x => {
@@ -414,36 +457,53 @@ $('segR').onclick = e => { const b = e.target.closest('button'); if (!b) return;
 renderRet();
 renderAll();
 
-function liveFetch(cb) {
-  fetch('live/intraday.json?t=' + Date.now()).then(r => r.ok ? r.json() : null).then(j => {
-    if (!j) return;
-    const today = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
-    if (j.date !== today) return;
-    cb(j);
-  }).catch(() => {});
-}
-function liveHead(j, title) {
-  const ix = (k) => { const v = j.index[k]; return v ? k.replace('KOSPI', '코스피').replace('KOSDAQ', '코스닥') + ' ' + Number(v[0]).toLocaleString() + ' <span style="color:' + (v[1] >= 0 ? '#ff8787' : '#74a7ff') + '">' + (v[1] >= 0 ? '+' : '') + v[1].toFixed(2) + '%</span>' : ''; };
-  return '<div style="font-size:15px;font-weight:bold;margin:0 0 6px 0">' + title + ' <span style="font-size:12px;font-weight:normal;color:#9aa0a6">장중 잠정 · ' + (j.ts || '').slice(11, 16) + ' 기준(15분마다 갱신) · ' + ix('KOSPI') + ' · ' + ix('KOSDAQ') + ' · 확정값은 다음 날 아침 갱신</span></div>';
-}
 
-liveFetch(j => {
-  if (j.date <= D.asof) return;
-  const all = j.sector.find(r => r.name === '섹터 정리 전체'); const secs = j.sector.filter(r => r.name !== '섹터 정리 전체');
-  const dlt = r => (r.w20 ?? 0) - (r.w20_y ?? 0);
-  secs.sort((a, b) => dlt(a) - dlt(b));
-  const f = v => v === null || v === undefined ? '-' : Math.round(v) + '%';
-  const ch = (a, b) => a === null || b === null || a === undefined || b === undefined ? '' : ' <span style="color:' + (a - b >= 0 ? '#ff8787' : '#74a7ff') + ';font-size:11px">(' + (a - b >= 0 ? '+' : '') + Math.round(a - b) + ')</span>';
-  const r1 = v => v === null || v === undefined ? '-' : '<span style="color:' + (v >= 0 ? '#ff8787' : '#74a7ff') + '">' + (v >= 0 ? '+' : '') + v.toFixed(1) + '%</span>';
-  const td = 'style="padding:3px 8px;text-align:right;white-space:nowrap"';
-  let h = '<table style="border-collapse:collapse;font-size:12px;width:100%"><tr style="color:#9aa0a6"><th style="text-align:left;padding:3px 8px">섹터</th><th ' + td + '>종목</th><th ' + td + '>오늘 등락률(평균)</th><th ' + td + '>20일선 위 (어제 대비)</th><th ' + td + '>20주선 위</th><th ' + td + '>60일선 위</th><th ' + td + '>200일선 위</th></tr>';
-  const row = (r, bg) => '<tr style="border-top:1px solid #222;' + (bg || '') + '"><td style="padding:3px 8px">' + r.name + '</td><td ' + td + '>' + r.n + '</td><td ' + td + '>' + r1(r.r1d) + '</td><td ' + td + '><b>' + f(r.w20) + '</b>' + ch(r.w20, r.w20_y) + '</td><td ' + td + '>' + f(r.w20w) + ch(r.w20w, r.w20w_y) + '</td><td ' + td + '>' + f(r.w60) + ch(r.w60, r.w60_y) + '</td><td ' + td + '>' + f(r.w200) + ch(r.w200, r.w200_y) + '</td></tr>';
-  if (all) h += row(all, 'background:#1a1f28;font-weight:bold');
-  secs.forEach(r => h += row(r)); h += '</table>';
-  const el = document.getElementById('livePanel'); el.style.display = '';
-  el.innerHTML = liveHead(j, '섹터 이평선 위 비율') + '<div style="font-size:12px;color:#9aa0a6;margin-bottom:6px">어제까지 확정 시계열 + 지금 시가총액으로 다시 계산. 20일선 위 비율이 어제보다 많이 빠진 섹터부터. 괄호 = 어제 대비 %p.</div>' +
-    '<details open><summary style="cursor:pointer;color:#c9ccd1;font-size:12px">표 접기/펼치기</summary><div style="max-height:380px;overflow:auto">' + h + '</div></details>';
-});
+// ---------- 장중 실시간(잠정) 반영 - 2026-10-15 사용자 "실시간 정보가 차트 등 뭐든 바로 반영되게, 확정값은 그 날짜가 끝나면 적용".
+// live/intraday.json(평일 09:05~15:35 15분마다 PC가 계산해 올림)의 오늘 값을 확정 시계열 끝에 붙여 다시 그린다.
+// 페이지 확정 데이터가 그 날짜를 따라잡으면(다음 날 아침 정규 갱신) 붙이지 않음 = 확정값으로 자동 교체. 열어 두면 2분마다 새 값 확인.
+let LIVE = null;
+function liveLabel(j) { const t = (j.ts || '').slice(11, 16); return (t >= '15:30' ? '장 마감 ' : '장중 ') + t + ' 기준'; }
+function liveBanner(j, on) {
+  const el = document.getElementById('livePanel'); if (!el) return;
+  if (!on) { el.style.display = 'none'; return; }
+  const ix = k => { const v = j.index && j.index[k]; return v ? (k === 'KOSPI' ? '코스피 ' : '코스닥 ') + Number(v[0]).toLocaleString() + ' <span style="color:' + (v[1] >= 0 ? '#ff8787' : '#74a7ff') + '">' + (v[1] >= 0 ? '+' : '') + Number(v[1]).toFixed(2) + '%</span>' : ''; };
+  el.style.display = '';
+  el.innerHTML = '<div style="font-size:13px;line-height:1.7"><b style="color:#4dabf7">오늘(' + j.date.slice(5).replace('-', '/') + ') 잠정치 반영 중</b> · ' + liveLabel(j) + ' · ' + ix('KOSPI') + ' · ' + ix('KOSDAQ') +
+    '<br><span style="color:#9aa0a6;font-size:12px">차트·카드·표의 마지막 날(' + j.date + ')이 잠정치입니다. 15분마다 다시 계산되고 페이지를 열어 두면 자동으로 바뀝니다. 확정값은 다음 날 아침 정규 갱신 때 들어오고 그때 잠정치는 빠집니다.</span></div>';
+}
+function livePoll(apply) {
+  const go = () => fetch('live/intraday.json?t=' + Date.now()).then(r => r.ok ? r.json() : null).then(j => {
+    if (j && (!LIVE || j.built !== LIVE.built)) { LIVE = j; apply(j); }
+  }).catch(() => {});
+  go();
+  setInterval(() => { if (!document.hidden) go(); }, 120000);
+}
+const N0 = D.dates.length;
+const KEYS = []; D.windows.forEach(w => ['n', 'c'].forEach(k => KEYS.push(k + w)));
+const STK0 = {}; Object.keys(D.stocks).forEach(c => STK0[c] = {cap: D.stocks[c].cap, g: D.stocks[c].g});
+const RET0 = D.ret;
+function applyLive(j) {
+  D.dates.length = N0;
+  KEYS.forEach(k => { if (D.all[k]) D.all[k].length = N0; D.sectors.forEach(s => { if (s[k]) s[k].length = N0; }); });
+  Object.keys(STK0).forEach(c => { D.stocks[c].cap = STK0[c].cap; D.stocks[c].g = STK0[c].g; });
+  D.ret = RET0; D.live = false;
+  const L = j.sector;
+  if (L && L.keys && j.date > D.asof) {
+    const at = {}; L.keys.forEach((k, i) => at[k] = i);
+    D.dates.push(j.date);
+    KEYS.forEach(k => {
+      if (D.all[k]) D.all[k].push(k in at ? L.all[at[k]] : null);
+      D.sectors.forEach(s => { const v = L.sec[s.name]; if (s[k]) s[k].push(v && k in at ? v[at[k]] : null); });
+    });
+    Object.entries(L.stocks).forEach(([c, v]) => { const st = D.stocks[c]; if (!st) return; st.cap = v[0]; const g = {}; D.windows.forEach((w, i) => g[String(w)] = v[i + 1]); st.g = g; });
+    if (L.ret) D.ret = L.ret;
+    D.live = true;
+  }
+  N = D.dates.length;
+  renderRet(); renderAll();
+  liveBanner(j, D.live);
+}
+livePoll(applyLive);
 </script>
 </body>
 </html>
