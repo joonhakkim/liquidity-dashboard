@@ -54,9 +54,10 @@
   <a class="back" href="index.html">&larr; 홈</a>
   <a class="back" href="relative_strength.html">종목·섹터 상대강도 순위 &rarr;</a>
   <h1>시장 국면 점수<span class="sub">밸류 하단 · 공격-방어 · 120일선 위 종목으로 본 6국면 (매일 갱신)</span></h1>
-  <div class="updated">최종 갱신: 2026-10-15 14:20 &middot; 데이터 기준일: 2026-10-14 &middot; 매 거래일 기준</div>
+  <div class="updated">최종 갱신: 2026-10-15 15:17 &middot; 데이터 기준일: 2026-10-14 &middot; 매 거래일 기준</div>
 
 
+  <div class="panel" id="livePanel" style="display:none;border-color:#4dabf7"></div>
   <div class="panel" id="guide" style="border-color:#ff922b66"></div>
   <div class="cards" id="cards"></div>
 
@@ -506,6 +507,32 @@ $('rangeBtns').addEventListener('click', e => {
   buildCharts();
 }));
 recalc();
+
+function liveFetch(cb) {
+  fetch('live/intraday.json?t=' + Date.now()).then(r => r.ok ? r.json() : null).then(j => {
+    if (!j) return;
+    const today = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
+    if (j.date !== today) return;
+    cb(j);
+  }).catch(() => {});
+}
+function liveHead(j, title) {
+  const ix = (k) => { const v = j.index[k]; return v ? k.replace('KOSPI', '코스피').replace('KOSDAQ', '코스닥') + ' ' + Number(v[0]).toLocaleString() + ' <span style="color:' + (v[1] >= 0 ? '#ff8787' : '#74a7ff') + '">' + (v[1] >= 0 ? '+' : '') + v[1].toFixed(2) + '%</span>' : ''; };
+  return '<div style="font-size:15px;font-weight:bold;margin:0 0 6px 0">' + title + ' <span style="font-size:12px;font-weight:normal;color:#9aa0a6">장중 잠정 · ' + (j.ts || '').slice(11, 16) + ' 기준(15분마다 갱신) · ' + ix('KOSPI') + ' · ' + ix('KOSDAQ') + ' · 확정값은 다음 날 아침 갱신</span></div>';
+}
+
+liveFetch(j => {
+  if (j.date <= DATA.asof) return;
+  const p = j.phase, s = j.sm, nm = {1: '상승', 2: '고점권 조정', 3: '하락'};
+  const col = p.target === 60 ? '#ff6b6b' : '#c9ccd1';
+  const sg = v => '<span style="color:' + (v >= 0 ? '#ff8787' : '#74a7ff') + '">' + (v >= 0 ? '+' : '') + v.toFixed(2) + '%</span>';
+  const el = document.getElementById('livePanel'); el.style.display = '';
+  el.innerHTML = liveHead(j, '지금 가격으로 마감하면') +
+    '<div style="font-size:13px;line-height:1.7;color:#c9ccd1">국면 <b>' + nm[p.three] + '</b> · 목표 비중 <b style="color:' + col + ';font-size:16px">' + p.target + '%</b> (어제 확정 ' + p.target_y + '%)' + (p.target !== p.target_y ? ' <b style="color:#ff922b">← 오늘 바뀔 수 있음</b>' : '') + '<br>' +
+    '꺾임 판단 점수 <b>' + p.raw + '</b> (어제 ' + p.raw_y + ' · 20일 고점 ' + p.max20 + ' · 켜지는 선 ' + p.line + ' · 꺼지는 선 ' + p.release + ') → 꺾임 주의 <b>' + (p.caution ? '켜짐' : '꺼짐') + '</b>' + (p.caution !== p.caution_y ? ' (어제와 달라짐)' : '') + '<br>' +
+    '<span style="color:#9aa0a6">재료(어제 → 지금): 밸류 하단 종목 ' + p.C_y + '% → <b>' + p.C + '%</b> · 공격-방어 ' + p.D_y + ' → <b>' + p.D + '%p</b> · 120일선 위 종목 ' + p.X_y + '% → <b>' + p.X + '%</b> · ' +
+    '중소형 지수 ' + s.idx + ' (' + sg(s.chg) + '), 120일선(' + s.ma120 + ') ' + (s.below ? '<b>아래</b>' : '위') + '</span></div>';
+});
 </script>
 </body>
 </html>

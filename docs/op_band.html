@@ -46,7 +46,8 @@
 <body>
   <a class="back" href="index.html">&larr; 홈</a>
   <h1>OP밴드 트래커</h1>
-  <div class="updated">최종 갱신: 2026-10-15 08:43 &middot; 2428종목 &middot; 기준일 2026-10-14 &middot; 시계열 2014-12-30 ~ 2026-10-14</div>
+  <div class="updated">최종 갱신: 2026-10-15 15:21 &middot; 2428종목 &middot; 기준일 2026-10-14 &middot; 시계열 2014-12-30 ~ 2026-10-14</div>
+  <div id="livePanel" style="display:none;background:#12151b;border:1px solid #4dabf7;border-radius:12px;padding:12px 16px;margin:10px 0 16px 0"></div>
 
   <div class="exp">
     <b>기존과 뭐가 다른가</b><br>
@@ -348,6 +349,31 @@ document.getElementById('overlay').addEventListener('click', e => {
 });
 
 applyFilters();
+
+function liveFetch(cb) {
+  fetch('live/intraday.json?t=' + Date.now()).then(r => r.ok ? r.json() : null).then(j => {
+    if (!j) return;
+    const today = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
+    if (j.date !== today) return;
+    cb(j);
+  }).catch(() => {});
+}
+function liveHead(j, title) {
+  const ix = (k) => { const v = j.index[k]; return v ? k.replace('KOSPI', '코스피').replace('KOSDAQ', '코스닥') + ' ' + Number(v[0]).toLocaleString() + ' <span style="color:' + (v[1] >= 0 ? '#ff8787' : '#74a7ff') + '">' + (v[1] >= 0 ? '+' : '') + v[1].toFixed(2) + '%</span>' : ''; };
+  return '<div style="font-size:15px;font-weight:bold;margin:0 0 6px 0">' + title + ' <span style="font-size:12px;font-weight:normal;color:#9aa0a6">장중 잠정 · ' + (j.ts || '').slice(11, 16) + ' 기준(15분마다 갱신) · ' + ix('KOSPI') + ' · ' + ix('KOSDAQ') + ' · 확정값은 다음 날 아침 갱신</span></div>';
+}
+
+liveFetch(j => {
+  const o = j.opband; if (!o) return;
+  const g = v => v === null || v === undefined ? '-' : (v >= 0 ? '+' : '') + v.toFixed(1) + '%';
+  const td = 'style="padding:3px 8px;text-align:right;white-space:nowrap"';
+  let h = '<table style="border-collapse:collapse;font-size:12px;width:100%"><tr style="color:#9aa0a6"><th style="text-align:left;padding:3px 8px">종목</th><th style="text-align:left;padding:3px 8px">섹터</th><th ' + td + '>오늘 등락률</th><th ' + td + '>바텀 대비 (어제 → 지금)</th></tr>';
+  o.list.forEach(r => h += '<tr style="border-top:1px solid #222"><td style="padding:3px 8px">' + r.name + ' <span style="color:#7c828b">' + r.code + '</span></td><td style="padding:3px 8px;color:#9aa0a6">' + (r.sector || '') + '</td><td ' + td + '><span style="color:' + (r.ret >= 0 ? '#ff8787' : '#74a7ff') + '">' + g(r.ret) + '</span></td><td ' + td + '>' + g(r.gap_y) + ' → <b>' + g(r.gap) + '</b></td></tr>');
+  h += '</table>';
+  const el = document.getElementById('livePanel'); el.style.display = '';
+  el.innerHTML = liveHead(j, 'OP밴드 바텀 대비') + '<div style="font-size:13px;color:#c9ccd1;margin-bottom:6px">3년 하위 10% 바텀 아래 종목 <b>' + o.below_now + '개</b> (어제 확정 ' + o.below_y + '개, 대상 ' + o.n + '종목) · 아래 목록은 지금 바텀에 가장 가까운(또는 아래) 40종목</div>' +
+    '<details><summary style="cursor:pointer;color:#c9ccd1;font-size:12px">목록 펼치기</summary><div style="max-height:380px;overflow:auto">' + h + '</div></details>';
+});
 </script>
 </body>
 </html>

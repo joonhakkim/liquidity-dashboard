@@ -32,6 +32,8 @@ DATA_DIR = os.path.join(BASE_DIR, "data")
 DOCS_DIR = os.path.join(BASE_DIR, "docs")
 PRICES_PATH = os.path.join(DATA_DIR, "bollinger_prices.csv")
 OP_BAND_DIR = os.path.join(DOCS_DIR, "op_band_data")
+LIVE_BASE_PATH = os.path.join(DATA_DIR, "screening", "cache", "phase_live_base.pkl")   # 장중 실시간 계산용 기초값(live_intraday.py가 읽음, 2026-10-15)
+LIVE_VAL = {}   # code -> (최신 12개월 선행 영업이익(억), 3년 하위 10% 배수, 2년 이력 여부, 최신 시총(억)) - 장중 밸류 하단 비율 계산용
 SUMMARY_PATH = os.path.join(DATA_DIR, "screening", "market_phase_daily.csv")
 LOG_PATH = os.path.join(DATA_DIR, "screening", "market_phase_log.csv")   # 판정 기록(덧붙이기만, 고치지 않음)
 MODEL_TAG = "v2 C10x3+D20x2+X120x2 ema65 dir40 db2 hb2 exp-tercile"   # v1(sma65)은 2026-10-12 기록까지
@@ -255,6 +257,8 @@ def op_band_weekly(grid):
             continue
         p10 = m.rolling("1095D", min_periods=20).quantile(0.10)
         elig = (m.index - m.index.min()).days >= 730
+        op_s = pd.Series(op, index=dts).sort_index()
+        LIVE_VAL[code] = (float(op_s.iloc[-1]), float(p10.iloc[-1]), bool(elig[-1]), float(cap.iloc[-1]))
         fl = (m < p10).astype(float).where(m.notna() & p10.notna() & elig)
         flags[code] = on_grid(fl, grid)
     F = pd.DataFrame(flags)
@@ -375,6 +379,13 @@ def compute():
     SMw = SM.reindex(grid, method="ffill")
     # 대응 단계용 취약 신호(매 거래일 그리드에서만 - 검증을 일별로 했음)
     wflags, capn60, wshown, wspreads = warning_signals(L, active, wide, meta, members, caps, Kd, SM, grid)
+    try:   # 장중 실시간 계산용 기초값 저장(live_intraday.py)
+        os.makedirs(os.path.dirname(LIVE_BASE_PATH), exist_ok=True)
+        pd.to_pickle({"asof": asof, "L_tail": L.iloc[-260:].astype("float32"), "active_last": active.iloc[-1],
+                      "large": set(large_w.columns[large_w.iloc[-1].values > 0]), "members": members,
+                      "aggr": agg_list, "dfn": def_list, "val": dict(LIVE_VAL), "market": meta["market"]}, LIVE_BASE_PATH)
+    except Exception as e:  # noqa: BLE001 - 본 빌드는 계속
+        print(f"경고: 장중 기초값 저장 실패({e})")
     # 사후 실제 국면(15% 되돌림)
     t0 = pd.Timestamp("2016-01-01")
     tK, pivK = truth_phase(Kd.loc[t0:], 0.15, grid)
@@ -668,6 +679,7 @@ TEMPLATE = r"""<!doctype html>
   <div class="updated">최종 갱신: __UPDATED__ &middot; 데이터 기준일: __ASOF__ &middot; 매 거래일 기준</div>
 
 __FAST_NOTE__
+  <div class="panel" id="livePanel" style="display:none;border-color:#4dabf7"></div>
   <div class="panel" id="guide" style="border-color:#ff922b66"></div>
   <div class="cards" id="cards"></div>
 
@@ -1117,6 +1129,32 @@ $('rangeBtns').addEventListener('click', e => {
   buildCharts();
 }));
 recalc();
+
+function liveFetch(cb) {
+  fetch('live/intraday.json?t=' + Date.now()).then(r => r.ok ? r.json() : null).then(j => {
+    if (!j) return;
+    const today = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
+    if (j.date !== today) return;
+    cb(j);
+  }).catch(() => {});
+}
+function liveHead(j, title) {
+  const ix = (k) => { const v = j.index[k]; return v ? k.replace('KOSPI', '코스피').replace('KOSDAQ', '코스닥') + ' ' + Number(v[0]).toLocaleString() + ' <span style="color:' + (v[1] >= 0 ? '#ff8787' : '#74a7ff') + '">' + (v[1] >= 0 ? '+' : '') + v[1].toFixed(2) + '%</span>' : ''; };
+  return '<div style="font-size:15px;font-weight:bold;margin:0 0 6px 0">' + title + ' <span style="font-size:12px;font-weight:normal;color:#9aa0a6">장중 잠정 · ' + (j.ts || '').slice(11, 16) + ' 기준(15분마다 갱신) · ' + ix('KOSPI') + ' · ' + ix('KOSDAQ') + ' · 확정값은 다음 날 아침 갱신</span></div>';
+}
+
+liveFetch(j => {
+  if (j.date <= DATA.asof) return;
+  const p = j.phase, s = j.sm, nm = {1: '상승', 2: '고점권 조정', 3: '하락'};
+  const col = p.target === 60 ? '#ff6b6b' : '#c9ccd1';
+  const sg = v => '<span style="color:' + (v >= 0 ? '#ff8787' : '#74a7ff') + '">' + (v >= 0 ? '+' : '') + v.toFixed(2) + '%</span>';
+  const el = document.getElementById('livePanel'); el.style.display = '';
+  el.innerHTML = liveHead(j, '지금 가격으로 마감하면') +
+    '<div style="font-size:13px;line-height:1.7;color:#c9ccd1">국면 <b>' + nm[p.three] + '</b> · 목표 비중 <b style="color:' + col + ';font-size:16px">' + p.target + '%</b> (어제 확정 ' + p.target_y + '%)' + (p.target !== p.target_y ? ' <b style="color:#ff922b">← 오늘 바뀔 수 있음</b>' : '') + '<br>' +
+    '꺾임 판단 점수 <b>' + p.raw + '</b> (어제 ' + p.raw_y + ' · 20일 고점 ' + p.max20 + ' · 켜지는 선 ' + p.line + ' · 꺼지는 선 ' + p.release + ') → 꺾임 주의 <b>' + (p.caution ? '켜짐' : '꺼짐') + '</b>' + (p.caution !== p.caution_y ? ' (어제와 달라짐)' : '') + '<br>' +
+    '<span style="color:#9aa0a6">재료(어제 → 지금): 밸류 하단 종목 ' + p.C_y + '% → <b>' + p.C + '%</b> · 공격-방어 ' + p.D_y + ' → <b>' + p.D + '%p</b> · 120일선 위 종목 ' + p.X_y + '% → <b>' + p.X + '%</b> · ' +
+    '중소형 지수 ' + s.idx + ' (' + sg(s.chg) + '), 120일선(' + s.ma120 + ') ' + (s.below ? '<b>아래</b>' : '위') + '</span></div>';
+});
 </script>
 </body>
 </html>

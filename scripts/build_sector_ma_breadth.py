@@ -251,6 +251,7 @@ TEMPLATE = r"""<!doctype html>
     <span>차트 기간</span><span class="seg" id="segP"><button data-p="63">3달</button><button data-p="126" class="active">6달</button><button data-p="250">1년</button><button data-p="0">전체</button></span>
   </div>
 
+  <div id="livePanel" style="display:none;background:#12151b;border:1px solid #4dabf7;border-radius:12px;padding:12px 16px;margin:10px 0 16px 0"></div>
   <div class="cards" id="cards"></div>
 
   <div class="box">
@@ -412,6 +413,37 @@ function renderRet() {
 $('segR').onclick = e => { const b = e.target.closest('button'); if (!b) return; RP = b.dataset.r; document.querySelectorAll('#segR button').forEach(x => x.classList.toggle('active', x === b)); renderRet(); };
 renderRet();
 renderAll();
+
+function liveFetch(cb) {
+  fetch('live/intraday.json?t=' + Date.now()).then(r => r.ok ? r.json() : null).then(j => {
+    if (!j) return;
+    const today = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
+    if (j.date !== today) return;
+    cb(j);
+  }).catch(() => {});
+}
+function liveHead(j, title) {
+  const ix = (k) => { const v = j.index[k]; return v ? k.replace('KOSPI', '코스피').replace('KOSDAQ', '코스닥') + ' ' + Number(v[0]).toLocaleString() + ' <span style="color:' + (v[1] >= 0 ? '#ff8787' : '#74a7ff') + '">' + (v[1] >= 0 ? '+' : '') + v[1].toFixed(2) + '%</span>' : ''; };
+  return '<div style="font-size:15px;font-weight:bold;margin:0 0 6px 0">' + title + ' <span style="font-size:12px;font-weight:normal;color:#9aa0a6">장중 잠정 · ' + (j.ts || '').slice(11, 16) + ' 기준(15분마다 갱신) · ' + ix('KOSPI') + ' · ' + ix('KOSDAQ') + ' · 확정값은 다음 날 아침 갱신</span></div>';
+}
+
+liveFetch(j => {
+  if (j.date <= D.asof) return;
+  const all = j.sector.find(r => r.name === '섹터 정리 전체'); const secs = j.sector.filter(r => r.name !== '섹터 정리 전체');
+  const dlt = r => (r.w20 ?? 0) - (r.w20_y ?? 0);
+  secs.sort((a, b) => dlt(a) - dlt(b));
+  const f = v => v === null || v === undefined ? '-' : Math.round(v) + '%';
+  const ch = (a, b) => a === null || b === null || a === undefined || b === undefined ? '' : ' <span style="color:' + (a - b >= 0 ? '#ff8787' : '#74a7ff') + ';font-size:11px">(' + (a - b >= 0 ? '+' : '') + Math.round(a - b) + ')</span>';
+  const r1 = v => v === null || v === undefined ? '-' : '<span style="color:' + (v >= 0 ? '#ff8787' : '#74a7ff') + '">' + (v >= 0 ? '+' : '') + v.toFixed(1) + '%</span>';
+  const td = 'style="padding:3px 8px;text-align:right;white-space:nowrap"';
+  let h = '<table style="border-collapse:collapse;font-size:12px;width:100%"><tr style="color:#9aa0a6"><th style="text-align:left;padding:3px 8px">섹터</th><th ' + td + '>종목</th><th ' + td + '>오늘 등락률(평균)</th><th ' + td + '>20일선 위 (어제 대비)</th><th ' + td + '>20주선 위</th><th ' + td + '>60일선 위</th><th ' + td + '>200일선 위</th></tr>';
+  const row = (r, bg) => '<tr style="border-top:1px solid #222;' + (bg || '') + '"><td style="padding:3px 8px">' + r.name + '</td><td ' + td + '>' + r.n + '</td><td ' + td + '>' + r1(r.r1d) + '</td><td ' + td + '><b>' + f(r.w20) + '</b>' + ch(r.w20, r.w20_y) + '</td><td ' + td + '>' + f(r.w20w) + ch(r.w20w, r.w20w_y) + '</td><td ' + td + '>' + f(r.w60) + ch(r.w60, r.w60_y) + '</td><td ' + td + '>' + f(r.w200) + ch(r.w200, r.w200_y) + '</td></tr>';
+  if (all) h += row(all, 'background:#1a1f28;font-weight:bold');
+  secs.forEach(r => h += row(r)); h += '</table>';
+  const el = document.getElementById('livePanel'); el.style.display = '';
+  el.innerHTML = liveHead(j, '섹터 이평선 위 비율') + '<div style="font-size:12px;color:#9aa0a6;margin-bottom:6px">어제까지 확정 시계열 + 지금 시가총액으로 다시 계산. 20일선 위 비율이 어제보다 많이 빠진 섹터부터. 괄호 = 어제 대비 %p.</div>' +
+    '<details open><summary style="cursor:pointer;color:#c9ccd1;font-size:12px">표 접기/펼치기</summary><div style="max-height:380px;overflow:auto">' + h + '</div></details>';
+});
 </script>
 </body>
 </html>
