@@ -513,6 +513,7 @@ def main():
         "capn60": col("capn60", 1, 1), "vulnN": ints("vuln_n"), "stage": ints("stage"), "capnThr": CAPN_THR, "stages": STAGES, "caution": ints("caution"), "cautionLine": col("caution_line", 1, 1), "cautionDrop": CAUTION_DROP,
         "vuln": [{"k": k, "name": nm, "rule": rule, "on": bool(out[f"w_{k}"].iloc[-1]), "val": warn["shown"].get(k, "-")} for k, nm, rule in VULN],
         "spreads": warn["spreads"],
+        "episodes": stage_episodes(out),
         "phases": PHASES, "weights": WEIGHTS, "aggr": agg_list, "dfn": def_list, "cN": c_n,
         "smooth": SMOOTH_WEEKS, "dirWeeks": DIR_WEEKS, "deadband": DIR_DEADBAND, "levelBand": LEVEL_BAND, "per": P, "evalStart": EVAL_START, "halfSplit": HALF_SPLIT,
     }
@@ -538,6 +539,26 @@ def main():
     append_log(asof, out, P)
     print(f"저장 완료: {SUMMARY_PATH}")
     print(f"저장 완료: {PAGE_OUT_PATH}")
+
+
+def stage_episodes(out, since="2016-07-01"):
+    """대응 단계가 켜졌던 구간(⚪가 아닌 날이 이어진 구간)과 그동안 중소형 지수 변화 - 페이지 '신호 이력'용."""
+    st = out["stage"].fillna(0).values; sm = out["sm_idx"].values; idx = out.index
+    eps, i, n = [], 0, len(st)
+    while i < n:
+        if st[i] > 0 and idx[i] >= pd.Timestamp(since):
+            j = i
+            while j + 1 < n and st[j + 1] > 0:
+                j += 1
+            end_open = j == n - 1
+            k = min(j + 1, n - 1)
+            chg = (sm[k] / sm[i] - 1) * 100 if sm[i] == sm[i] and sm[k] == sm[k] else None
+            eps.append({"s": idx[i].strftime("%Y-%m-%d"), "e": None if end_open else idx[j].strftime("%Y-%m-%d"), "d": int(j - i + 1),
+                        "mx": int(st[i:j + 1].max()), "chg": None if chg is None else round(float(chg), 1)})
+            i = j + 1
+        else:
+            i += 1
+    return eps
 
 
 def append_log(asof, out, P):
@@ -648,6 +669,7 @@ TEMPLATE = r"""<!doctype html>
   <div class="updated">최종 갱신: __UPDATED__ &middot; 데이터 기준일: __ASOF__ &middot; 매 거래일 기준</div>
 
 __FAST_NOTE__
+  <div class="panel" id="guide" style="border-color:#ff922b66"></div>
   <div class="cards" id="cards"></div>
 
   <div class="range-bar ctl" id="rangeBar" style="margin-bottom:12px">
@@ -1041,13 +1063,38 @@ function renderWarn() {
 const thrVal = v => (v === 'exp' || v === 'fix') ? v : +v;
 const MODE = DATA.mode || 'main';   // 'fast' = 일별 점수 국면 페이지(20거래일 평균·20거래일 방향)
 const CFG = {wC: DATA.weights.C, wD: DATA.weights.D, wX: DATA.weights.X, sm: (MODE === 'fast' ? 4 : DATA.smooth) * PER, k: (MODE === 'fast' ? 4 : DATA.dirWeeks) * PER, db: DATA.deadband, hb: DATA.levelBand, thr: 'exp', ema: MODE !== 'fast'};
+const TGT = {0: 100, 1: 70, 2: 60}, STG = {0: '⚪', 1: '🟠', 2: '🔴'};
+function renderGuide() {
+  if (MODE === 'fast') { $('guide').style.display = 'none'; return; }
+  const i = lastIdx(DATA.stage), q = DATA.stage[i];
+  let k = 0; for (let j = i; j >= 0 && DATA.stage[j] === q; j--) k++;
+  const E = DATA.episodes.filter(e => e.e !== null), dn = E.filter(e => e.chg < 0), up = E.filter(e => e.chg >= 0);
+  const avg = a => a.length ? a.reduce((s, e) => s + e.chg, 0) / a.length : 0;
+  const rows = DATA.episodes.slice(-12).reverse().map(e => '<tr><td>' + e.s + '</td><td>' + (e.e || '진행 중') + '</td><td>' + e.d + '일</td><td>' + (e.mx === 2 ? '🔴 60%' : '🟠 70%') + '</td>' +
+    '<td class="' + (e.chg < 0 ? 'neg' : 'pos') + '">' + (e.chg === null ? '-' : (e.chg >= 0 ? '+' : '') + e.chg.toFixed(1) + '%') + '</td><td>' + (e.e === null ? '-' : (e.chg < 0 ? '하락을 줄임' : '헛신호(반등 일부 놓침)')) + '</td></tr>').join('');
+  $('guide').innerHTML =
+    '<h3 style="font-size:15px">오늘의 목표 비중 <span style="font-size:24px;color:' + STC[q] + ';margin-left:8px">' + STG[q] + ' ' + TGT[q] + '%</span>' +
+    '<span style="font-size:12px;font-weight:normal;color:#9aa0a6;margin-left:10px">' + DATA.dates[i] + ' 종가 기준 · ' + (q ? k + '거래일째' : '평소') + '</span></h3>' +
+    '<div class="note" style="margin-top:4px;color:#c9ccd1">' +
+    '<b>쓰는 법(기계적으로 그대로 실행)</b><br>' +
+    '1) 매일 아침 갱신(7:30) 뒤 이 칸의 <b>목표 비중</b>만 확인합니다.<br>' +
+    '2) 목표가 바뀌면 다음 거래일부터 <b>3~4거래일에 나눠</b> 맞춥니다(100%→70%면 하루 약 8~10%p씩).<br>' +
+    '3) ⚪ 100%로 돌아오면 같은 방식으로 3~4일에 나눠 늘립니다. 중간에 🟠↔🔴로 바뀌면 새 목표로 이어서 맞춥니다.<br>' +
+    '4) "이번엔 헛신호 같다"며 건너뛰지 않습니다 - 아래 성적은 헛신호까지 모두 포함한 결과입니다.<br>' +
+    '<b>조건</b>: 🟠 70% = 꺾임 주의(일별 점수가 최근 20거래일 고점보다 20점 넘게 하락) 또는 국면 ⑤ · 🔴 60% = 둘이 겹치거나 ⑤ + 대형주만 버팀 · ⚪ 100% = 모두 꺼짐(꺾임 주의는 점수가 20일 고점 대비 5점 안으로 회복하면 꺼짐).<br>' +
+    '<b>성적(2016.7~, 3~4일 분할 실행·비용 포함)</b>: 중소형 지수 연 3.9%→5.2~5.5%, 최대낙폭 -48%→-32% · 코스닥 2.0%→4.5~4.7%, -54%→-39%. ' +
+    '아래 이력의 끝난 ' + E.length + '번 중 ' + dn.length + '번은 그동안 중소형이 평균 ' + avg(dn).toFixed(1) + '% 빠졌고(줄인 덕을 봄), ' + up.length + '번은 평균 +' + avg(up).toFixed(1) + '% 올랐습니다(헛신호 비용).<br>' +
+    '<b>한계</b>: 꺾인 뒤에 켜지므로 급락 첫날은 못 피합니다. 가치는 이어지는 하락을 줄이는 데 있습니다(과거 큰 하락은 낙폭의 대부분이 신호 뒤에 옴). 국면 ①~⑥은 시장 위치 참고용이고, 비중 판단에는 ⑤만 쓰입니다.</div>' +
+    '<details style="margin-top:8px;font-size:12px"><summary style="cursor:pointer;color:#c9ccd1">신호 이력(최근 12번) - 켜졌던 동안 중소형 지수가 얼마나 움직였나</summary>' +
+    '<div class="tblwrap"><table class="st"><tr><th>켜짐</th><th>꺼짐</th><th>기간</th><th>최고 단계</th><th>그동안 중소형</th><th>결과</th></tr>' + rows + '</table></div></details>';
+}
 function recalc() {
   M = computeModel(CFG);
   // 꺾임 주의가 켜진 날은 방향을 하락으로 표시(2026-10-15 사용자 "국면으로 직관적으로 보고 싶다"): ①->⑥, ②->⑤, ③->④.
   // 비중 규칙(대응 단계)은 원래 국면 + 꺾임 주의로 따로 계산 - 이렇게 접은 국면만으로 비중을 정하면 손익이 나빠짐(④·⑥ 일괄 축소는 손해).
   M.ph0 = M.ph.slice();
   if (MODE !== 'fast') M.ph = M.ph.map((q, i) => (q && q <= 3 && DATA.caution[i]) ? 7 - q : q);
-  renderCards(); renderRecent(); renderWarn(); buildCharts();
+  renderGuide(); renderCards(); renderRecent(); renderWarn(); buildCharts();
 }
 $('phLegend').innerHTML = Object.keys(PH).map(k => '<span><i style="background:' + PHC[k] + '"></i>' + PH[k] + '</span>').join('');
 $('descD').innerHTML = '공격 섹터(코스피 대비 민감도 상위 ' + DATA.aggr.length + '개: ' + DATA.aggr.join(', ') + ') 동일가중 1달(20거래일) 수익률에서 ' +
