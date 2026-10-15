@@ -36,7 +36,6 @@ SUMMARY_PATH = os.path.join(DATA_DIR, "screening", "market_phase_daily.csv")
 LOG_PATH = os.path.join(DATA_DIR, "screening", "market_phase_log.csv")   # 판정 기록(덧붙이기만, 고치지 않음)
 MODEL_TAG = "v2 C10x3+D20x2+X120x2 ema65 dir40 db2 hb2 exp-tercile"   # v1(sma65)은 2026-10-12 기록까지
 PAGE_OUT_PATH = os.path.join(DOCS_DIR, "market_phase.html")
-FAST_PAGE_PATH = os.path.join(DOCS_DIR, "market_phase_fast.html")   # 일별 점수 국면(빠른 버전, 2026-10-12)
 
 WEIGHTS = {"C": 3, "D": 2, "X": 2}
 SMOOTH_WEEKS = 13
@@ -463,7 +462,12 @@ def compute():
     stage[(caution > 0) | (phg == 5)] = 1
     stage[((caution > 0) & (phg == 5)) | ((phg == 5) & wflags["n1"])] = 2
     out["caution"] = caution.where(rawd.notna())
-    out["phase_shown"] = phg.where(~((caution > 0) & phg.isin([1, 2, 3])), 7 - phg)   # 페이지 표시 국면(꺾임이면 방향 하락)
+    # 페이지 국면(2026-10-15 사용자 "수준 x 방향 표로 국면 판단"): 수준은 느린 점수 그대로, 방향 '하락' = 꺾임 주의 또는 원래 ⑤.
+    # 이러면 ①②③ = 비중 100%, ④⑤⑥ = 70%(⑤+꺾임 겹침·⑤+대형주만 버팀 60%)로 표가 곧 비중 규칙(손익 검증된 규칙과 98% 같은 날).
+    # 원래 느린 방향의 ④·⑥(꺾임 없이)은 비중 축소 시 손해였어서 상승 쪽(③·①)으로 봄.
+    lev = phg.map({1: 0, 6: 0, 2: 1, 5: 1, 3: 2, 4: 2})
+    down = (caution > 0) | (phg == 5)
+    out["phase_shown"] = (6 - lev).where(down, lev + 1).where(phg.notna())
     out["caution_line"] = mx - CAUTION_DROP
     out["capn60"] = capn60
     out["vuln_n"] = vuln_n
@@ -521,21 +525,10 @@ def main():
             .replace("__ASOF__", payload["asof"])
             .replace("__DATA__", json.dumps(payload, ensure_ascii=False, separators=(",", ":"))))
     os.makedirs(os.path.dirname(PAGE_OUT_PATH), exist_ok=True)
-    main_html = (html.replace("__OTHER_HREF__", "market_phase_fast.html").replace("__OTHER_LABEL__", "일별 점수 국면(빠른 버전)")
-                 .replace("__FAST_NOTE__", ""))
+    main_html = html.replace("__FAST_NOTE__", "")
     with open(PAGE_OUT_PATH, "w", encoding="utf-8") as f:
         f.write(main_html)
-    # 일별 점수 국면 페이지: 같은 화면, 국면만 일별 점수 20거래일 평균 x 20거래일 전 대비로(2026-10-12 사용자 요청 - "따로 만들어줘")
-    fast_payload = dict(payload, mode="fast")
-    fast_html = (TEMPLATE.replace("__UPDATED__", datetime.now().strftime("%Y-%m-%d %H:%M")).replace("__ASOF__", payload["asof"])
-                 .replace("__DATA__", json.dumps(fast_payload, ensure_ascii=False, separators=(",", ":")))
-                 .replace("__OTHER_HREF__", "market_phase.html").replace("__OTHER_LABEL__", "시장 국면 점수(공식)"))
-    for a_, b_ in FAST_TEXT:
-        assert a_ in fast_html, a_
-        fast_html = fast_html.replace(a_, b_)
-    with open(FAST_PAGE_PATH, "w", encoding="utf-8") as f:
-        f.write(fast_html)
-    print(f"저장 완료: {FAST_PAGE_PATH}")
+    # 일별 점수 국면(빠른 버전) 페이지는 2026-10-15 사용자 요청("일별 점수 국면은 없애자")으로 삭제 - 꺾임 주의가 그 역할을 대신함
     append_log(asof, out, P)
     print(f"저장 완료: {SUMMARY_PATH}")
     print(f"저장 완료: {PAGE_OUT_PATH}")
@@ -664,7 +657,6 @@ TEMPLATE = r"""<!doctype html>
 <body>
   <a class="back" href="index.html">&larr; 홈</a>
   <a class="back" href="relative_strength.html">종목·섹터 상대강도 순위 &rarr;</a>
-  <a class="back" href="__OTHER_HREF__">__OTHER_LABEL__ &rarr;</a>
   <h1>시장 국면 점수<span class="sub">밸류 하단 · 공격-방어 · 120일선 위 종목으로 본 6국면 (매일 갱신)</span></h1>
   <div class="updated">최종 갱신: __UPDATED__ &middot; 데이터 기준일: __ASOF__ &middot; 매 거래일 기준</div>
 
@@ -735,7 +727,7 @@ __FAST_NOTE__
   <div class="exp">
     <b>점수 만드는 법</b>: 세 지표를 각각 <b>그 시점까지의 과거 값 대비 백분위(0~100점)</b>로 바꾼 뒤(미래 정보 없음) <b>밸류 하단 3점 · 공격-방어 2점 · 120일선 위 2점</b> 비중으로 평균하고, 65일 지수이동평균(EMA)을 국면 점수로 씁니다.
     밸류 하단 비율은 거꾸로(비율이 낮을수록 높은 점수) 반영합니다. 점수 자체에는 코스피 지수 값이 들어가지 않습니다(코스피는 정답지·이후 수익률 측정에만 사용).<br>
-    <b>국면 판정</b>: 점수가 그 시점까지 점수 분포의 하위 1/3이면 낮음, 상위 1/3이면 높음, 그 사이는 중간. 단 <b>꺾임 주의</b>(일별 점수가 20거래일 고점보다 20점 넘게 하락)가 켜진 동안은 방향을 하락으로 봅니다(②→⑤, ③→④, ①→⑥). 8주 전보다 오르는 중이면(8주 변화가 2점 이하면 직전 방향 유지, 낮음·높음 기준선은 2점 넘게 넘어야 수준 변경)
+    <b>국면 판정</b>: 점수가 그 시점까지 점수 분포의 하위 1/3이면 낮음, 상위 1/3이면 높음, 그 사이는 중간. <b>방향 '하락' = 꺾임 주의(일별 점수가 20거래일 고점보다 20점 넘게 하락) 또는 느린 점수 기준 ⑤</b>입니다. 그래서 <b>①②③ = 비중 100%, ④⑤⑥ = 70%</b>(⑤와 꺾임이 겹치거나 ⑤ + 대형주만 버팀이면 60%)로 표가 곧 비중 규칙입니다. 아래 느린 방향 설명은 원래 점수의 계산 방식입니다. 8주 전보다 오르는 중이면(8주 변화가 2점 이하면 직전 방향 유지, 낮음·높음 기준선은 2점 넘게 넘어야 수준 변경)
     낮음 ① 반등시작 · 중간 ② 중소형 확산 · 높음 ③ 전면 확산, 내리는 중이면 높음 ④ 고점 · 중간 ⑤ 중소형 하락 · 낮음 ⑥ 대형주까지 바닥입니다.<br>
     <b>주의</b>: 정확히 같은 국면을 맞히는 비율은 낮아 <b>대략적인 위치</b>로만 보세요. ④ 고점 판정 뒤에도 코스피가 더 오른 경우가 많아 매도 신호로 쓰면 안 됩니다.
     섹터·밸류 데이터는 현재 상장 종목 기준입니다.
@@ -1013,7 +1005,7 @@ function renderCards() {
   const iC = lastIdx(DATA.C), iD = lastIdx(DATA.D), iX = lastIdx(DATA.X);
   $('cards').innerHTML =
     '<div class="card main"><div class="lbl">현재 국면 (' + DATA.dates[iP] + ')</div><span class="badge" style="background:' + PHC[p] + '">' + PH[p] + '</span>' + cauBadge() +
-    (M.ph0[iP] !== p ? '<div class="sub" style="color:#ff922b">꺾임 주의로 방향을 하락으로 표시 - 느린 점수(65일 평균) 기준으로는 ' + PH[M.ph0[iP]] + '</div>' : '') +
+    (M.ph0[iP] !== p ? '<div class="sub" style="color:#ff922b">' + (DATA.caution[iP] ? '꺾임 주의로 방향 하락' : '꺾임 없는 느린 하락은 비중 유지 구간이라 상승 쪽으로 표시') + ' - 느린 점수(65일 평균) 기준으로는 ' + PH[M.ph0[iP]] + '</div>' : '') +
     '<div class="sub">' + PHDESC[p] + '</div><div class="sub">최근 30거래일 국면 흐름(왼쪽이 과거)</div><div class="strip">' + strip + '</div></div>' +
     smTrendCard() + (MODE !== 'fast' ? warnCard() : '') +
     cd('국면 점수 (' + SMLBL + (MODE === 'fast' ? ' 평균' : '') + ')', fmt(s) + '<span style="font-size:13px;color:#9aa0a6"> / 100</span>', '낮음 &lt; ' + fmt(M.lo[iS]) + ' · 높음 &gt; ' + fmt(M.hi[iS]) + '<br>' + KLBL + ' 전 ' + fmt(sk) + ' → <span class="' + (s - sk >= 0 ? 'pos' : 'neg') + '">' + sgn(s - sk) + '</span>') +
@@ -1081,6 +1073,7 @@ function renderGuide() {
     '2) 목표가 바뀌면 다음 거래일부터 <b>3~4거래일에 나눠</b> 맞춥니다(100%→70%면 하루 약 8~10%p씩).<br>' +
     '3) ⚪ 100%로 돌아오면 같은 방식으로 3~4일에 나눠 늘립니다. 중간에 🟠↔🔴로 바뀌면 새 목표로 이어서 맞춥니다.<br>' +
     '4) "이번엔 헛신호 같다"며 건너뛰지 않습니다 - 아래 성적은 헛신호까지 모두 포함한 결과입니다.<br>' +
+    '<b>국면 표로 보면</b>: ①②③(상승) = 100% · ④⑤⑥(하락) = 70% · 그중 ⑤와 꺾임이 겹치거나 ⑤ + 대형주만 버팀 = 60%.<br>' +
     '<b>조건</b>: 🟠 70% = 꺾임 주의(일별 점수가 최근 20거래일 고점보다 20점 넘게 하락) 또는 국면 ⑤ · 🔴 60% = 둘이 겹치거나 ⑤ + 대형주만 버팀 · ⚪ 100% = 모두 꺼짐(꺾임 주의는 점수가 20일 고점 대비 5점 안으로 회복하면 꺼짐).<br>' +
     '<b>성적(2016.7~, 3~4일 분할 실행·비용 포함)</b>: 중소형 지수 연 3.9%→5.2~5.5%, 최대낙폭 -48%→-32% · 코스닥 2.0%→4.5~4.7%, -54%→-39%. ' +
     '아래 이력의 끝난 ' + E.length + '번 중 ' + dn.length + '번은 그동안 중소형이 평균 ' + avg(dn).toFixed(1) + '% 빠졌고(줄인 덕을 봄), ' + up.length + '번은 평균 +' + avg(up).toFixed(1) + '% 올랐습니다(헛신호 비용).<br>' +
@@ -1093,7 +1086,8 @@ function recalc() {
   // 꺾임 주의가 켜진 날은 방향을 하락으로 표시(2026-10-15 사용자 "국면으로 직관적으로 보고 싶다"): ①->⑥, ②->⑤, ③->④.
   // 비중 규칙(대응 단계)은 원래 국면 + 꺾임 주의로 따로 계산 - 이렇게 접은 국면만으로 비중을 정하면 손익이 나빠짐(④·⑥ 일괄 축소는 손해).
   M.ph0 = M.ph.slice();
-  if (MODE !== 'fast') M.ph = M.ph.map((q, i) => (q && q <= 3 && DATA.caution[i]) ? 7 - q : q);
+  const LEV = {1: 0, 6: 0, 2: 1, 5: 1, 3: 2, 4: 2};
+  if (MODE !== 'fast') M.ph = M.ph.map((q, i) => { if (!q) return q; const lv = LEV[q], dn = DATA.caution[i] === 1 || q === 5; return dn ? 6 - lv : lv + 1; });
   renderGuide(); renderCards(); renderRecent(); renderWarn(); buildCharts();
 }
 $('phLegend').innerHTML = Object.keys(PH).map(k => '<span><i style="background:' + PHC[k] + '"></i>' + PH[k] + '</span>').join('');
