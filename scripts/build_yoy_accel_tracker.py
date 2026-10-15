@@ -83,6 +83,15 @@ def load_op_band_gaps():
     return {code: float(v) for code, v in zip(df["code"], df["gap_3y_p10"])}
 
 
+def load_op_band_asof():
+    """OP밴드 요약의 기준일(페이지 JS가 장중 잠정 주가를 붙일지 판단 - 이 날짜보다 새 날짜만 반영)."""
+    path = os.path.join(SCREEN_DIR, "op_band_summary.csv")
+    if not os.path.exists(path):
+        return ""
+    df = pd.read_csv(path, usecols=["latest_date"], dtype=str)
+    return str(df["latest_date"].max()) if len(df) else ""
+
+
 def find_workbook():
     candidates = glob.glob(os.path.join(MANUAL_DIR, "*QoQ*.xls*"))
     candidates = [c for c in candidates if not os.path.basename(c).startswith("~$")]
@@ -406,6 +415,7 @@ def main():
         n_stocks=len(rows),
         rows_json=json.dumps(rows, ensure_ascii=False),
         periods_json=json.dumps(all_periods),
+        gap_asof=load_op_band_asof(),
     )
     os.makedirs(DOCS_DIR, exist_ok=True)
     with open(PAGE_OUT_PATH, "w", encoding="utf-8") as f:
@@ -485,6 +495,7 @@ TEMPLATE = """<!doctype html>
   <a class="back" href="sector_yoy_accel_tracker.html">섹터별로 보기 &rarr;</a>
   <h1>YoY 가속화 트래커</h1>
   <div class="updated">최종 갱신: {updated_at} &middot; 데이터 기준일: {data_as_of} &middot; {n_stocks}종목(컨센서스 보유)</div>
+  <div id="livePanel" style="display:none;background:#12151b;border:1px solid #4dabf7;border-radius:12px;padding:10px 16px;margin:10px 0 14px 0"></div>
 
   <div class="exp">
     <b>무엇을 보는 페이지인가</b><br>
@@ -858,6 +869,9 @@ function openDetail(code) {{
     document.querySelectorAll('.range-btn').forEach(x => x.classList.toggle('active', x.dataset.days === 'null'));
 
     fetch(`op_band_data/${{code}}.json`).then(r => {{ if (!r.ok) throw new Error('no band data'); return r.json(); }}).then(b => {{
+      // 오늘 잠정: 밴드 차트 끝에 오늘 시총(어제 x (1 + 등락률)) 한 점 추가
+      const lx = LIVE_ON && LIVE.opband && LIVE.opband.ret ? LIVE.opband.ret[String(b.code).slice(-6)] : undefined;
+      if (typeof lx === 'number' && b.dates[b.dates.length - 1] < LIVE.date) {{ const m = b.dates.length - 1; b.dates.push(LIVE.date); b.mktcapEok.push(b.mktcapEok[m] * (1 + lx / 100)); b.opEok.push(b.opEok[m]); }}
       currentBand = b;
       document.getElementById('bandCount').value = b.bandMultiples.length || 6;
       renderBandChart(b.bandMultiples ?? []);
@@ -889,6 +903,60 @@ document.getElementById('cmpClearBtn').addEventListener('click', () => {{
 }});
 
 applyFilters();
+
+// ---------- 장중 실시간(잠정) 반영 - 2026-10-15 사용자 "실시간 정보가 뭐든 바로 반영되게" / "OP밴드 바뀌면서 변동되는 것들도 바뀌게".
+// live/intraday.json(평일 09:05~15:35 15분마다)의 종목별 오늘 등락률로 OP밴드 바텀 대비 %(= 배수/바텀 - 1)를 다시 계산하고
+// 밸류에이션 등급(5분위)도 같은 방식으로 다시 나눈다. 분기 실적·컨센서스는 장중에 바뀌지 않으므로 그대로.
+// OP밴드 확정 데이터가 그 날짜를 따라잡으면(다음 날 아침 정규 갱신) 붙이지 않음 = 확정값으로 자동 교체. 열어 두면 2분마다 새 값 확인.
+let LIVE = null, LIVE_ON = false;
+const GAP_ASOF = '{gap_asof}';
+function liveLabel(j) {{ const t = (j.ts || '').slice(11, 16); return (t >= '15:30' ? '장 마감 ' : '장중 ') + t + ' 기준'; }}
+function liveBanner(j, on) {{
+  const el = document.getElementById('livePanel'); if (!el) return;
+  if (!on) {{ el.style.display = 'none'; return; }}
+  const ix = k => {{ const v = j.index && j.index[k]; return v ? (k === 'KOSPI' ? '코스피 ' : '코스닥 ') + Number(v[0]).toLocaleString() + ' <span style="color:' + (v[1] >= 0 ? '#ff8787' : '#74a7ff') + '">' + (v[1] >= 0 ? '+' : '') + Number(v[1]).toFixed(2) + '%</span>' : ''; }};
+  el.style.display = '';
+  el.innerHTML = '<div style="font-size:13px;line-height:1.7"><b style="color:#4dabf7">오늘(' + j.date.slice(5).replace('-', '/') + ') 주가 잠정 반영 중</b> · ' + liveLabel(j) + ' · ' + ix('KOSPI') + ' · ' + ix('KOSDAQ') +
+    '<br><span style="color:#9aa0a6;font-size:12px">밸류에이션(OP밴드 3년 하위 10% 바텀 대비 %)·등급·시가총액·밴드 차트에 오늘 주가를 반영했습니다(15분마다, 열어 두면 자동). 분기 실적·컨센서스는 그대로입니다. 확정값은 다음 날 아침 정규 갱신 때 들어옵니다.</span></div>';
+}}
+function livePoll(apply) {{
+  const go = () => fetch('live/intraday.json?t=' + Date.now()).then(r => r.ok ? r.json() : null).then(j => {{
+    if (j && (!LIVE || j.built !== LIVE.built)) {{ LIVE = j; apply(j); }}
+  }}).catch(() => {{}});
+  go();
+  setInterval(() => {{ if (!document.hidden) go(); }}, 120000);
+}}
+// pandas qcut(q=5, labels=상~하)과 같은 5분위(선형보간 경계, 첫 구간은 최솟값 포함). 경계가 겹치면 다시 나누지 않음.
+const GRADE_LABELS = ['상', '중상', '중', '중하', '하'];
+function qcutGrades(vals) {{
+  const xs = vals.filter(v => v != null).sort((a, b) => a - b);
+  if (xs.length < 5) return null;
+  const q = p => {{ const pos = (xs.length - 1) * p, f = Math.floor(pos), c = Math.ceil(pos); return xs[f] + (xs[c] - xs[f]) * (pos - f); }};
+  const e = [0, 0.2, 0.4, 0.6, 0.8, 1].map(q);
+  for (let i = 1; i < e.length; i++) if (!(e[i] > e[i - 1])) return null;
+  return vals.map(v => {{ if (v == null) return null; for (let i = 0; i < 5; i++) if (v <= e[i + 1]) return GRADE_LABELS[i]; return GRADE_LABELS[4]; }});
+}}
+const liveGap = (g, x) => Math.round(((1 + g / 100) * (1 + x / 100) - 1) * 1000) / 10;
+const ROWS0 = ROWS.map(r => ({{gap: r.valuation_gap, grade: r.valuation_grade, mc: r.latest_mktcap}}));
+function applyLive(j) {{
+  ROWS.forEach((r, i) => {{ r.valuation_gap = ROWS0[i].gap; r.valuation_grade = ROWS0[i].grade; r.latest_mktcap = ROWS0[i].mc; delete r.live_ret; }});
+  LIVE_ON = false;
+  const R = j.opband && j.opband.ret;
+  if (R && j.date > GAP_ASOF) {{
+    ROWS.forEach((r, i) => {{
+      const x = R[String(r.code).slice(-6)]; if (typeof x !== 'number') return;
+      if (ROWS0[i].gap != null) r.valuation_gap = liveGap(ROWS0[i].gap, x);
+      if (ROWS0[i].mc != null) r.latest_mktcap = ROWS0[i].mc * (1 + x / 100);
+      r.live_ret = x;
+    }});
+    const g = qcutGrades(ROWS.map(r => r.valuation_gap));
+    if (g) ROWS.forEach((r, i) => r.valuation_grade = g[i]);
+    LIVE_ON = true;
+  }}
+  applyFilters();
+  liveBanner(j, LIVE_ON);
+}}
+livePoll(applyLive);
 </script>
 </body>
 </html>

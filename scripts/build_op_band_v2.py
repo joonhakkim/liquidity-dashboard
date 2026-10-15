@@ -268,7 +268,8 @@ def process_sheet_v2(ws):
             series_fy1_raw.append(fy1_raw)
             series_fy2_raw.append(fy2_raw)
 
-        # 최신 시점에 원본 컨센서스는 비어 있는데 직전 추정치를 이월해서 쓰는 중이면 그 일수(페이지 표시용)
+        # 최신 시점에 원본 컨센서스는 비어 있는데 직전 추정치를 이월해서 쓰는 중이면 그 일수(요약 csv에만 남김 -
+        # 페이지의 '이월 N일' 배지는 2026-10-15 사용자 요청 "이월표시는 안 해도 된다, 이월은 계속 적용"으로 뺌)
         carry = 0
         for i in range(len(data_rows) - 1, -1, -1):
             raw_none = (nfy1_idx is None or data_rows[i][nfy1_idx] is None) and (nfy2_idx is None or data_rows[i][nfy2_idx] is None)
@@ -659,7 +660,7 @@ function applyFilters() {{
   document.getElementById('count').textContent = rows.length + '종목 (행 클릭하면 밴드 차트)';
   document.getElementById('tbody').innerHTML = rows.slice(0, 400).map(r => `
     <tr data-code="${{r.code}}">
-      <td>${{r.is_override ? '<span class="ov-badge" title="애널리스트 자체추정치가 컨센서스 대신 적용됨">자체</span>' : ''}}${{r.est_carry_days > 0 ? '<span class="ov-badge" style="background:#5c4a1a;color:#ffd43b" title="원본 컨센서스가 비어 직전 추정치를 이월 중(최대 60거래일)">이월 ' + r.est_carry_days + '일</span>' : ''}}${{r.name}}</td><td class="sub">${{r.code}}</td><td class="sub">${{r.sector || '-'}}</td>
+      <td>${{r.is_override ? '<span class="ov-badge" title="애널리스트 자체추정치가 컨센서스 대신 적용됨">자체</span>' : ''}}${{r.name}}</td><td class="sub">${{r.code}}</td><td class="sub">${{r.sector || '-'}}</td>
       <td>${{fmtMktcap(r.latest_mktcap)}}</td>
       <td>${{r.latest_mult.toFixed(2)}}x${{r.live_ret != null ? ` <span style="font-size:11px;color:${{r.live_ret >= 0 ? '#ff8787' : '#74a7ff'}}">(${{r.live_ret >= 0 ? '+' : ''}}${{r.live_ret.toFixed(1)}}%)</span>` : ''}}</td>
       <td>${{r[bKey].toFixed(2)}}x</td>

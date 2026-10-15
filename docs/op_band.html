@@ -46,7 +46,7 @@
 <body>
   <a class="back" href="index.html">&larr; 홈</a>
   <h1>OP밴드 트래커</h1>
-  <div class="updated">최종 갱신: 2026-10-15 15:43 &middot; 2428종목 &middot; 기준일 2026-10-14 &middot; 시계열 2014-12-30 ~ 2026-10-14</div>
+  <div class="updated">최종 갱신: 2026-10-15 15:48 &middot; 2428종목 &middot; 기준일 2026-10-14 &middot; 시계열 2014-12-30 ~ 2026-10-14</div>
   <div id="livePanel" style="display:none;background:#12151b;border:1px solid #4dabf7;border-radius:12px;padding:12px 16px;margin:10px 0 16px 0"></div>
 
   <div class="exp">
@@ -193,7 +193,7 @@ function applyFilters() {
   document.getElementById('count').textContent = rows.length + '종목 (행 클릭하면 밴드 차트)';
   document.getElementById('tbody').innerHTML = rows.slice(0, 400).map(r => `
     <tr data-code="${r.code}">
-      <td>${r.is_override ? '<span class="ov-badge" title="애널리스트 자체추정치가 컨센서스 대신 적용됨">자체</span>' : ''}${r.est_carry_days > 0 ? '<span class="ov-badge" style="background:#5c4a1a;color:#ffd43b" title="원본 컨센서스가 비어 직전 추정치를 이월 중(최대 60거래일)">이월 ' + r.est_carry_days + '일</span>' : ''}${r.name}</td><td class="sub">${r.code}</td><td class="sub">${r.sector || '-'}</td>
+      <td>${r.is_override ? '<span class="ov-badge" title="애널리스트 자체추정치가 컨센서스 대신 적용됨">자체</span>' : ''}${r.name}</td><td class="sub">${r.code}</td><td class="sub">${r.sector || '-'}</td>
       <td>${fmtMktcap(r.latest_mktcap)}</td>
       <td>${r.latest_mult.toFixed(2)}x${r.live_ret != null ? ` <span style="font-size:11px;color:${r.live_ret >= 0 ? '#ff8787' : '#74a7ff'}">(${r.live_ret >= 0 ? '+' : ''}${r.live_ret.toFixed(1)}%)</span>` : ''}</td>
       <td>${r[bKey].toFixed(2)}x</td>
