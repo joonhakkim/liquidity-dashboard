@@ -55,7 +55,7 @@
   <a class="back" href="relative_strength.html">종목·섹터 상대강도 순위 &rarr;</a>
   <a class="back" href="market_phase_fast.html">일별 점수 국면(빠른 버전) &rarr;</a>
   <h1>시장 국면 점수<span class="sub">밸류 하단 · 공격-방어 · 120일선 위 종목으로 본 6국면 (매일 갱신)</span></h1>
-  <div class="updated">최종 갱신: 2026-10-15 13:11 &middot; 데이터 기준일: 2026-10-14 &middot; 매 거래일 기준</div>
+  <div class="updated">최종 갱신: 2026-10-15 13:21 &middot; 데이터 기준일: 2026-10-14 &middot; 매 거래일 기준</div>
 
 
   <div class="cards" id="cards"></div>
@@ -123,7 +123,7 @@
   <div class="exp">
     <b>점수 만드는 법</b>: 세 지표를 각각 <b>그 시점까지의 과거 값 대비 백분위(0~100점)</b>로 바꾼 뒤(미래 정보 없음) <b>밸류 하단 3점 · 공격-방어 2점 · 120일선 위 2점</b> 비중으로 평균하고, 65일 지수이동평균(EMA)을 국면 점수로 씁니다.
     밸류 하단 비율은 거꾸로(비율이 낮을수록 높은 점수) 반영합니다. 점수 자체에는 코스피 지수 값이 들어가지 않습니다(코스피는 정답지·이후 수익률 측정에만 사용).<br>
-    <b>국면 판정</b>: 점수가 그 시점까지 점수 분포의 하위 1/3이면 낮음, 상위 1/3이면 높음, 그 사이는 중간. 8주 전보다 오르는 중이면(8주 변화가 2점 이하면 직전 방향 유지, 낮음·높음 기준선은 2점 넘게 넘어야 수준 변경)
+    <b>국면 판정</b>: 점수가 그 시점까지 점수 분포의 하위 1/3이면 낮음, 상위 1/3이면 높음, 그 사이는 중간. 단 <b>꺾임 주의</b>(일별 점수가 20거래일 고점보다 20점 넘게 하락)가 켜진 동안은 방향을 하락으로 봅니다(②→⑤, ③→④, ①→⑥). 8주 전보다 오르는 중이면(8주 변화가 2점 이하면 직전 방향 유지, 낮음·높음 기준선은 2점 넘게 넘어야 수준 변경)
     낮음 ① 반등시작 · 중간 ② 중소형 확산 · 높음 ③ 전면 확산, 내리는 중이면 높음 ④ 고점 · 중간 ⑤ 중소형 하락 · 낮음 ⑥ 대형주까지 바닥입니다.<br>
     <b>주의</b>: 정확히 같은 국면을 맞히는 비율은 낮아 <b>대략적인 위치</b>로만 보세요. ④ 고점 판정 뒤에도 코스피가 더 오른 경우가 많아 매도 신호로 쓰면 안 됩니다.
     섹터·밸류 데이터는 현재 상장 종목 기준입니다.
@@ -401,6 +401,7 @@ function renderCards() {
   const iC = lastIdx(DATA.C), iD = lastIdx(DATA.D), iX = lastIdx(DATA.X);
   $('cards').innerHTML =
     '<div class="card main"><div class="lbl">현재 국면 (' + DATA.dates[iP] + ')</div><span class="badge" style="background:' + PHC[p] + '">' + PH[p] + '</span>' + cauBadge() +
+    (M.ph0[iP] !== p ? '<div class="sub" style="color:#ff922b">꺾임 주의로 방향을 하락으로 표시 - 느린 점수(65일 평균) 기준으로는 ' + PH[M.ph0[iP]] + '</div>' : '') +
     '<div class="sub">' + PHDESC[p] + '</div><div class="sub">최근 30거래일 국면 흐름(왼쪽이 과거)</div><div class="strip">' + strip + '</div></div>' +
     smTrendCard() + (MODE !== 'fast' ? warnCard() : '') +
     cd('국면 점수 (' + SMLBL + (MODE === 'fast' ? ' 평균' : '') + ')', fmt(s) + '<span style="font-size:13px;color:#9aa0a6"> / 100</span>', '낮음 &lt; ' + fmt(M.lo[iS]) + ' · 높음 &gt; ' + fmt(M.hi[iS]) + '<br>' + KLBL + ' 전 ' + fmt(sk) + ' → <span class="' + (s - sk >= 0 ? 'pos' : 'neg') + '">' + sgn(s - sk) + '</span>') +
@@ -452,6 +453,10 @@ const MODE = DATA.mode || 'main';   // 'fast' = 일별 점수 국면 페이지(2
 const CFG = {wC: DATA.weights.C, wD: DATA.weights.D, wX: DATA.weights.X, sm: (MODE === 'fast' ? 4 : DATA.smooth) * PER, k: (MODE === 'fast' ? 4 : DATA.dirWeeks) * PER, db: DATA.deadband, hb: DATA.levelBand, thr: 'exp', ema: MODE !== 'fast'};
 function recalc() {
   M = computeModel(CFG);
+  // 꺾임 주의가 켜진 날은 방향을 하락으로 표시(2026-10-15 사용자 "국면으로 직관적으로 보고 싶다"): ①->⑥, ②->⑤, ③->④.
+  // 비중 규칙(대응 단계)은 원래 국면 + 꺾임 주의로 따로 계산 - 이렇게 접은 국면만으로 비중을 정하면 손익이 나빠짐(④·⑥ 일괄 축소는 손해).
+  M.ph0 = M.ph.slice();
+  if (MODE !== 'fast') M.ph = M.ph.map((q, i) => (q && q <= 3 && DATA.caution[i]) ? 7 - q : q);
   renderCards(); renderRecent(); renderWarn(); buildCharts();
 }
 $('phLegend').innerHTML = Object.keys(PH).map(k => '<span><i style="background:' + PHC[k] + '"></i>' + PH[k] + '</span>').join('');
