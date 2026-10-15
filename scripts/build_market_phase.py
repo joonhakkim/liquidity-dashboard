@@ -66,7 +66,24 @@ PHASES = {1: "① 반등시작", 2: "② 중소형 확산", 3: "③ 전면 확�
 WARN_INPUTS_PATH = os.path.join(DATA_DIR, "phase_warning_inputs.csv")   # fetch_phase_warning_inputs.py
 MERGED_PATH = os.path.join(DATA_DIR, "merged.csv")
 CAPN_THR = 15.0
-STAGES = {0: "⚪ 특이 없음", 1: "🟡 변동성 주의", 2: "🔴 빠른 대응"}
+# 꺾임 주의(2026-10-15 사용자 요청 "정확한 선행 포착보다 꺾이기 시작해서 조심/비중 축소하라는 의미가 필요"):
+# 일별 점수(평균 전)가 최근 20거래일 고점보다 20점 넘게 떨어지면 켜지고, 고점 대비 5점 안으로 회복하면 꺼짐(추적 손절과 같은 원리).
+# 2016-07~ 검증(켜진 동안 비중 50%, 전환 비용 0.15%): 중소형 지수 최대낙폭 -48% -> -25%(2016~21) / -35% -> -23%(2022~),
+# 연수익 +0.3%p / +2.9%p, 코스닥 -54% -> -34% / -47% -> -30%, +2.1 / +4.8%p. 1년 4~5번 켜지고 날의 약 37%가 주의.
+# 이웃 설정(10~40일, 10~20점)에서도 낙폭은 모두 크게 줄었음. 국면 판정 자체를 하락으로 바꾸면 ⑤ 적중이 떨어져(뒤 36%->23%) 판정은 그대로 두고 표시만.
+# 2026-10 급락: 10/13 켜짐(코스닥 고점 대비 -9% 시점). 근거 코드: scratchpad rs/cx7_caution.py, cx8_robust.py
+CAUTION_WIN, CAUTION_DROP, CAUTION_REL = 20, 20.0, 5.0
+# 대응 단계(2026-10-15 재설계 - 사용자: "적중률이 아니라 헛신호 비용 대비 진짜 신호 이득", "그걸 최적으로 하는 국면 판단").
+# 신호 156종 x 비중 4단계 시뮬(scratchpad rs/cxA_mega.py, cxB_verify.py)에서 중소형·코스닥 x 2016~21·2022~ 네 칸 모두
+# 수익도 같거나 낫고 낙폭도 줄인 것 중 가장 균형 좋은 규칙 = '꺾임 주의 또는 ⑤ -> 비중 50%'.
+#  2016-07~: 중소형 연 3.9% -> 6.6%, 최대낙폭 -48% -> -25% / 코스닥 2.0% -> 6.7%, -54% -> -32%.
+#  켜진 39번 중 진짜 13번(그동안 중소형 평균 -9.7%), 헛신호 26번(평균 +3.2%) - 피한 손실 > 놓친 상승.
+#  같은 신호를 무작위 시점으로 옮긴 300번 대비 수익 상위 3~7%, 낙폭 상위 0~3%(타이밍이 진짜). 매년 다시 고르는 방식은 불안정해 고정 규칙 사용.
+#  하락 국면 전체(④⑤⑥)에서 줄이는 건 오히려 손해(연 11.0% -> 7.5%), 변동성 클 때 줄이는 것도 손해(반등을 놓침).
+#  둘이 겹치거나 ⑤ + 대형주만 버팀이면 더 줄이는 단계형이 조금 더 나았음.
+#  사용자 제약(2026-10-15): 하락 때도 최소 60%는 보유 -> 🟠 70% / 🔴 60%로 확정. 2016-07~: 중소형 연 3.9% -> 6.0%, 낙폭 -48% -> -31%,
+#  코스닥 2.0% -> 5.4%, -54% -> -39%. 앞뒤 구간 모두 보유보다 낫고, 무작위 시점 대비 상위 0~1%.
+STAGES = {0: "⚪ 정상(비중 유지)", 1: "🟠 비중 70%", 2: "🔴 비중 60%"}
 VULN = [   # (키, 이름, 기준 설명)
     ("n1", "대형주만 버팀", "섹터 정리 종목 60일선 위 비율: 시총 가중 - 종목 수 > 15%p"),
     ("n2", "대형 100 vs 나머지", "시총 상위 100 vs 나머지 60일선 위 비율 차 > 15%p"),
@@ -429,9 +446,22 @@ def compute():
         out[f"hi{wk}"] = s
     phg = out["phase"]
     vuln_n = wflags.sum(axis=1)
+    rawd = comp.reindex(grid)
+    mx = rawd.rolling(CAUTION_WIN, min_periods=CAUTION_WIN).max()
+    on_, off_ = (rawd <= mx - CAUTION_DROP).values, (rawd >= mx - CAUTION_REL).values
+    cau, cur = np.zeros(len(grid)), False
+    for i in range(len(grid)):
+        if not cur and on_[i]:
+            cur = True
+        elif cur and off_[i]:
+            cur = False
+        cau[i] = cur
+    caution = pd.Series(cau, index=grid)
     stage = pd.Series(0.0, index=grid)
-    stage[phg.isin([1, 2, 3]) & (vuln_n >= 2)] = 1
-    stage[(phg == 5) & wflags["n1"]] = 2
+    stage[(caution > 0) | (phg == 5)] = 1
+    stage[((caution > 0) & (phg == 5)) | ((phg == 5) & wflags["n1"])] = 2
+    out["caution"] = caution.where(rawd.notna())
+    out["caution_line"] = mx - CAUTION_DROP
     out["capn60"] = capn60
     out["vuln_n"] = vuln_n
     out["stage"] = stage.where(phg.notna())
@@ -457,7 +487,7 @@ def main():
     print(f"데이터 기준일 {asof.date()} | 국면 {PHASES[int(last['phase'])]} | 점수 {last['score']:.1f} (낮음<{last['lo']:.1f}, 높음>{last['hi']:.1f}) | 8주 전 {prev.iloc[-1 - DIR_WEEKS * P]:.1f}")
     print(f"  밸류 하단 비율 {out['C'].iloc[-1] * 100:.1f}% ({c_n}종목) | 공격-방어 {out['D'].iloc[-1] * 100:+.1f}%p | 120일선 위 {out['X'].iloc[-1] * 100:.1f}%")
     on_now = [nm for k, nm, _ in VULN if out[f"w_{k}"].iloc[-1]]
-    print(f"  대응 단계 {STAGES.get(int(last['stage']), '-')[2:]} | 대형주만 버팀 {out['capn60'].iloc[-1]:+.1f}%p | 취약 신호 {int(out['vuln_n'].iloc[-1])}/9 {on_now}")
+    print(f"  꺾임 주의 {'켜짐' if out['caution'].iloc[-1] else '꺼짐'} | 대응 단계 {STAGES.get(int(last['stage']), '-')[2:]} | 대형주만 버팀 {out['capn60'].iloc[-1]:+.1f}%p | 취약 신호 {int(out['vuln_n'].iloc[-1])}/9 {on_now}")
     os.makedirs(os.path.dirname(SUMMARY_PATH), exist_ok=True)
     out.rename_axis("date").to_csv(SUMMARY_PATH, encoding="utf-8-sig", float_format="%.5g")
 
@@ -477,7 +507,7 @@ def main():
         "C": col("C", 100), "D": col("D", 100), "X": col("X", 100),
         "sC": col("sC"), "sD": col("sD"), "sX": col("sX"),
         "smIdx": col("sm_idx", 1, 2),
-        "capn60": col("capn60", 1, 1), "vulnN": ints("vuln_n"), "stage": ints("stage"), "capnThr": CAPN_THR, "stages": STAGES,
+        "capn60": col("capn60", 1, 1), "vulnN": ints("vuln_n"), "stage": ints("stage"), "capnThr": CAPN_THR, "stages": STAGES, "caution": ints("caution"), "cautionLine": col("caution_line", 1, 1), "cautionDrop": CAUTION_DROP,
         "vuln": [{"k": k, "name": nm, "rule": rule, "on": bool(out[f"w_{k}"].iloc[-1]), "val": warn["shown"].get(k, "-")} for k, nm, rule in VULN],
         "spreads": warn["spreads"],
         "phases": PHASES, "weights": WEIGHTS, "aggr": agg_list, "dfn": def_list, "cN": c_n,
@@ -522,6 +552,7 @@ def append_log(asof, out, P):
         "kospi": round(float(row["kospi"]), 2), "sm_idx": round(float(row["sm_idx"]), 2), "model": MODEL_TAG,
         # 대응 단계(2026-10-14 추가 - 그 전 기록은 빈칸)
         "stage": int(row["stage"]) if row["stage"] == row["stage"] else "", "capn60": round(float(row["capn60"]), 2) if row["capn60"] == row["capn60"] else "",
+        "caution": int(row["caution"]) if row["caution"] == row["caution"] else "",
         "vuln_n": int(row["vuln_n"]), "vuln_on": "|".join(k for k, _, _ in VULN if row[f"w_{k}"]),
     }
     if os.path.exists(LOG_PATH):
@@ -637,7 +668,7 @@ __FAST_NOTE__
   <div class="chart-box" id="warnBox">
     <h2>대응 단계 · 보조경고 <span class="now" id="nowWarn"></span></h2>
     <div class="desc" id="descWarn"></div>
-    <div class="legend-ph"><span><i style="background:#ff6b6b"></i>🔴 빠른 대응(⑤ + 대형주만 버팀)</span><span><i style="background:#ffd43b"></i>🟡 변동성 주의(①②③ + 취약 신호 2개+)</span></div>
+    <div class="legend-ph"><span><i style="background:#ff922b"></i>🟠 비중 70%(꺾임 주의 또는 ⑤)</span><span><i style="background:#ff6b6b"></i>🔴 비중 60%(꺾임 주의 + ⑤, 또는 ⑤ + 대형주만 버팀)</span></div>
     <div class="chart-wrap" style="height:260px"><canvas id="cWarn"></canvas></div>
     <details style="margin-top:10px;font-size:12px"><summary style="cursor:pointer;color:#c9ccd1">취약 신호 9개 자세히 <span id="vulnDate" style="color:#9aa0a6"></span></summary>
       <div class="tblwrap"><table class="st" id="tblVuln"></table></div></details>
@@ -653,7 +684,7 @@ __FAST_NOTE__
 
   <div class="chart-box">
     <h2>일별 점수 (평균 전, 0~100) <span class="now" id="nowRaw"></span></h2>
-    <div class="desc">세 지표 점수를 배점대로 평균한 매일의 값입니다(국면 점수는 이것의 65일 지수이동평균(EMA)). 국면 판단에는 쓰지 않는 참고용이며, 국면 점수보다 1~2달 먼저 움직이지만 헛신호가 많습니다. 굵은 선은 20거래일 평균입니다.</div>
+    <div class="desc">세 지표 점수를 배점대로 평균한 매일의 값입니다(국면 점수는 이것의 65일 지수이동평균(EMA)). 주황 점선 아래로 떨어지면 <b style="color:#ff922b">꺾임 주의</b>(아래 주황 띠). 국면 판단에는 쓰지 않는 참고용이며, 국면 점수보다 1~2달 먼저 움직이지만 헛신호가 많습니다. 굵은 선은 20거래일 평균입니다.</div>
     <div class="chart-wrap" style="height:260px"><canvas id="cRaw"></canvas></div>
   </div>
 
@@ -867,10 +898,18 @@ function buildCharts() {
     plugins: {legend: {display: false}, tooltip: {callbacks: {label: c => c.dataset.label + ': ' + (c.parsed.y === null ? '-' : c.parsed.y.toFixed(1)), afterBody: items => { const q = phAt[items[0].dataIndex]; return q ? '국면: ' + PH[q] : ''; }}}},
     scales: {x: xAxis(), y: {type: 'logarithmic', ticks: {callback: v => Number(v).toFixed(0)}}}
   })});
-  charts.raw = new Chart($('cRaw'), {type: 'line', plugins: [bgPlugin(phAt, '33')], data: {labels: sl(DATA.dates), datasets: [
+  const cauAt = sl(DATA.caution);
+  const cauPlugin = {id: 'cauBg', beforeDatasetsDraw(chart) {
+    const {ctx, chartArea: a, scales: {x}} = chart; const n = chart.data.labels.length;
+    ctx.save(); ctx.fillStyle = '#ff922b';
+    for (let i = 0; i < n; i++) { if (!cauAt[i]) continue; const xc = x.getPixelForValue(i), x0 = i === 0 ? a.left : (x.getPixelForValue(i - 1) + xc) / 2, x1 = i === n - 1 ? a.right : (xc + x.getPixelForValue(i + 1)) / 2; ctx.fillRect(x0, a.bottom - 6, x1 - x0, 6); }
+    ctx.restore();
+  }};
+  charts.raw = new Chart($('cRaw'), {type: 'line', plugins: [bgPlugin(phAt, '33'), cauPlugin], data: {labels: sl(DATA.dates), datasets: [
     {label: '20거래일 평균', data: sl(RAW20), borderColor: '#4dabf7', borderWidth: 2.2, pointRadius: 0},
     {label: '일별 점수', data: sl(RAW), borderColor: '#4dabf766', borderWidth: 1, pointRadius: 0},
-    {label: '국면 점수(65일 EMA)', data: sl(M.Ls), borderColor: '#ffd43b', borderWidth: 1.2, borderDash: [4, 3], pointRadius: 0}
+    {label: '국면 점수(65일 EMA)', data: sl(M.Ls), borderColor: '#ffd43b', borderWidth: 1.2, borderDash: [4, 3], pointRadius: 0},
+    {label: '꺾임 주의선(20일 고점-' + DATA.cautionDrop + ')', data: sl(DATA.cautionLine), borderColor: '#ff922b', borderWidth: 1, borderDash: [2, 3], pointRadius: 0}
   ]}, options: baseOpts({scales: {x: xAxis(), y: {min: 0, max: 100}}})});
   charts.s = new Chart($('cScore'), {type: 'line', plugins: [bgPlugin(phAt, '33')], data: {labels: sl(DATA.dates), datasets: [
     {label: '국면 점수', data: sl(M.Ls), borderColor: '#ffd43b', borderWidth: 2, pointRadius: 0},
@@ -900,7 +939,7 @@ function buildCharts() {
       for (let i = 0; i < n; i++) {
         const q = stAt[i]; if (!q) continue;
         const xc = x.getPixelForValue(i), x0 = i === 0 ? a.left : (x.getPixelForValue(i - 1) + xc) / 2, x1 = i === n - 1 ? a.right : (xc + x.getPixelForValue(i + 1)) / 2;
-        ctx.fillStyle = q === 2 ? '#ff6b6b55' : '#ffd43b22'; ctx.fillRect(x0, a.top, x1 - x0, a.bottom - a.top);
+        ctx.fillStyle = q === 2 ? '#ff6b6b55' : '#ff922b40'; ctx.fillRect(x0, a.top, x1 - x0, a.bottom - a.top);
       }
       ctx.restore();
     }};
@@ -921,7 +960,7 @@ function buildCharts() {
 function renderRecent() {
   const iE = lastIdx(M.ph);
   const W = MODE !== 'fast';
-  const STI = {0: '⚪', 1: '🟡', 2: '🔴'};
+  const STI = {0: '⚪', 1: '🟠', 2: '🔴'};
   let h = '<tr><th>날짜</th><th>국면</th>' + (W ? '<th>대응</th>' : '') + '<th>국면 점수</th><th>전일 대비</th><th>' + KLBL + ' 전 대비</th><th>밸류 하단</th><th>공격-방어</th><th>120일선 위</th></tr>';
   for (let i = iE; i >= Math.max(0, iE - 14); i--) {
     const chg = i > 0 && M.ph[i - 1] && M.ph[i] !== M.ph[i - 1];
@@ -935,6 +974,11 @@ function renderRecent() {
   let j = iE; while (j > 0 && M.ph[j - 1] === M.ph[iE]) j--;
   $('lastChg').textContent = j > 0 && M.ph[j - 1] ? '마지막 국면 변경: ' + DATA.dates[j] + ' (' + PH[M.ph[j - 1]] + ' → ' + PH[M.ph[iE]] + ', ' + (iE - j + 1) + '거래일째)' : '';
 }
+function cauBadge() {
+  const i = lastIdx(DATA.caution); if (i < 0 || !DATA.caution[i]) return '';
+  let k = 0; for (let j = i; j >= 0 && DATA.caution[j]; j--) k++;
+  return ' <span class="badge" style="background:#ff922b;font-size:15px;vertical-align:middle" title="일별 점수가 최근 20거래일 고점보다 ' + DATA.cautionDrop + '점 넘게 하락">⚠ 꺾임 주의 · ' + k + '일째</span>';
+}
 function renderCards() {
   const iP = lastIdx(M.ph), p = M.ph[iP];
   const iS = lastIdx(M.Ls), s = M.Ls[iS], sk = M.Ls[iS - CFG.k];
@@ -942,7 +986,7 @@ function renderCards() {
   const cd = (lbl, val, sub) => '<div class="card"><div class="lbl">' + lbl + '</div><div class="val">' + val + '</div><div class="sub">' + sub + '</div></div>';
   const iC = lastIdx(DATA.C), iD = lastIdx(DATA.D), iX = lastIdx(DATA.X);
   $('cards').innerHTML =
-    '<div class="card main"><div class="lbl">현재 국면 (' + DATA.dates[iP] + ')</div><span class="badge" style="background:' + PHC[p] + '">' + PH[p] + '</span>' +
+    '<div class="card main"><div class="lbl">현재 국면 (' + DATA.dates[iP] + ')</div><span class="badge" style="background:' + PHC[p] + '">' + PH[p] + '</span>' + cauBadge() +
     '<div class="sub">' + PHDESC[p] + '</div><div class="sub">최근 30거래일 국면 흐름(왼쪽이 과거)</div><div class="strip">' + strip + '</div></div>' +
     smTrendCard() + (MODE !== 'fast' ? warnCard() : '') +
     cd('국면 점수 (' + SMLBL + (MODE === 'fast' ? ' 평균' : '') + ')', fmt(s) + '<span style="font-size:13px;color:#9aa0a6"> / 100</span>', '낮음 &lt; ' + fmt(M.lo[iS]) + ' · 높음 &gt; ' + fmt(M.hi[iS]) + '<br>' + KLBL + ' 전 ' + fmt(sk) + ' → <span class="' + (s - sk >= 0 ? 'pos' : 'neg') + '">' + sgn(s - sk) + '</span>') +
@@ -962,11 +1006,11 @@ function renderCards() {
 }
 
 // ---------- 대응 단계(보조경고)
-const STC = {0: '#c9ccd1', 1: '#ffd43b', 2: '#ff6b6b'};
+const STC = {0: '#c9ccd1', 1: '#ff922b', 2: '#ff6b6b'};
 const STACT = {
-  0: '⑤ 국면에 대형주만 버팀이 겹치면 빠른 대응',
-  1: '흔들림이 커지는 구간(방향 신호 아님) - 사더라도 나눠서',
-  2: '⑤ + 대형주만 버팀 - 비중 빠르게 줄이기 검토'
+  0: '비중 유지 - 꺾임 주의나 ⑤가 나오면 70%로',
+  1: '비중 70%로 축소 권고(꺾임 주의 또는 ⑤)',
+  2: '비중 60%로 축소 권고(최소 보유선)'
 };
 function warnCard() {
   const i = lastIdx(DATA.stage), q = DATA.stage[i], on = DATA.vuln.filter(v => v.on).map(v => v.name);
@@ -977,8 +1021,10 @@ function renderWarn() {
   if (MODE === 'fast') { $('warnBox').style.display = 'none'; return; }
   const i = lastIdx(DATA.stage), q = DATA.stage[i];
   $('nowWarn').innerHTML = '현재 <b style="color:' + STC[q] + '">' + DATA.stages[q] + '</b> · 대형주만 버팀 ' + sgn(DATA.capn60[i]) + '%p · 취약 신호 ' + DATA.vulnN[i] + '/9';
-  $('descWarn').innerHTML = '<b style="color:#ff6b6b">🔴 빠른 대응</b> = ⑤ + 대형주만 버팀(빨간 선이 ' + DATA.capnThr + '%p 위: 대형주만 60일선 위). 2018~ 검증에서 이후 20일 중소형 평균 -4% 안팎, 오른 확률 18~27%. ' +
-    '<b style="color:#ffd43b">🟡 변동성 주의</b> = ①②③ + 취약 신호(파란 막대) 2개 이상. 크게 빠질 확률·크게 오를 확률이 둘 다 높아 방향 신호는 아님 - 사더라도 나눠서.';
+  $('descWarn').innerHTML = '<b style="color:#ff922b">🟠 비중 축소(70%)</b> = 꺾임 주의(일별 점수가 20거래일 고점보다 ' + DATA.cautionDrop + '점 넘게 하락) 또는 ⑤. ' +
+    '<b style="color:#ff6b6b">🔴 강한 축소(60%)</b> = 둘이 겹치거나 ⑤ + 대형주만 버팀(빨간 선이 ' + DATA.capnThr + '%p 위). ' +
+    '정확히 맞히는 신호가 아니라 손익으로 고른 규칙입니다 - 2016~ 켜진 39번 중 헛신호가 26번(그동안 평균 +3.2%)이지만 진짜 13번(평균 -9.7%)에서 피한 손실이 더 커서, ' +
+    '이 규칙대로 70%/60%로 줄였다면 중소형 지수 연 3.9%→6.0%, 최대낙폭 -48%→-31%(코스닥 2.0%→5.4%, -54%→-39%). 파란 막대 = 참고용 취약 신호 수.';
   $('vulnDate').textContent = '(' + DATA.dates[i] + ' 기준, 켜진 것 ' + DATA.vulnN[i] + '개)';
   $('tblVuln').innerHTML = '<tr><th>신호</th><th>지금</th><th>현재 값</th><th style="text-align:left">기준</th></tr>' +
     DATA.vuln.map(v => '<tr><td>' + v.name + '</td><td>' + (v.on ? '<span class="warn-on">켜짐</span>' : '<span style="color:#7c828b">꺼짐</span>') + '</td><td>' + v.val + '</td><td style="text-align:left;white-space:normal;color:#9aa0a6">' + v.rule + '</td></tr>').join('');
