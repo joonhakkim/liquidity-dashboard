@@ -751,15 +751,18 @@ const DATA = __DATA__;
 const N = DATA.dates.length;
 const PER = DATA.per || 1;   // 1주 = PER점(일간이면 5거래일)
 const SMLBL = DATA.mode === 'fast' ? '20거래일' : '65일 EMA', KLBL = DATA.mode === 'fast' ? '20거래일' : '8주';
-const PH = DATA.phases;
+// 화면 이름(2026-10-15 사용자 "⑤와 ⑥이 판단이 잘 안 선다"): 수준 + 방향이 그대로 읽히게. ④⑤⑥은 모두 비중 70%(겹치면 60%), 차이는 시장 위치뿐.
+// 판정 기록(csv)의 phase_name은 원래 이름 그대로 남김.
+const PH = {1: '① 바닥권 반등', 2: '② 중간 상승', 3: '③ 고점권 상승', 4: '④ 고점권 꺾임', 5: '⑤ 중간 하락', 6: '⑥ 바닥권 꺾임'};
+const PHW = {1: '100%', 2: '100%', 3: '100%', 4: '70%', 5: '70%', 6: '70%'};
 const PHC = {1: '#9be3b0', 2: '#4cc47a', 3: '#1f8a4c', 4: '#f2a25c', 5: '#e8684a', 6: '#b5252b'};
 const PHDESC = {
-  1: '점수가 낮은 곳에서 오르기 시작 - 시총 큰 종목·성장 높은 종목부터 반등하는 구간',
-  2: '점수 중간·상승 - 상승이 중소형으로 퍼지기 시작, 바닥권 종목은 아직 많음',
-  3: '점수 높음·상승 - 소형주까지 상승이 퍼짐, 밸류 바닥 종목이 적음',
-  4: '점수 높음·하락 전환 - 공격 업종이 꺾이고 방어주가 상대적으로 강해지기 시작',
-  5: '점수 중간·하락 - 중소형부터 하락이 퍼지고 방어주 상대강도가 강해짐',
-  6: '점수 낮음·하락 - 대형주까지 밸류 바닥권, 대부분 지표 부진'
+  1: '수준 낮음 · 상승 - 바닥권에서 점수가 회복 중. 비중 100%',
+  2: '수준 중간 · 상승. 비중 100%',
+  3: '수준 높음 · 상승. 비중 100%',
+  4: '수준 높음 · 꺾임 - 고점권에서 일별 점수가 급락(꺾임 주의). 비중 70%',
+  5: '수준 중간 · 하락 - 꺾임 주의 또는 느린 점수가 하락 중(⑤). 비중 70%, 둘 다면 60%',
+  6: '수준 낮음 · 꺾임 - 바닥권에서도 다시 급락, 아직 바닥 확인 전(사는 신호 아님). 비중 70%'
 };
 const $ = id => document.getElementById(id);
 const nn = v => v !== null && v !== undefined;
@@ -1012,7 +1015,7 @@ function renderCards() {
   const cd = (lbl, val, sub) => '<div class="card"><div class="lbl">' + lbl + '</div><div class="val">' + val + '</div><div class="sub">' + sub + '</div></div>';
   const iC = lastIdx(DATA.C), iD = lastIdx(DATA.D), iX = lastIdx(DATA.X);
   $('cards').innerHTML =
-    '<div class="card main"><div class="lbl">현재 국면 (' + DATA.dates[iP] + ')</div><span class="badge" style="background:' + PHC[p] + '">' + PH[p] + '</span>' + cauBadge() +
+    '<div class="card main"><div class="lbl">현재 국면 (' + DATA.dates[iP] + ')</div><span class="badge" style="background:' + PHC[p] + '">' + PH[p] + ' · 비중 ' + ({0: '100%', 1: '70%', 2: '60%'})[DATA.stage[iP]] + '</span>' + cauBadge() +
     (M.ph0[iP] !== p ? '<div class="sub" style="color:#ff922b">' + (DATA.caution[iP] ? '꺾임 주의로 방향 하락' : '꺾임 없는 느린 하락은 비중 유지 구간이라 상승 쪽으로 표시') + ' - 느린 점수(65일 평균) 기준으로는 ' + PH[M.ph0[iP]] + '</div>' : '') +
     '<div class="sub">' + PHDESC[p] + '</div><div class="sub">최근 30거래일 국면 흐름(왼쪽이 과거)</div><div class="strip">' + strip + '</div></div>' +
     smTrendCard() + (MODE !== 'fast' ? warnCard() : '') +
