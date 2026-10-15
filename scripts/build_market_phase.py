@@ -72,6 +72,10 @@ CAPN_THR = 15.0
 # 이웃 설정(10~40일, 10~20점)에서도 낙폭은 모두 크게 줄었음. 국면 판정 자체를 하락으로 바꾸면 ⑤ 적중이 떨어져(뒤 36%->23%) 판정은 그대로 두고 표시만.
 # 2026-10 급락: 10/13 켜짐(코스닥 고점 대비 -9% 시점). 근거 코드: scratchpad rs/cx7_caution.py, cx8_robust.py
 CAUTION_WIN, CAUTION_DROP, CAUTION_REL = 20, 20.0, 5.0
+# 꺾임 판단용 일별 점수는 밸류 하단 비율만 3일 평균으로(2026-10-15 사용자 "밸류 바닥이 너무 떠버린다" - 폭락 뒤 많은 종목이 바닥선 근처에
+# 몰려 있으면 하루 사이 비율이 크게 출렁임, 예: 2026-08-19 사흘 새 14.8%->24.6%로 헛신호). 3일 평균: 3일 분할 실행 기준
+# 중소형 연 5.1%->5.4%, 코스닥 4.3%->4.8%, 네 칸 모두 개선, 이번 10/13 신호는 그대로. 5·7·10일도 개선되나 진짜 급락에 늦어짐(10일은 10/14까지 미발동).
+CAUTION_SMOOTH_C = 3
 # 대응 단계(2026-10-15 재설계 - 사용자: "적중률이 아니라 헛신호 비용 대비 진짜 신호 이득", "그걸 최적으로 하는 국면 판단").
 # 신호 156종 x 비중 4단계 시뮬(scratchpad rs/cxA_mega.py, cxB_verify.py)에서 중소형·코스닥 x 2016~21·2022~ 네 칸 모두
 # 수익도 같거나 낫고 낙폭도 줄인 것 중 가장 균형 좋은 규칙 = '꺾임 주의 또는 ⑤ -> 비중 50%'.
@@ -447,7 +451,9 @@ def compute():
         out[f"hi{wk}"] = s
     phg = out["phase"]
     vuln_n = wflags.sum(axis=1)
-    rawd = comp.reindex(grid)
+    sC3 = (100 - pd.Series(exp_pct(Cw.rolling(CAUTION_SMOOTH_C, min_periods=1).mean(), 52 * P), index=grid)).round(2)
+    rawd = ((sC3 * WEIGHTS["C"] + sc["D"] * WEIGHTS["D"] + sc["X"] * WEIGHTS["X"]) / sum(WEIGHTS.values())).reindex(grid)
+    out["cau_raw"] = rawd
     mx = rawd.rolling(CAUTION_WIN, min_periods=CAUTION_WIN).max()
     on_, off_ = (rawd <= mx - CAUTION_DROP).values, (rawd >= mx - CAUTION_REL).values
     cau, cur = np.zeros(len(grid)), False
@@ -460,10 +466,12 @@ def compute():
     caution = pd.Series(cau, index=grid)
     stage = pd.Series(0.0, index=grid)
     stage[(caution > 0) | (phg == 5)] = 1
-    stage[((caution > 0) & (phg == 5)) | ((phg == 5) & wflags["n1"])] = 2
+    # 2026-10-15 과적합 점검(사용자 "너무 복잡해지면 과적합"): '⑤ + 대형주만 버팀 -> 60%'는 빼도 성적이 같거나 나아서 제거.
+    # 최종 = 꺾임 또는 ⑤ -> 70%, 둘 다 -> 60%. 3일 분할 실행 기준 중소형 연 3.9%->5.5%, 낙폭 -48%->-31% / 코스닥 2.0%->4.9%, -54%->-39%.
+    stage[(caution > 0) & (phg == 5)] = 2
     out["caution"] = caution.where(rawd.notna())
     # 페이지 국면(2026-10-15 사용자 "수준 x 방향 표로 국면 판단"): 수준은 느린 점수 그대로, 방향 '하락' = 꺾임 주의 또는 원래 ⑤.
-    # 이러면 ①②③ = 비중 100%, ④⑤⑥ = 70%(⑤+꺾임 겹침·⑤+대형주만 버팀 60%)로 표가 곧 비중 규칙(손익 검증된 규칙과 98% 같은 날).
+    # 이러면 ①②③ = 비중 100%, ④⑤⑥ = 70%(⑤+꺾임 겹침 60%)로 표가 곧 비중 규칙(손익 검증된 규칙과 98% 같은 날).
     # 원래 느린 방향의 ④·⑥(꺾임 없이)은 비중 축소 시 손해였어서 상승 쪽(③·①)으로 봄.
     lev = phg.map({1: 0, 6: 0, 2: 1, 5: 1, 3: 2, 4: 2})
     down = (caution > 0) | (phg == 5)
@@ -514,7 +522,7 @@ def main():
         "C": col("C", 100), "D": col("D", 100), "X": col("X", 100),
         "sC": col("sC"), "sD": col("sD"), "sX": col("sX"),
         "smIdx": col("sm_idx", 1, 2),
-        "capn60": col("capn60", 1, 1), "vulnN": ints("vuln_n"), "stage": ints("stage"), "capnThr": CAPN_THR, "stages": STAGES, "caution": ints("caution"), "cautionLine": col("caution_line", 1, 1), "cautionDrop": CAUTION_DROP,
+        "capn60": col("capn60", 1, 1), "vulnN": ints("vuln_n"), "stage": ints("stage"), "capnThr": CAPN_THR, "stages": STAGES, "caution": ints("caution"), "cautionLine": col("caution_line", 1, 1), "cauRaw": col("cau_raw", 1, 1), "cautionDrop": CAUTION_DROP,
         "vuln": [{"k": k, "name": nm, "rule": rule, "on": bool(out[f"w_{k}"].iloc[-1]), "val": warn["shown"].get(k, "-")} for k, nm, rule in VULN],
         "spreads": warn["spreads"],
         "episodes": stage_episodes(out),
@@ -683,16 +691,15 @@ __FAST_NOTE__
     <div class="chart-wrap"><canvas id="cSm"></canvas></div>
   </div>
 
-  <div class="chart-box" id="warnBox">
-    <h2>대응 단계 · 보조경고 <span class="now" id="nowWarn"></span></h2>
-    <div class="desc" id="descWarn"></div>
-    <div class="legend-ph"><span><i style="background:#ff922b"></i>🟠 비중 70%(꺾임 주의 또는 ⑤)</span><span><i style="background:#ff6b6b"></i>🔴 비중 60%(꺾임 주의 + ⑤, 또는 ⑤ + 대형주만 버팀)</span></div>
+  <details class="chart-box" id="warnBox"><summary style="cursor:pointer"><h2 style="display:inline">참고 지표 <span class="now">대형주 쏠림 · 취약 신호 · 신용 스프레드 - 비중 규칙에는 쓰지 않음(눌러서 펼치기)</span></h2></summary>
+    <div class="desc" id="descWarn" style="margin-top:8px"></div>
+    <div class="legend-ph"><span><i style="background:#ff922b"></i>🟠 비중 70%(꺾임 주의 또는 ⑤)</span><span><i style="background:#ff6b6b"></i>🔴 비중 60%(꺾임 주의 + ⑤)</span></div>
     <div class="chart-wrap" style="height:260px"><canvas id="cWarn"></canvas></div>
     <details style="margin-top:10px;font-size:12px"><summary style="cursor:pointer;color:#c9ccd1">취약 신호 9개 자세히 <span id="vulnDate" style="color:#9aa0a6"></span></summary>
       <div class="tblwrap"><table class="st" id="tblVuln"></table></div></details>
     <details style="margin-top:6px;font-size:12px"><summary style="cursor:pointer;color:#c9ccd1">참고: 미국 회사채 등급별 스프레드 <span style="color:#9aa0a6">(최근 3년치만 있어 판정에는 안 씀)</span></summary>
       <div class="tblwrap"><table class="st" id="tblSpread"></table></div></details>
-  </div>
+  </details>
 
   <div class="chart-box">
     <h2>국면 점수 (0~100) <span class="now" id="nowScore"></span></h2>
@@ -727,7 +734,7 @@ __FAST_NOTE__
   <div class="exp">
     <b>점수 만드는 법</b>: 세 지표를 각각 <b>그 시점까지의 과거 값 대비 백분위(0~100점)</b>로 바꾼 뒤(미래 정보 없음) <b>밸류 하단 3점 · 공격-방어 2점 · 120일선 위 2점</b> 비중으로 평균하고, 65일 지수이동평균(EMA)을 국면 점수로 씁니다.
     밸류 하단 비율은 거꾸로(비율이 낮을수록 높은 점수) 반영합니다. 점수 자체에는 코스피 지수 값이 들어가지 않습니다(코스피는 정답지·이후 수익률 측정에만 사용).<br>
-    <b>국면 판정</b>: 점수가 그 시점까지 점수 분포의 하위 1/3이면 낮음, 상위 1/3이면 높음, 그 사이는 중간. <b>방향 '하락' = 꺾임 주의(일별 점수가 20거래일 고점보다 20점 넘게 하락) 또는 느린 점수 기준 ⑤</b>입니다. 그래서 <b>①②③ = 비중 100%, ④⑤⑥ = 70%</b>(⑤와 꺾임이 겹치거나 ⑤ + 대형주만 버팀이면 60%)로 표가 곧 비중 규칙입니다. 아래 느린 방향 설명은 원래 점수의 계산 방식입니다. 8주 전보다 오르는 중이면(8주 변화가 2점 이하면 직전 방향 유지, 낮음·높음 기준선은 2점 넘게 넘어야 수준 변경)
+    <b>국면 판정</b>: 점수가 그 시점까지 점수 분포의 하위 1/3이면 낮음, 상위 1/3이면 높음, 그 사이는 중간. <b>방향 '하락' = 꺾임 주의(일별 점수가 20거래일 고점보다 20점 넘게 하락) 또는 느린 점수 기준 ⑤</b>입니다. 그래서 <b>①②③ = 비중 100%, ④⑤⑥ = 70%</b>(⑤와 꺾임이 겹치면 60%)로 표가 곧 비중 규칙입니다. 아래 느린 방향 설명은 원래 점수의 계산 방식입니다. 8주 전보다 오르는 중이면(8주 변화가 2점 이하면 직전 방향 유지, 낮음·높음 기준선은 2점 넘게 넘어야 수준 변경)
     낮음 ① 반등시작 · 중간 ② 중소형 확산 · 높음 ③ 전면 확산, 내리는 중이면 높음 ④ 고점 · 중간 ⑤ 중소형 하락 · 낮음 ⑥ 대형주까지 바닥입니다.<br>
     <b>주의</b>: 정확히 같은 국면을 맞히는 비율은 낮아 <b>대략적인 위치</b>로만 보세요. ④ 고점 판정 뒤에도 코스피가 더 오른 경우가 많아 매도 신호로 쓰면 안 됩니다.
     섹터·밸류 데이터는 현재 상장 종목 기준입니다.
@@ -874,7 +881,8 @@ function rolling(arr, n) {
   return out;
 }
 const D13 = rolling(DATA.D, 13 * PER);
-const RAW = DATA.sC.map((c, i) => nn(c) && nn(DATA.sD[i]) && nn(DATA.sX[i]) ? (c * DATA.weights.C + DATA.sD[i] * DATA.weights.D + DATA.sX[i] * DATA.weights.X) / (DATA.weights.C + DATA.weights.D + DATA.weights.X) : null);
+const RAW_ORIG = DATA.sC.map((c, i) => nn(c) && nn(DATA.sD[i]) && nn(DATA.sX[i]) ? (c * DATA.weights.C + DATA.sD[i] * DATA.weights.D + DATA.sX[i] * DATA.weights.X) / (DATA.weights.C + DATA.weights.D + DATA.weights.X) : null);
+const RAW = DATA.cauRaw;   // 꺾임 판단에 쓰는 일별 점수(밸류 하단 비율만 3일 평균) - 주의선과 같은 기준
 const RAW20 = rolling(RAW, 4 * PER);
 // 중소형 추세(2026-10-14 사용자 요청 "중소형 잡는 게 더 중요"): 중소형 지수가 120일선 아래면 하락 추세.
 // 2018~ 중소형 15% 하락 8번을 모두 잡았고 고점 뒤 평균 4.5주(공식 ⑤는 8~12주). 하락을 '미리' 알리진 못하고 헛신호도 있음.
@@ -925,7 +933,7 @@ function buildCharts() {
   }};
   charts.raw = new Chart($('cRaw'), {type: 'line', plugins: [bgPlugin(phAt, '33'), cauPlugin], data: {labels: sl(DATA.dates), datasets: [
     {label: '20거래일 평균', data: sl(RAW20), borderColor: '#4dabf7', borderWidth: 2.2, pointRadius: 0},
-    {label: '일별 점수', data: sl(RAW), borderColor: '#4dabf766', borderWidth: 1, pointRadius: 0},
+    {label: '일별 점수(꺾임 판단용, 밸류 3일 평균)', data: sl(RAW), borderColor: '#4dabf766', borderWidth: 1, pointRadius: 0},
     {label: '국면 점수(65일 EMA)', data: sl(M.Ls), borderColor: '#ffd43b', borderWidth: 1.2, borderDash: [4, 3], pointRadius: 0},
     {label: '꺾임 주의선(20일 고점-' + DATA.cautionDrop + ')', data: sl(DATA.cautionLine), borderColor: '#ff922b', borderWidth: 1, borderDash: [2, 3], pointRadius: 0}
   ]}, options: baseOpts({scales: {x: xAxis(), y: {min: 0, max: 100}}})});
@@ -1034,16 +1042,13 @@ const STACT = {
 function warnCard() {
   const i = lastIdx(DATA.stage), q = DATA.stage[i], on = DATA.vuln.filter(v => v.on).map(v => v.name);
   return '<div class="card"><div class="lbl">대응 단계 (' + DATA.dates[i] + ')</div><div class="val" style="color:' + STC[q] + '">' + DATA.stages[q] + '</div>' +
-    '<div class="sub">' + STACT[q] + '<br>대형주만 버팀 ' + sgn(DATA.capn60[i]) + '%p · 취약 신호 ' + DATA.vulnN[i] + '/9' + (on.length ? ' (' + on.join(', ') + ')' : '') + '</div></div>';
+    '<div class="sub">' + STACT[q] + '<br>꺾임 주의 ' + (DATA.caution[i] ? '켜짐' : '꺼짐') + ' · 느린 점수 기준 ' + (M.ph0[i] === 5 ? '⑤' : '⑤ 아님') + '</div></div>';
 }
 function renderWarn() {
   if (MODE === 'fast') { $('warnBox').style.display = 'none'; return; }
   const i = lastIdx(DATA.stage), q = DATA.stage[i];
-  $('nowWarn').innerHTML = '현재 <b style="color:' + STC[q] + '">' + DATA.stages[q] + '</b> · 대형주만 버팀 ' + sgn(DATA.capn60[i]) + '%p · 취약 신호 ' + DATA.vulnN[i] + '/9';
-  $('descWarn').innerHTML = '<b style="color:#ff922b">🟠 비중 축소(70%)</b> = 꺾임 주의(일별 점수가 20거래일 고점보다 ' + DATA.cautionDrop + '점 넘게 하락) 또는 ⑤. ' +
-    '<b style="color:#ff6b6b">🔴 강한 축소(60%)</b> = 둘이 겹치거나 ⑤ + 대형주만 버팀(빨간 선이 ' + DATA.capnThr + '%p 위). ' +
-    '정확히 맞히는 신호가 아니라 손익으로 고른 규칙입니다 - 2016~ 켜진 39번 중 헛신호가 26번(그동안 평균 +3.2%)이지만 진짜 13번(평균 -9.7%)에서 피한 손실이 더 커서, ' +
-    '이 규칙대로 신호 다음 날부터 3~4일에 나눠 70%/60%로 줄이고 해제되면 나눠 늘렸다면 중소형 지수 연 3.9%→5.2~5.5%, 최대낙폭 -48%→-32%(코스닥 2.0%→4.5~4.7%, -54%→-39%). 파란 막대 = 참고용 취약 신호 수.';
+  if ($('nowWarn')) $('nowWarn').innerHTML = '';
+  $('descWarn').innerHTML = '아래는 연구 중 시험했지만 비중 규칙을 개선하지 못해 <b>참고용으로만</b> 남긴 지표입니다. 빨간 선 = 대형주만 버팀(섹터 정리 종목 60일선 위 비율, 시총 가중 - 종목 수, 지금 ' + sgn(DATA.capn60[i]) + '%p), 파란 막대 = 취약 신호 수(지금 ' + DATA.vulnN[i] + '/9), 배경 = 대응 단계.';
   $('vulnDate').textContent = '(' + DATA.dates[i] + ' 기준, 켜진 것 ' + DATA.vulnN[i] + '개)';
   $('tblVuln').innerHTML = '<tr><th>신호</th><th>지금</th><th>현재 값</th><th style="text-align:left">기준</th></tr>' +
     DATA.vuln.map(v => '<tr><td>' + v.name + '</td><td>' + (v.on ? '<span class="warn-on">켜짐</span>' : '<span style="color:#7c828b">꺼짐</span>') + '</td><td>' + v.val + '</td><td style="text-align:left;white-space:normal;color:#9aa0a6">' + v.rule + '</td></tr>').join('');
@@ -1073,10 +1078,11 @@ function renderGuide() {
     '2) 목표가 바뀌면 다음 거래일부터 <b>3~4거래일에 나눠</b> 맞춥니다(100%→70%면 하루 약 8~10%p씩).<br>' +
     '3) ⚪ 100%로 돌아오면 같은 방식으로 3~4일에 나눠 늘립니다. 중간에 🟠↔🔴로 바뀌면 새 목표로 이어서 맞춥니다.<br>' +
     '4) "이번엔 헛신호 같다"며 건너뛰지 않습니다 - 아래 성적은 헛신호까지 모두 포함한 결과입니다.<br>' +
-    '<b>국면 표로 보면</b>: ①②③(상승) = 100% · ④⑤⑥(하락) = 70% · 그중 ⑤와 꺾임이 겹치거나 ⑤ + 대형주만 버팀 = 60%.<br>' +
-    '<b>조건</b>: 🟠 70% = 꺾임 주의(일별 점수가 최근 20거래일 고점보다 20점 넘게 하락) 또는 국면 ⑤ · 🔴 60% = 둘이 겹치거나 ⑤ + 대형주만 버팀 · ⚪ 100% = 모두 꺼짐(꺾임 주의는 점수가 20일 고점 대비 5점 안으로 회복하면 꺼짐).<br>' +
-    '<b>성적(2016.7~, 3~4일 분할 실행·비용 포함)</b>: 중소형 지수 연 3.9%→5.2~5.5%, 최대낙폭 -48%→-32% · 코스닥 2.0%→4.5~4.7%, -54%→-39%. ' +
+    '<b>국면 표로 보면</b>: ①②③(상승) = 100% · ④⑤⑥(하락) = 70% · 그중 ⑤(느린 점수)와 꺾임 주의가 겹치면 60%.<br>' +
+    '<b>조건</b>: 🟠 70% = 꺾임 주의(일별 점수가 최근 20거래일 고점보다 20점 넘게 하락) 또는 국면 ⑤ · 🔴 60% = 둘이 겹침 · ⚪ 100% = 모두 꺼짐(꺾임 주의는 점수가 20일 고점 대비 5점 안으로 회복하면 꺼짐).<br>' +
+    '<b>성적(2016.7~, 3일 분할 실행·비용 포함)</b>: 중소형 지수 연 3.9%→5.5%, 최대낙폭 -48%→-31% · 코스닥 2.0%→4.9%, -54%→-39%. ' +
     '아래 이력의 끝난 ' + E.length + '번 중 ' + dn.length + '번은 그동안 중소형이 평균 ' + avg(dn).toFixed(1) + '% 빠졌고(줄인 덕을 봄), ' + up.length + '번은 평균 +' + avg(up).toFixed(1) + '% 올랐습니다(헛신호 비용).<br>' +
+    '<b>과적합 점검</b>: 규칙 숫자는 4개(20일 고점·20점 하락·5점 안 회복 해제·밸류 3일 평균)뿐이고, 각각 주변 값(15~25점, 3~10일 등)에서도 결과가 비슷해서 골랐습니다. 더 붙여도 나아지지 않은 조건(대형주 쏠림 등)은 뺐습니다.<br>' +
     '<b>한계</b>: 꺾인 뒤에 켜지므로 급락 첫날은 못 피합니다. 가치는 이어지는 하락을 줄이는 데 있습니다(과거 큰 하락은 낙폭의 대부분이 신호 뒤에 옴). 국면 ①~⑥은 시장 위치 참고용이고, 비중 판단에는 ⑤만 쓰입니다.</div>' +
     '<details style="margin-top:8px;font-size:12px"><summary style="cursor:pointer;color:#c9ccd1">신호 이력(최근 12번) - 켜졌던 동안 중소형 지수가 얼마나 움직였나</summary>' +
     '<div class="tblwrap"><table class="st"><tr><th>켜짐</th><th>꺼짐</th><th>기간</th><th>최고 단계</th><th>그동안 중소형</th><th>결과</th></tr>' + rows + '</table></div></details>';
