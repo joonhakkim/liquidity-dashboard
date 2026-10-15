@@ -55,7 +55,7 @@
   <a class="back" href="relative_strength.html">종목·섹터 상대강도 순위 &rarr;</a>
   <a class="back" href="market_phase_fast.html">일별 점수 국면(빠른 버전) &rarr;</a>
   <h1>시장 국면 점수<span class="sub">밸류 하단 · 공격-방어 · 120일선 위 종목으로 본 6국면 (매일 갱신)</span></h1>
-  <div class="updated">최종 갱신: 2026-10-15 12:56 &middot; 데이터 기준일: 2026-10-14 &middot; 매 거래일 기준</div>
+  <div class="updated">최종 갱신: 2026-10-15 13:11 &middot; 데이터 기준일: 2026-10-14 &middot; 매 거래일 기준</div>
 
 
   <div class="cards" id="cards"></div>
@@ -438,7 +438,7 @@ function renderWarn() {
   $('descWarn').innerHTML = '<b style="color:#ff922b">🟠 비중 축소(70%)</b> = 꺾임 주의(일별 점수가 20거래일 고점보다 ' + DATA.cautionDrop + '점 넘게 하락) 또는 ⑤. ' +
     '<b style="color:#ff6b6b">🔴 강한 축소(60%)</b> = 둘이 겹치거나 ⑤ + 대형주만 버팀(빨간 선이 ' + DATA.capnThr + '%p 위). ' +
     '정확히 맞히는 신호가 아니라 손익으로 고른 규칙입니다 - 2016~ 켜진 39번 중 헛신호가 26번(그동안 평균 +3.2%)이지만 진짜 13번(평균 -9.7%)에서 피한 손실이 더 커서, ' +
-    '이 규칙대로 70%/60%로 줄였다면 중소형 지수 연 3.9%→6.0%, 최대낙폭 -48%→-31%(코스닥 2.0%→5.4%, -54%→-39%). 파란 막대 = 참고용 취약 신호 수.';
+    '이 규칙대로 신호 다음 날부터 3~4일에 나눠 70%/60%로 줄이고 해제되면 나눠 늘렸다면 중소형 지수 연 3.9%→5.2~5.5%, 최대낙폭 -48%→-32%(코스닥 2.0%→4.5~4.7%, -54%→-39%). 파란 막대 = 참고용 취약 신호 수.';
   $('vulnDate').textContent = '(' + DATA.dates[i] + ' 기준, 켜진 것 ' + DATA.vulnN[i] + '개)';
   $('tblVuln').innerHTML = '<tr><th>신호</th><th>지금</th><th>현재 값</th><th style="text-align:left">기준</th></tr>' +
     DATA.vuln.map(v => '<tr><td>' + v.name + '</td><td>' + (v.on ? '<span class="warn-on">켜짐</span>' : '<span style="color:#7c828b">꺼짐</span>') + '</td><td>' + v.val + '</td><td style="text-align:left;white-space:normal;color:#9aa0a6">' + v.rule + '</td></tr>').join('');
