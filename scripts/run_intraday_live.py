@@ -54,7 +54,9 @@ def main():
         if r3.returncode == 0:
             log("푸시 완료"); return
         log(f"push 실패({r3.stderr.strip()[:200]}) - pull --rebase 후 재시도")
-        git("pull", "--rebase", "--autostash", "-q")
+        if git("pull", "--rebase", "--autostash", "-q").returncode != 0:
+            git("rebase", "--abort")   # 충돌 시 리베이스 중간 상태로 남기지 않음(아침·저녁 파이프라인 보호)
+            log("pull --rebase 실패 - 중단하고 되돌림")
         time.sleep(3)
     log("푸시 최종 실패")
 
