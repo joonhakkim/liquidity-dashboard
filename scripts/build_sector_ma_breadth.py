@@ -33,15 +33,16 @@ PRICES_PATH = os.path.join(DATA_DIR, "bollinger_prices.csv")
 SECTOR_MAP_PATH = os.path.join(DATA_DIR, "sector_map.csv")
 OUT_PATH = os.path.join(BASE_DIR, "docs", "sector_ma_breadth.html")
 SUMMARY_PATH = os.path.join(DATA_DIR, "screening", "sector_ma_breadth_summary.csv")
-WINDOWS = [10, 15, 20, 60, 120, 200]   # 2026-10-14 사용자 요청: 5일 빼고 15일 추가
-DEFAULT_WINDOW = 20
+WINDOWS = [10, 15, 20, 60, "20w", 120, 200]   # 20주(약 100거래일)는 기간 순서대로 60일과 120일 사이   # 2026-10-14 사용자 요청: 5일 빼고 15일 추가
+DEFAULT_WINDOW = "20w"   # 2026-10-15 사용자: "20일선이 아니라 20주선이었어" - 20주선(지난 19주 주간 종가 + 오늘 값의 평균)이 기본
 HISTORY_FROM = "2023-01-01"
 MIN_MEMBERS = 3
 # 장기 약세 기준(2026-10-14 검증, 섹터 정리 42섹터 2016~, 수익률 누적 로그가격): 120·200일선 위 비율이 40% 아래인 섹터는
 # 이후 120거래일 다른 섹터 평균보다 200일선 -3.0%p(t-2.5, 2016~20) / -5.6%p(t-2.3, 2021~), 120일선 -3.2%p(t-2.7) / -3.0%p(t-1.2).
 # 아래에 1~3달 머물수록 더 약함(200일선 3달+ -3.4 / -7.9%p). 10~60일선은 어느 문턱에서도 일관된 차이가 없어 기준을 두지 않음.
 # '처음 내려간 날' 자체는 예측력이 없음(이후 반등도 잦음) - 머문 상태를 봐야 함.
-LONG_WEAK = {120: 40, 200: 40}
+# 20주선(2026-10-15 검증): 40% 아래 -2.1%p(t-1.9) / -2.0%p(t-0.9) - 방향은 같으나 120·200일선보다 약함. 같은 40% 선을 참고로 표시.
+LONG_WEAK = {120: 40, 200: 40, "20w": 40}
 
 
 def load_series(codes_needed):
@@ -129,7 +130,16 @@ def main():
     gaps = {}
     above_by_w = {}
     for w in WINDOWS:
-        ma = series.rolling(w, min_periods=w).mean()
+        if isinstance(w, str) and w.endswith("w"):   # N주선: 지난 N-1주 주간 종가(금요일 기준 마지막 값) + 오늘 값의 평균(HTS 주봉 이평과 같은 방식)
+            n = int(w[:-1])
+            wk = series.resample("W-FRI").last()
+            prev = wk.shift(1).rolling(n - 1, min_periods=n - 1).sum()
+            week_end = series.index.to_period("W-FRI").end_time.normalize()
+            prev_d = prev.reindex(week_end)
+            prev_d.index = series.index
+            ma = (prev_d + series) / n
+        else:
+            ma = series.rolling(w, min_periods=w).mean()
         valid = series.notna() & ma.notna()
         above = (series >= ma) & valid
         above_by_w[w] = (above, valid)
@@ -158,8 +168,8 @@ def main():
                 rec[f"{k}{w}"] = pack(ratio(cols, w, k))
         out["sectors"].append(rec)
         r20 = ratio(cols, DEFAULT_WINDOW, "n")
-        rows.append({"sector": sec, "n": len(cols), "above20": r20.iloc[-1], "above20_1w": r20.iloc[-6] if len(r20) > 6 else np.nan,
-                     "above20_1m": r20.iloc[-22] if len(r20) > 22 else np.nan})   # 페이지와 같게 21거래일 전
+        rows.append({"sector": sec, "n": len(cols), f"above_{DEFAULT_WINDOW}": r20.iloc[-1], f"above_{DEFAULT_WINDOW}_1w": r20.iloc[-6] if len(r20) > 6 else np.nan,
+                     f"above_{DEFAULT_WINDOW}_1m": r20.iloc[-22] if len(r20) > 22 else np.nan})   # 페이지와 같게 21거래일 전
     last = series.index[-1]
     for c in usable:
         nm = meta["name"].get(c, c)
@@ -169,7 +179,7 @@ def main():
                             "g": {str(w): (None if not np.isfinite(gaps[w].at[last, c]) else round(float(gaps[w].at[last, c]), 1)) for w in WINDOWS}}
     out["ret"] = sector_returns(members, usable, series)
     os.makedirs(os.path.dirname(SUMMARY_PATH), exist_ok=True)
-    pd.DataFrame(rows).sort_values("above20", ascending=False).to_csv(SUMMARY_PATH, index=False, encoding="utf-8-sig", float_format="%.1f")
+    pd.DataFrame(rows).sort_values(f"above_{DEFAULT_WINDOW}", ascending=False).to_csv(SUMMARY_PATH, index=False, encoding="utf-8-sig", float_format="%.1f")
     html = (TEMPLATE.replace("__UPDATED__", datetime.now().strftime("%Y-%m-%d %H:%M")).replace("__ASOF__", out["asof"])
             .replace("__DATA__", json.dumps(out, ensure_ascii=False, separators=(",", ":"))))
     with open(OUT_PATH, "w", encoding="utf-8") as f:
@@ -270,8 +280,8 @@ TEMPLATE = r"""<!doctype html>
     (시총은 액면분할에도 끊기지 않아 미수정 종가보다 안전합니다. 워크북에 없는 종목만 종가로 대신 계산).
     위 비율 = 위 종목 수 ÷ 계산 가능한 종목 수, 시총 가중 = 위 종목 시총 합 ÷ 섹터 시총 합. 3종목 미만인 날은 비웁니다.<br>
     <b>보는 법</b>: 비율이 높을수록 섹터 내 대부분 종목이 상승 추세(강함), 낮을수록 약함. 1주·1달 전 대비 변화로 강해지는 중인지 약해지는 중인지 봅니다.<br>
-    <b>장기 약세 기준 40%</b>(120·200일선, 빨간 점선): 2016년 이후 이 아래에 있던 섹터는 이후 6달 동안 다른 섹터보다 평균 3~6%p 약했습니다(앞뒤 두 구간 모두). 아래에 오래 머물수록 더 약했고, 처음 내려간 날 자체는 의미가 없었습니다. 10~60일선에는 이런 기준이 없어 선을 긋지 않습니다(단기 흐름용). 시장 전체가 약할 땐 대부분 섹터가 기준 아래라 섹터 간 비교로 보세요.
-    20일선은 단기, 60·120일선은 중기 추세입니다.
+    <b>장기 약세 기준 40%</b>(20주·120·200일선, 빨간 점선 - 20주선은 근거가 더 약함): 2016년 이후 이 아래에 있던 섹터는 이후 6달 동안 다른 섹터보다 평균 3~6%p 약했습니다(앞뒤 두 구간 모두). 아래에 오래 머물수록 더 약했고, 처음 내려간 날 자체는 의미가 없었습니다. 10~60일선에는 이런 기준이 없어 선을 긋지 않습니다(단기 흐름용). 시장 전체가 약할 땐 대부분 섹터가 기준 아래라 섹터 간 비교로 보세요.
+    기본은 20주선(약 100거래일, 주봉 기준)입니다. 10~20일선은 단기, 60일선·20주선은 중기, 120·200일선은 장기 추세입니다.
   </div>
 
 <script>
@@ -306,7 +316,7 @@ function renderCards(st) {
   const weak = ok.slice(-5).reverse().map(x => `${x.s.name} ${fmt(x.cur)}%`).join('<br>');
   const up = st.filter(x => nn(x.d1)).sort((a, b) => b.d1 - a.d1).slice(0, 3).map(x => `${x.s.name} ${sgn(x.d1)}%p`).join('<br>');
   $('cards').innerHTML =
-    `<div class="card">섹터 정리 전체 종목 · ${W}일선 위 비율<div class="val">${fmt(cur)}%</div>1주 전 ${fmt(valAgo(D.all[key], i, 5))}% · 1달 전 ${fmt(valAgo(D.all[key], i, 21))}%</div>` +
+    `<div class="card">섹터 정리 전체 종목 · ${LBL(W)} 위 비율<div class="val">${fmt(cur)}%</div>1주 전 ${fmt(valAgo(D.all[key], i, 5))}% · 1달 전 ${fmt(valAgo(D.all[key], i, 21))}%</div>` +
     `<div class="card">가장 강한 섹터(위 비율 높음)<div class="list">${strong}</div></div>` +
     `<div class="card">가장 약한 섹터(위 비율 낮음)<div class="list">${weak}</div></div>` +
     `<div class="card">1주 새 가장 강해진 섹터<div class="list">${up}</div></div>`;
@@ -320,7 +330,7 @@ function renderTable(st) {
     const x = nn(va) ? va : (DESC ? -1e9 : 1e9), y = nn(vb) ? vb : (DESC ? -1e9 : 1e9); return DESC ? y - x : x - y;
   });
   const recent = 20;
-  let h = `<tr><th class="nosort"></th><th data-s="name">섹터</th><th data-s="n">종목</th><th data-s="cur">${W}일선 위</th><th class="nosort">1주 전</th><th class="nosort">1달 전</th><th data-s="w1">1주 변화</th><th data-s="m1">1달 변화</th><th class="nosort" style="text-align:left">최근 ${recent}거래일</th></tr>`;
+  let h = `<tr><th class="nosort"></th><th data-s="name">섹터</th><th data-s="n">종목</th><th data-s="cur">${LBL(W)} 위</th><th class="nosort">1주 전</th><th class="nosort">1달 전</th><th data-s="w1">1주 변화</th><th data-s="m1">1달 변화</th><th class="nosort" style="text-align:left">최근 ${recent}거래일</th></tr>`;
   rows.forEach((x, r) => {
     const a = x.s[key]; const cells = a.slice(-recent).map(v => `<span title="${fmt(v)}%" style="display:inline-block;width:9px;height:14px;margin-right:1px;background:${heatColor(v)}"></span>`).join('');
     const on = selected.has(x.s.name);
@@ -340,14 +350,15 @@ function toggleMembers(tr) {
   const list = s.codes.map(c => D.stocks[c]).filter(Boolean).map(st => ({...st, g: st.g[String(W)]})).sort((a, b) => (nn(b.g) ? b.g : -1e9) - (nn(a.g) ? a.g : -1e9));
   const html = list.map(st => `<span style="display:inline-block;margin:2px 10px 2px 0" class="${nn(st.g) && st.g < 0 ? 'neg' : 'pos'}">${st.g < 0 ? '▼' : '▲'} ${st.name} ${nn(st.g) ? (st.g >= 0 ? '+' : '') + st.g.toFixed(1) + '%' : '-'}${st.cap ? ` <span style="color:#7c828b">(${st.cap.toLocaleString()}억${st.src === '종가' ? ', 종가' : ''})</span>` : ''}</span>`).join('');
   const row = document.createElement('tr'); row.className = 'members';
-  row.innerHTML = `<td></td><td colspan="8" style="text-align:left;white-space:normal">${W}일선 대비 이격(▲ 위, 높은 순): ${html}</td>`;
+  row.innerHTML = `<td></td><td colspan="8" style="text-align:left;white-space:normal">${LBL(W)} 대비 이격(▲ 위, 높은 순): ${html}</td>`;
   tr.after(row);
 }
 let chart = null;
+function LBL(w) { w = String(w); return w.endsWith('w') ? w.slice(0, -1) + '주선' : w + '일선'; }
 function weakTag(a) {
   const thr = D.weak[String(W)]; if (!thr) return '';
   let k = 0; for (let i = a.length - 1; i >= 0 && nn(a[i]) && a[i] < thr; i--) k++;
-  return k ? ` <span style="color:#ff8787;font-size:11px" title="${W}일선 위 비율 ${thr}% 아래 연속 거래일">약세 ${k}일째</span>` : '';
+  return k ? ` <span style="color:#ff8787;font-size:11px" title="${LBL(W)} 위 비율 ${thr}% 아래 연속 거래일">약세 ${k}일째</span>` : '';
 }
 function renderChart() {
   const key = K + W; const st = PERIOD ? Math.max(0, N - PERIOD) : 0;
@@ -356,13 +367,13 @@ function renderChart() {
   [...selected].forEach((nm, i) => { const s = D.sectors.find(x => x.name === nm); if (s) ds.push({label: nm, data: s[key].slice(st), borderColor: COLORS[i % COLORS.length], borderWidth: 1.8, pointRadius: 0}); });
   const thr = D.weak[String(W)];
   if (thr) ds.push({label: `장기 약세 기준 ${thr}%`, data: labels.map(() => thr), borderColor: '#ff6b6b', borderDash: [6, 4], borderWidth: 1.2, pointRadius: 0});
-  $('weakNote').innerHTML = thr ? `<b style="color:#ff8787">빨간 점선 = 장기 약세 기준 ${thr}%</b>(이 아래에 머문 섹터는 이후 6달 다른 섹터보다 평균 3~6%p 약했음).` : '10~60일선은 장기 약세를 가르는 기준이 없어 선이 없습니다(120·200일선에서 표시).';
+  $('weakNote').innerHTML = thr ? `<b style="color:#ff8787">빨간 점선 = 장기 약세 기준 ${thr}%</b>(이 아래에 머문 섹터는 이후 6달 다른 섹터보다 평균 3~6%p 약했음).` : '10~60일선은 장기 약세를 가르는 기준이 없어 선이 없습니다(20주·120·200일선에서 표시).';
   if (chart) chart.destroy();
   chart = new Chart($('cLine'), {type: 'line', data: {labels, datasets: ds}, options: {responsive: true, maintainAspectRatio: false, animation: false,
     interaction: {mode: 'index', intersect: false},
     plugins: {legend: {labels: {color: '#e6e6e6', boxWidth: 12, font: {size: 11}}}, tooltip: {callbacks: {label: c => c.dataset.label + ': ' + (c.parsed.y === null ? '-' : c.parsed.y.toFixed(0) + '%')}}},
     scales: {x: {ticks: {color: '#9aa0a6', maxTicksLimit: 8, maxRotation: 0}, grid: {display: false}}, y: {min: 0, max: 100, ticks: {color: '#9aa0a6', callback: v => v + '%'}, grid: {color: '#23262e'}}}}});
-  $('chartTitle').textContent = `${W}일선 위 종목 비율 · ${K === 'n' ? '종목 수' : '시총 가중'} 기준`;
+  $('chartTitle').textContent = `${LBL(W)} 위 종목 비율 · ${K === 'n' ? '종목 수' : '시총 가중'} 기준`;
 }
 function renderHeat(st) {
   const key = K + W;
@@ -384,8 +395,8 @@ function renderAll() {
   }
   renderCards(st); renderTable(st); renderChart(); renderHeat(st);
 }
-$('segW').innerHTML = D.windows.map(w => `<button data-w="${w}" class="${w === W ? 'active' : ''}">${w}일</button>`).join('');
-$('segW').onclick = e => { const b = e.target.closest('button'); if (!b) return; W = +b.dataset.w; document.querySelectorAll('#segW button').forEach(x => x.classList.toggle('active', x === b)); renderAll(); };
+$('segW').innerHTML = D.windows.map(w => `<button data-w="${w}" class="${String(w) === String(W) ? 'active' : ''}">${String(w).endsWith('w') ? String(w).slice(0, -1) + '주' : w + '일'}</button>`).join('');
+$('segW').onclick = e => { const b = e.target.closest('button'); if (!b) return; W = b.dataset.w; document.querySelectorAll('#segW button').forEach(x => x.classList.toggle('active', x === b)); renderAll(); };
 $('segK').onclick = e => { const b = e.target.closest('button'); if (!b) return; K = b.dataset.k; document.querySelectorAll('#segK button').forEach(x => x.classList.toggle('active', x === b)); renderAll(); };
 $('segP').onclick = e => { const b = e.target.closest('button'); if (!b) return; PERIOD = +b.dataset.p; document.querySelectorAll('#segP button').forEach(x => x.classList.toggle('active', x === b)); renderChart(); };
 let RP = '1';
