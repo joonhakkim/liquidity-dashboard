@@ -147,8 +147,10 @@ def opband_live(snap):
     o = o.dropna(subset=["cap_live", "latest_mult", "b_3y_p10", "latest_mktcap"])
     o = o[(o["b_3y_p10"] > 0) & (o["latest_mult"] > 0)]
     o["gap_live"] = (o["latest_mult"] * o["cap_live"] / o["latest_mktcap"] / o["b_3y_p10"] - 1) * 100
-    top = o.sort_values("gap_live").head(40)
-    return {"below_now": int((o["gap_live"] < 0).sum()), "below_y": int((o["gap_3y_p10"] < 0).sum()), "n": int(len(o)),
+    # 목록: 오늘 새로 바텀 아래로 내려간 종목(어제 확정은 바텀 위, 지금 가격은 아래) - 바텀 아래로 많이 들어간 순
+    new = o[(o["gap_3y_p10"] >= 0) & (o["gap_live"] < 0)]
+    top = new.sort_values("gap_live").head(80)
+    return {"below_now": int((o["gap_live"] < 0).sum()), "below_y": int((o["gap_3y_p10"] < 0).sum()), "n": int(len(o)), "new_n": int(len(new)),
             "list": [{"code": r.c6, "name": r.name if isinstance(r.name, str) else "", "sector": r.sector if isinstance(r.sector, str) else "",
                       "gap": round(r.gap_live, 1), "gap_y": round(r.gap_3y_p10, 1) if r.gap_3y_p10 == r.gap_3y_p10 else None,
                       "ret": round(r.ret, 1) if r.ret == r.ret else None} for r in top.itertuples()]}
@@ -164,14 +166,13 @@ def build():
     out["phase"] = phase_live(snap, base, daily)
     out["sm"] = sm_live(snap, base, daily)
     T, last_day, n_live = lsb.compute(snap["cap"].dropna() * 1e8)
-    members = {}
-    for name in T["섹터"]:
-        pass
     sec_ret = {}
     for sec, cs in base["members"].items():
         r = snap["ret"].reindex(cs).dropna()
         if len(r) >= 3:
             sec_ret[sec] = round(float(r.mean() * 100), 2)
+    allc = sorted({c for cs in base["members"].values() for c in cs})
+    sec_ret["섹터 정리 전체"] = round(float(snap["ret"].reindex(allc).dropna().mean() * 100), 2)
     rows = []
     for r in T.to_dict("records"):
         rows.append({"name": r["섹터"], "n": int(r["종목"]), "r1d": sec_ret.get(r["섹터"]),

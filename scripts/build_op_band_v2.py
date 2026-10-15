@@ -837,8 +837,8 @@ liveFetch(j => {{
   o.list.forEach(r => h += '<tr style="border-top:1px solid #222"><td style="padding:3px 8px">' + r.name + ' <span style="color:#7c828b">' + r.code + '</span></td><td style="padding:3px 8px;color:#9aa0a6">' + (r.sector || '') + '</td><td ' + td + '><span style="color:' + (r.ret >= 0 ? '#ff8787' : '#74a7ff') + '">' + g(r.ret) + '</span></td><td ' + td + '>' + g(r.gap_y) + ' → <b>' + g(r.gap) + '</b></td></tr>');
   h += '</table>';
   const el = document.getElementById('livePanel'); el.style.display = '';
-  el.innerHTML = liveHead(j, 'OP밴드 바텀 대비') + '<div style="font-size:13px;color:#c9ccd1;margin-bottom:6px">3년 하위 10% 바텀 아래 종목 <b>' + o.below_now + '개</b> (어제 확정 ' + o.below_y + '개, 대상 ' + o.n + '종목) · 아래 목록은 지금 바텀에 가장 가까운(또는 아래) 40종목</div>' +
-    '<details><summary style="cursor:pointer;color:#c9ccd1;font-size:12px">목록 펼치기</summary><div style="max-height:380px;overflow:auto">' + h + '</div></details>';
+  el.innerHTML = liveHead(j, 'OP밴드 바텀 대비') + '<div style="font-size:13px;color:#c9ccd1;margin-bottom:6px">3년 하위 10% 바텀 아래 종목 <b>' + o.below_now + '개</b> (어제 확정 ' + o.below_y + '개, 대상 ' + o.n + '종목) · 오늘 새로 바텀 아래로 들어간 종목 <b>' + (o.new_n ?? o.list.length) + '개</b>' + (o.list.length < (o.new_n ?? 0) ? ' (깊이 들어간 ' + o.list.length + '개만 표시)' : '') + '</div>' +
+    '<details><summary style="cursor:pointer;color:#c9ccd1;font-size:12px">새로 바텀 아래로 들어간 종목 펼치기</summary><div style="max-height:380px;overflow:auto">' + h + '</div></details>';
 }});
 </script>
 </body>
