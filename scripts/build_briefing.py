@@ -134,16 +134,16 @@ def svg_lines(dates, series, height=150, width=720, ymin=None, ymax=None, bands=
     return "".join(out)
 
 
-def svg_quad(pts, width=720, height=330):
+def svg_quad(pts, width=720, height=385):
     """섹터 4사분면 산점도(SVG). pts: [(이름, x, y, x1주전, y1주전, 종목수)].
     축은 지금 점들이 보이게 확대(50%·0 기준선은 항상 포함), 1주 전 꼬리는 그림 밖이면 잘림, 이름표는 겹치지 않게 배치."""
     L, R, T, B = 46, 10, 10, 26
     W, H = width - L - R, height - T - B
-    # 축은 섹터 대부분(가로 5~95%, 세로 90%)이 보이게 잡고, 그 밖의 튀는 섹터는 테두리에 붙여 실제 값을 이름 옆에 적는다
+    # 축은 모든 섹터가 들어오게 잡는다(가장자리 여유). outl은 혹시 범위를 벗어나는 경우의 안전장치
     xs = sorted(p[1] for p in pts); ys = sorted(abs(p[2]) for p in pts)
     qx = lambda a: xs[min(len(xs) - 1, max(0, int(round(a * (len(xs) - 1)))))]
-    xlo = max(0, min(45, (int(qx(0.05)) - 6) // 10 * 10)); xhi = min(100, max(55, (int(qx(0.95)) + 16) // 10 * 10))
-    ym = max(10, int(ys[min(len(ys) - 1, int(0.9 * (len(ys) - 1)))] * 1.4 / 5 + 1) * 5)
+    xlo = max(0, min(45, (int(qx(0)) - 6) // 10 * 10)); xhi = min(100, max(55, (int(qx(1)) + 16) // 10 * 10))
+    ym = max(10, int(ys[-1] * 1.15 / 5 + 1) * 5)   # 모든 섹터가 실제 위치에 보이게(2026-10-16 사용자 "전부 다 나올 수 있게")
     outl = {p[0]: (p[1], p[2]) for p in pts if not (xlo <= p[1] <= xhi and -ym <= p[2] <= ym)}
     pts = [(nm, min(max(x, xlo), xhi), min(max(y, -ym), ym), x5, y5, n_) for nm, x, y, x5, y5, n_ in pts]
     X = lambda v: L + W * (v - xlo) / (xhi - xlo)
@@ -288,7 +288,8 @@ def main():
         RS = pd.read_csv(DATA / "screening" / "sector_relative_strength_summary.csv")
     except Exception:  # noqa: BLE001
         RS = pd.DataFrame()
-    w20 = sorted([(sx["name"], sec_at(sx, "n20w"), sec_at(sx, "n20w") - sec_at(sx, "n20w", 5), sx["n"]) for sx in secs if sec_at(sx, "n20w") == sec_at(sx, "n20w")], key=lambda r: -r[1])
+    # 강·약 섹터는 15일선 위 비율(2026-10-16 사용자 "20주선 말고 15일선으로") - 4사분면 가로축과 같은 기준
+    w20 = sorted([(sx["name"], sec_at(sx, "n15"), sec_at(sx, "n15") - sec_at(sx, "n15", 5), sx["n"]) for sx in secs if sec_at(sx, "n15") == sec_at(sx, "n15")], key=lambda r: -r[1])
     movers = sorted([r for r in w20 if r[2] == r[2]], key=lambda r: r[2])
     ret5 = (D.get("ret") or {}).get("5", {})
     rrows = ret5.get("rows", [])
@@ -354,7 +355,7 @@ def main():
     def er_rows():
         if not len(ER):
             return ""
-        t = ER[(ER["mktcap"] >= 1e11) & ER["fy2_1w"].between(0.5, 100)].sort_values("fy2_1w", ascending=False).head(8)
+        t = ER[(ER["mktcap"] >= 1e11) & ER["fy2_1w"].between(0.5, 100)].sort_values("fy2_1w", ascending=False).head(6)
         return "".join(tr([r["name"], r["sec"] if isinstance(r["sec"], str) else (r["sector"] or "-"), f"{r['mktcap'] / 1e8:,.0f}억",
                            f"<b class='up'>{r['fy2_1w']:+.1f}%</b>", sg(r["fy2_1m"]), sg(r["fy1_1w"])]) for _, r in t.iterrows())
     def er_sec():
@@ -364,7 +365,7 @@ def main():
         t = pd.DataFrame({"n": g.size(), "up": g["fy2_1m"].apply(lambda v: (v > 0).sum()), "dn": g["fy2_1m"].apply(lambda v: (v < 0).sum()), "med": g["fy2_1m"].median()})
         t = t[t["n"] >= 5]
         t["net"] = (t["up"] - t["dn"]) / t["n"] * 100
-        t = t.sort_values("net", ascending=False).head(8)
+        t = t.sort_values("net", ascending=False).head(6)
         return "".join(tr([nm, f"{int(r['n'])}", f"<span class='up'>{int(r['up'])}</span> / <span class='dn'>{int(r['dn'])}</span>", f"<b>{r['net']:+.0f}%p</b>", sg(r["med"])]) for nm, r in t.iterrows())
     br_tbl = "".join(tr([lbl, f"<b>{f0(a)}</b>", f0(b), f0(c), f"<span class='{'up' if a - b >= 0 else 'dn'}'>{sg(a - b, 0, '%p')}</span>"]) for lbl, a, b, c in breadth)
     mat = "".join(tr([nm, f"{v1:.1f}", f"{v0:.1f}", f"{s1:.0f}점", f"{s0:.0f}점"]) for nm, v1, v0, s1, s0 in (
@@ -409,6 +410,8 @@ def main():
   .bar {{ height:8px; border-radius:2px; }}
   .chip {{ display:inline-block; margin:1px 8px 1px 0; white-space:nowrap; }} .chip i {{ font-style:normal; font-size:9.5px; }}
   td.qn {{ font-weight:700; width:78px; vertical-align:top; }} td.ql {{ text-align:left; white-space:normal; }}
+  .qguide {{ font-size:10px; color:#495057; line-height:1.55; background:#f8f9fa; border-radius:5px; padding:5px 8px; margin:4px 0; }}
+  .qtbl td {{ padding:1px 4px; font-size:9.5px; line-height:1.35; }} .qtbl .chip {{ margin-right:6px; }}
   .note {{ color:#868e96; font-size:9.5px; margin-top:4px; }}
   .btn {{ position:fixed; right:16px; top:12px; background:#212529; color:#fff; border:0; border-radius:6px; padding:6px 12px; cursor:pointer; }}
 </style></head><body>
@@ -442,17 +445,19 @@ def main():
   <div class="hdr"><div><h1>섹터 흐름</h1><div class="sub">데이터 기준 {asof:%Y-%m-%d} · 섹터 정리 {len(secs)}개 섹터 · 종목 수 기준 비율</div></div><div class="sub">2/2 섹터 · joonhakkim.github.io/liquidity-dashboard</div></div>
   <h2>섹터 4사분면 (가로 15일선 위 비율 50% · 세로 5일-15일선 위 비율 0) <span class="sub">← = 1주 전 사분면</span></h2>
   {quad_svg}
-  <div class="note">점 크기 = 종목 수 · 회색 점에서 이어진 선 = 1주 전 위치. 보통 개선 중 → 강세 지속 → 꺾이는 중 → 약세로 돕니다(위치를 보는 지도, 이후 성과 예측력은 약함).</div>
+  <div class="qguide"><b>읽는 법</b> 가로 = 섹터 종목 중 15일선 위에 있는 비율(오른쪽일수록 단기 추세 강함, 50%가 기준) · 세로 = 5일선 위 비율 − 15일선 위 비율(위쪽일수록 최근 며칠 더 좋아지는 중, 0이 기준).
+    점 크기 = 종목 수, 회색 점에서 이어진 옅은 선 = 1주 전 위치. 섹터는 보통 <span style="color:#e67700">개선 중</span>(왼쪽 위) → <span style="color:#c92a2a">강세 지속</span>(오른쪽 위) → <span style="color:#e8590c">꺾이는 중</span>(오른쪽 아래) → <span style="color:#1971c2">약세</span>(왼쪽 아래)로 시계 방향으로 돕니다.
+    지금 위치를 보는 지도이고, 다음 성과를 맞히는 힘은 약합니다(2016~ 사분면별 이후 20일 차이 ±0.5%p 안).</div>
+  <table class="qtbl">{quad_tbl}</table>
   <h2>이익추정치 상향 <span class="sub">내년(FY2) 영업이익 컨센서스 변화율 · {er_date} 기준 · 시총 1천억 이상</span></h2>
   <div class="grid2">
     <div><table><tr><th>1주 상향 상위 종목</th><th>섹터</th><th>시총</th><th>FY2 1주</th><th>1달</th><th>FY1 1주</th></tr>{er_rows()}</table></div>
     <div><table><tr><th>상향 우세 섹터(1달)</th><th>종목</th><th>상향/하향</th><th>순상향</th><th>중앙값</th></tr>{er_sec()}</table></div>
   </div>
   <div class="grid2">
-    <div><h2>20주선 위 비율 높은 섹터 <span class="sub">(1주 변화)</span></h2><table>{strong}</table></div>
-    <div><h2>20주선 위 비율 낮은 섹터 <span class="sub">(1주 변화)</span></h2><table>{weak}</table></div>
+    <div><h2>15일선 위 비율 높은 섹터 <span class="sub">(1주 변화)</span></h2><table>{strong}</table></div>
+    <div><h2>15일선 위 비율 낮은 섹터 <span class="sub">(1주 변화)</span></h2><table>{weak}</table></div>
   </div>
-  <div class="note">20주선 위 비율 1주 변화 - 많이 오른 섹터: {mv_up} / 많이 내린 섹터: {mv_dn} (%p). 40% 아래에 오래 머문 섹터는 이후 6달 평균 3~6%p 약했음.</div>
 </div>
 </body></html>"""
     OUT_HTML.write_text(html, encoding="utf-8")
