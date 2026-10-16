@@ -37,7 +37,7 @@ WINDOWS = [10, 15, 20, 60, "20w", 120, 200]   # 20주(약 100거래일)는 기�
 DEFAULT_WINDOW = "20w"   # 2026-10-15 사용자: "20일선이 아니라 20주선이었어" - 20주선(지난 19주 주간 종가 + 오늘 값의 평균)이 기본
 # 교차(골드·데드크로스) 비교용으로만 계산하는 이평선(위쪽 선택 버튼엔 없음). 2026-10-16 사용자 "5일 15일을 우선" -> 같은 날 조합 손익 비교
 # (2016~, 골드 100%/데드 60%, 3일 분할, 288개) 결과 20일/40일·5일 평활이 중소형·코스닥 앞뒤 네 칸 모두 보유보다 나아 기본값으로(사용자 "그렇게 해봐").
-CROSS_ONLY = [5, 40]
+CROSS_ONLY = [5, 8, 40]   # 8일선: 2026-10-16 사용자 "8일선 추가해 보고"
 ALL_WINDOWS = WINDOWS + [w for w in CROSS_ONLY if w not in WINDOWS]
 HISTORY_FROM = "2023-01-01"
 MIN_MEMBERS = 3
@@ -341,7 +341,8 @@ TEMPLATE = r"""<!doctype html>
     </div>
     <div class="desc" id="xNow"></div>
     <div class="chart-wrap"><canvas id="cCross"></canvas></div>
-    <div class="tblwrap" style="margin-top:10px"><table id="xTbl"></table></div>
+    <div class="desc" style="margin-top:10px">섹터별 지금 상태 - 위 빠른·느린 선·평활 기준, 골드 먼저 새로 바뀐 순. 행을 누르면 그 섹터 차트로(맨 위 행 = 전체). '새로' = 3거래일 이내 교차.</div>
+    <div class="tblwrap" style="max-height:420px;overflow:auto"><table id="xTbl"></table></div>
     <div class="desc" id="xStat" style="margin-top:6px"></div>
   </div>
 
@@ -520,7 +521,7 @@ function bindRetClicks() {
   });
 }
 // ---------- 이평선 위 비율 교차(골드·데드크로스) - 2026-10-16 사용자 "X일 이평선 위 비율 차트 2개를 조합해 변곡점을, 5일 15일 우선"
-const XW = [5, 10, 15, 20, 40, 60, '20w', 120, 200].filter(w => D.all['n' + w]);
+const XW = [5, 8, 10, 15, 20, 40, 60, '20w', 120, 200].filter(w => D.all['n' + w]);
 let XF = '20', XS = '40', XM = 5, XT = '', XI = '코스닥', XP = 126, xChart = null;
 $('xF').innerHTML = XW.map(w => `<option value="${w}">${LBL(w)}</option>`).join(''); $('xF').value = XF;
 $('xS').innerHTML = XW.map(w => `<option value="${w}">${LBL(w)}</option>`).join(''); $('xS').value = XS;
@@ -558,13 +559,27 @@ function renderCross() {
   // 지금 상태
   const i = N - 1, last = ev.length ? ev[ev.length - 1] : null;
   const up = nn(f[i]) && nn(s[i]) ? f[i] > s[i] : null;
-  $('xNow').innerHTML = up === null ? '' : `<b style="color:${up ? '#ff8787' : '#74a7ff'}">지금 ${up ? '골드' : '데드'} 상태</b>${last ? ` · ${D.dates[last.i]} ${last.up ? '골드' : '데드'}크로스 뒤 ${i - last.i}거래일째` : ''} · ${LBL(XF)} 위 ${fmt(f[i])}% vs ${LBL(XS)} 위 ${fmt(s[i])}% (차 ${sgn(f[i] - s[i])}%p, 1주 전 ${nn(f[i - 5]) && nn(s[i - 5]) ? sgn(f[i - 5] - s[i - 5]) : '-'}%p)${D.live ? ' · 오늘 잠정' : ''}`;
-  // 최근 교차 표 + 이후 지수 수익률
-  const rows = ev.slice(-12).reverse();
+  $('xNow').innerHTML = up === null ? '' : `<b style="color:${up ? '#ff8787' : '#74a7ff'}">지금 ${up ? '골드' : '데드'} 상태</b>${last ? ` · ${D.dates[last.i]} ${last.up ? '골드' : '데드'}크로스 뒤 ${i - last.i + 1}거래일째` : ''} · ${LBL(XF)} 위 ${fmt(f[i])}% vs ${LBL(XS)} 위 ${fmt(s[i])}% (차 ${sgn(f[i] - s[i])}%p, 1주 전 ${nn(f[i - 5]) && nn(s[i - 5]) ? sgn(f[i - 5] - s[i - 5]) : '-'}%p)${D.live ? ' · 오늘 잠정' : ''}`;
+  // 섹터별 지금 상태(2026-10-16 사용자 "일자별 교차 히스토리 말고 섹터별로 데드인지 골드인지, 며칠째 유지인지")
   const c = v => nn(v) ? `<span class="${v >= 0 ? 'pos' : 'neg'}">${v >= 0 ? '+' : ''}${v.toFixed(1)}%</span>` : '-';
-  $('xTbl').innerHTML = '<tr><th class="nosort">날짜</th><th class="nosort">교차</th><th class="nosort">' + LBL(XF) + ' 위</th><th class="nosort">' + LBL(XS) + ' 위</th>' + (px ? `<th class="nosort">이후 ${XI} 5일</th><th class="nosort">20일</th>` : '') + '<th class="nosort">유지 거래일</th></tr>' +
-    rows.map((e, k) => { const nx = k === 0 ? N - 1 : rows[k - 1].i; return `<tr><td>${D.dates[e.i]}</td><td style="color:${e.up ? '#ff8787' : '#74a7ff'}">${e.up ? '▲ 골드' : '▼ 데드'}</td><td>${fmt(f[e.i])}%</td><td>${fmt(s[e.i])}%</td>` +
-      (px ? `<td>${c(fwd(px, e.i, 5))}</td><td>${c(fwd(px, e.i, 20))}</td>` : '') + `<td>${nx - e.i}${k === 0 ? '(진행 중)' : ''}</td></tr>`; }).join('');
+  const stateOf = src => {
+    const ff = sma(src['n' + XF] || [], XM), ss = sma(src['n' + XS] || [], XM), k = N - 1;
+    if (!nn(ff[k]) || !nn(ss[k])) return null;
+    const up = ff[k] > ss[k]; let j = k;
+    while (j - 1 >= 0 && nn(ff[j - 1]) && nn(ss[j - 1]) && (ff[j - 1] > ss[j - 1]) === up) j--;
+    const begun = j > 0 && nn(ff[j - 1]) && nn(ss[j - 1]);   // 시계열 처음부터 같은 상태면 교차일 없음
+    return {up, days: k - j + 1, since: begun ? D.dates[j] : null, f: ff[k], s: ss[k], d: ff[k] - ss[k], d5: nn(ff[k - 5]) && nn(ss[k - 5]) ? ff[k - 5] - ss[k - 5] : null};
+  };
+  const list = D.sectors.map(sec => ({name: sec.name, n: sec.n, st: stateOf(sec)})).filter(r => r.st);
+  list.sort((a, b) => (b.st.up - a.st.up) || (a.st.days - b.st.days) || (b.st.d - a.st.d));
+  const allSt = stateOf(D.all);
+  const nG = list.filter(r => r.st.up).length;
+  const row = (r, bold) => `<tr class="xrow" data-name="${bold ? '' : r.name}" style="cursor:pointer${bold ? ';background:#1a1f28;font-weight:bold' : ''}${XT === r.name ? ';outline:1px solid #4dabf7' : ''}"><td>${r.name}</td><td>${r.n ?? '-'}</td>` +
+    `<td style="color:${r.st.up ? '#ff8787' : '#74a7ff'}">${r.st.up ? '▲ 골드' : '▼ 데드'}</td><td><b>${r.st.days}</b>${r.st.days <= 3 ? ' <span style="color:#ffd43b;font-size:11px">새로</span>' : ''}</td><td>${r.st.since || '-'}</td>` +
+    `<td>${fmt(r.st.f)}%</td><td>${fmt(r.st.s)}%</td><td class="${r.st.d >= 0 ? 'pos' : 'neg'}">${sgn(r.st.d)}%p</td><td>${nn(r.st.d5) ? sgn(r.st.d5) + '%p' : '-'}</td></tr>`;
+  $('xTbl').innerHTML = `<tr><th class="nosort">섹터 (골드 ${nG} · 데드 ${list.length - nG})</th><th class="nosort">종목</th><th class="nosort">상태</th><th class="nosort">유지 거래일</th><th class="nosort">교차일</th><th class="nosort">${LBL(XF)} 위</th><th class="nosort">${LBL(XS)} 위</th><th class="nosort">차</th><th class="nosort">1주 전 차</th></tr>` +
+    (allSt ? row({name: '섹터 정리 전체', n: null, st: allSt}, true) : '') + list.map(r => row(r)).join('');
+  $('xTbl').querySelectorAll('tr.xrow').forEach(tr => tr.onclick = () => { XT = tr.dataset.name; $('xT').value = XT; renderCross(); });
   // 전체 기간 요약: 교차 뒤 지수 평균 vs 아무 날
   if (px) {
     const avg = a => { const b = a.filter(nn); return b.length ? b.reduce((x, y) => x + y, 0) / b.length : null; };

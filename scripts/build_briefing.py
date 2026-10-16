@@ -307,7 +307,7 @@ def main():
     r_sm = rets(smi)
     bullets.append(f"중소형 지수 1일 {sg(r_sm[0])}, 1주 {sg(r_sm[1])}, 1달 {sg(r_sm[2])} · 120일선 {'아래' if sm_below else '위'} {kb}거래일째({sg(pct(smi.iloc[-1], ma120.iloc[-1]))})")
     st2040 = "골드(빠른 선 위)" if d2040[-1] > 0 else "데드(빠른 선 아래)"
-    bullets.append(f"시장 폭 교차(20일/40일선 위 비율, 5일 평활) <b>{st2040}</b>" + (f" - {dates[lc2040]} 교차 뒤 {n - 1 - lc2040}거래일째" if lc2040 else "") +
+    bullets.append(f"시장 폭 교차(20일/40일선 위 비율, 5일 평활) <b>{st2040}</b>" + (f" - {dates[lc2040]} 교차, {n - lc2040}거래일째" if lc2040 else "") +
                    f", 차이 {d2040[-1]:+.0f}%p(1주 전 {d2040[-6]:+.0f}%p). 단기(5/15)는 {'골드' if d515[-1] > 0 else '데드'}" + (f"({dates[lc515][5:]}부터)" if lc515 else ""))
     b20 = breadth[0]
     bullets.append(f"20일선 위 종목 {f0(b20[1])}(1주 전 {f0(b20[2])}, 1달 전 {f0(b20[3])}) · 200일선 위 {f0(breadth[3][1])}")
@@ -422,7 +422,7 @@ def main():
     <div class="box" style="border-color:{PH3C[cur3]}"><div class="lbl">국면</div><div class="val" style="color:{PH3C[cur3]}">{cur3}</div><div class="sub">{since:%m/%d}부터 {k}거래일째</div></div>
     <div class="box"><div class="lbl">목표 비중</div><div class="val">{target}%</div><div class="sub">{'꺾임 주의 ' + str(ck) + '일째' if cau else '꺾임 주의 없음'}</div></div>
     <div class="box"><div class="lbl">국면 점수(65일 EMA)</div><div class="val">{sc:.1f}</div><div class="sub">1주 전 {sc5:.1f} · 낮음&lt;{d['lo'].iloc[-1]:.0f} 높음&gt;{d['hi'].iloc[-1]:.0f}</div></div>
-    <div class="box"><div class="lbl">시장 폭 교차 20/40</div><div class="val" style="color:{'#c92a2a' if d2040[-1] > 0 else '#1971c2'}">{'골드' if d2040[-1] > 0 else '데드'}</div><div class="sub">{(dates[lc2040][5:] + ' 교차 · ' + str(n - 1 - lc2040) + '일째') if lc2040 else ''}</div></div>
+    <div class="box"><div class="lbl">시장 폭 교차 20/40</div><div class="val" style="color:{'#c92a2a' if d2040[-1] > 0 else '#1971c2'}">{'골드' if d2040[-1] > 0 else '데드'}</div><div class="sub">{(dates[lc2040][5:] + ' 교차 · ' + str(n - lc2040) + '일째') if lc2040 else ''}</div></div>
   </div>
   <h2>요약</h2><ul>{''.join(f'<li>{b}</li>' for b in bullets)}</ul>
   <div class="grid2">
