@@ -35,6 +35,8 @@ OUT_PATH = os.path.join(BASE_DIR, "docs", "sector_ma_breadth.html")
 SUMMARY_PATH = os.path.join(DATA_DIR, "screening", "sector_ma_breadth_summary.csv")
 WINDOWS = [10, 15, 20, 60, "20w", 120, 200]   # 20주(약 100거래일)는 기간 순서대로 60일과 120일 사이   # 2026-10-14 사용자 요청: 5일 빼고 15일 추가
 DEFAULT_WINDOW = "20w"   # 2026-10-15 사용자: "20일선이 아니라 20주선이었어" - 20주선(지난 19주 주간 종가 + 오늘 값의 평균)이 기본
+CROSS_ONLY = [5]   # 교차(골드·데드크로스) 비교용으로만 계산하는 이평선(위쪽 선택 버튼엔 없음, 2026-10-16 사용자 "5일 15일을 우선")
+ALL_WINDOWS = WINDOWS + [w for w in CROSS_ONLY if w not in WINDOWS]
 HISTORY_FROM = "2023-01-01"
 MIN_MEMBERS = 3
 # 장기 약세 기준(2026-10-14 검증, 섹터 정리 42섹터 2016~, 수익률 누적 로그가격): 120·200일선 위 비율이 40% 아래인 섹터는
@@ -138,11 +140,11 @@ def compute_out(meta, members, codes, caps, series, no_data, hist_from, live_idx
     hist = series.index >= pd.Timestamp(hist_from)
     dates = series.index[hist]
     capw = caps.reindex(columns=series.columns)          # 가중치용(종가 대체 종목은 NaN -> 가중에서 제외)
-    out = {"asof": asof.strftime("%Y-%m-%d"), "dates": [d.strftime("%Y-%m-%d") for d in dates], "windows": WINDOWS,
+    out = {"asof": asof.strftime("%Y-%m-%d"), "dates": [d.strftime("%Y-%m-%d") for d in dates], "windows": WINDOWS, "crossOnly": CROSS_ONLY,
            "default": DEFAULT_WINDOW, "weak": {str(k): v for k, v in LONG_WEAK.items()}, "sectors": [], "all": {}, "stocks": {}}
     gaps = {}
     above_by_w = {}
-    for w in WINDOWS:
+    for w in ALL_WINDOWS:
         if isinstance(w, str) and w.endswith("w"):   # N주선: 지난 N-1주 주간 종가(금요일 기준 마지막 값) + 오늘 값의 평균(HTS 주봉 이평과 같은 방식)
             n = int(w[:-1])
             wk = series.resample("W-FRI").last()
@@ -169,14 +171,14 @@ def compute_out(meta, members, codes, caps, series, no_data, hist_from, live_idx
     def pack(s):
         return [None if not np.isfinite(x) else round(float(x), 1) for x in s[hist].values]
     usable = [c for c in codes if c not in no_data]
-    out["all"] = {f"{k}{w}": pack(ratio(usable, w, k)) for w in WINDOWS for k in ("n", "c")}
+    out["all"] = {f"{k}{w}": pack(ratio(usable, w, k)) for w in ALL_WINDOWS for k in ("n", "c")}
     rows = []
     for sec in sorted(members):
         cols = [c for c in members[sec] if c not in no_data]
         if len(cols) < MIN_MEMBERS:
             continue
         rec = {"name": sec, "n": len(cols), "codes": cols}
-        for w in WINDOWS:
+        for w in ALL_WINDOWS:
             for k in ("n", "c"):
                 rec[f"{k}{w}"] = pack(ratio(cols, w, k))
         out["sectors"].append(rec)
@@ -191,7 +193,21 @@ def compute_out(meta, members, codes, caps, series, no_data, hist_from, live_idx
                             "src": "시총" if c in caps.columns else "종가",
                             "g": {str(w): (None if not np.isfinite(gaps[w].at[last, c]) else round(float(gaps[w].at[last, c]), 1)) for w in WINDOWS}}
     out["ret"] = sector_returns(members, usable, series, live_idx)
+    out["idx"] = index_series(dates)
     return out, rows
+
+
+def index_series(dates):
+    """교차 차트에 겹칠 코스닥·코스피 종가(페이지 날짜에 맞춤, 없는 날은 직전 값)."""
+    res = {}
+    if os.path.exists(WARN_INPUTS_PATH):
+        kq = pd.read_csv(WARN_INPUTS_PATH, parse_dates=["date"]).set_index("date")["kosdaq_close"].dropna()
+        res["코스닥"] = kq
+    try:
+        res["코스피"] = pd.Series({pd.Timestamp(k): float(v) for k, v in load_kospi_series().items()}).sort_index()
+    except SystemExit:
+        pass
+    return {nm: [None if not np.isfinite(x) else round(float(x), 2) for x in v.reindex(dates, method="ffill").values] for nm, v in res.items()}
 
 
 LIVE_TAIL = 320   # 장중 계산은 최근 320거래일만(200일선·20주선에 충분)
@@ -211,7 +227,7 @@ def live_payload(ret, live_date, live_idx=None):
     series = pd.concat([series, today.to_frame(day).T])
     caps = series[caps.columns]
     out, _ = compute_out(meta, members, codes, caps, series, no_data, day, live_idx)
-    keys = [f"{k}{w}" for w in WINDOWS for k in ("n", "c")]
+    keys = [f"{k}{w}" for w in ALL_WINDOWS for k in ("n", "c")]
     return {"keys": keys, "all": [out["all"][k][0] for k in keys],
             "sec": {s["name"]: [s[k][0] for k in keys] for s in out["sectors"]},
             "stocks": {c: [st["cap"]] + [st["g"][str(w)] for w in WINDOWS] for c, st in out["stocks"].items()},
@@ -309,6 +325,22 @@ TEMPLATE = r"""<!doctype html>
     <h2>추이 <span id="chartTitle" style="font-size:12px;font-weight:normal;color:#9aa0a6"></span></h2>
     <div class="desc">아래 표에서 섹터 앞 체크박스로 골라 추가합니다. 점선 = 섹터 정리 전체 종목. <b style="color:#ffa94d">높을수록 강함</b>(대부분 종목이 이평선 위). <span id="weakNote"></span></div>
     <div class="chart-wrap"><canvas id="cLine"></canvas></div>
+  </div>
+
+  <div class="box">
+    <h2>이평선 위 비율 교차 <span style="font-size:12px;font-weight:normal;color:#9aa0a6">빠른 선(짧은 이평선 위 비율)이 느린 선을 위로 뚫으면 골드 ▲, 아래로 뚫으면 데드 ▼</span></h2>
+    <div class="ctl" style="margin-bottom:8px">
+      <span>대상</span><select id="xT"></select>
+      <span>빠른</span><select id="xF"></select>
+      <span>느린</span><select id="xS"></select>
+      <span>평활</span><select id="xM"><option value="1">없음</option><option value="3">3일 평균</option><option value="5">5일 평균</option></select>
+      <span>지수</span><select id="xI"><option value="코스닥">코스닥</option><option value="코스피">코스피</option><option value="">없음</option></select>
+      <span class="seg" id="xP"><button data-p="63">3달</button><button data-p="126" class="active">6달</button><button data-p="250">1년</button><button data-p="0">전체</button></span>
+    </div>
+    <div class="desc" id="xNow"></div>
+    <div class="chart-wrap"><canvas id="cCross"></canvas></div>
+    <div class="tblwrap" style="margin-top:10px"><table id="xTbl"></table></div>
+    <div class="desc" id="xStat" style="margin-top:6px"></div>
   </div>
 
   <div class="box">
@@ -471,9 +503,67 @@ function bindRetClicks() {
     if (el.dataset.name === OPEN_RET) el.insertAdjacentHTML('afterend', retMembers(OPEN_RET));
   });
 }
+// ---------- 이평선 위 비율 교차(골드·데드크로스) - 2026-10-16 사용자 "X일 이평선 위 비율 차트 2개를 조합해 변곡점을, 5일 15일 우선"
+const XW = [5, 10, 15, 20, 60, '20w', 120, 200].filter(w => D.all['n' + w]);
+let XF = '5', XS = '15', XM = 1, XT = '', XI = '코스닥', XP = 126, xChart = null;
+$('xF').innerHTML = XW.map(w => `<option value="${w}">${LBL(w)}</option>`).join(''); $('xF').value = XF;
+$('xS').innerHTML = XW.map(w => `<option value="${w}">${LBL(w)}</option>`).join(''); $('xS').value = XS;
+$('xT').innerHTML = '<option value="">섹터 정리 전체</option>' + D.sectors.map(s => `<option value="${s.name}">${s.name}</option>`).join('');
+function sma(a, m) { if (m <= 1) return a.slice(); return a.map((v, i) => { if (i < m - 1) return null; let t = 0; for (let j = i - m + 1; j <= i; j++) { if (!nn(a[j])) return null; t += a[j]; } return t / m; }); }
+function crossData() {
+  const src = XT ? D.sectors.find(s => s.name === XT) : D.all;
+  const f = sma(src['n' + XF] || [], XM), s = sma(src['n' + XS] || [], XM);
+  const ev = [];   // {i, up}
+  for (let i = 1; i < N; i++) {
+    if (!nn(f[i]) || !nn(s[i]) || !nn(f[i - 1]) || !nn(s[i - 1])) continue;
+    const d0 = f[i - 1] - s[i - 1], d1 = f[i] - s[i];
+    if (d0 <= 0 && d1 > 0) ev.push({i, up: true}); else if (d0 >= 0 && d1 < 0) ev.push({i, up: false});
+  }
+  return {f, s, ev};
+}
+function fwd(px, i, h) { return i + h < N && nn(px[i]) && nn(px[i + h]) ? (px[i + h] / px[i] - 1) * 100 : null; }
+function renderCross() {
+  const {f, s, ev} = crossData(), px = XI && D.idx ? D.idx[XI] : null;
+  const st = XP ? Math.max(0, N - XP) : 0;
+  const gold = new Array(N).fill(null), dead = new Array(N).fill(null);
+  ev.forEach(e => (e.up ? gold : dead)[e.i] = f[e.i]);
+  const ds = [
+    {label: LBL(XF) + ' 위 비율', data: f.slice(st), borderColor: '#ffa94d', borderWidth: 1.8, pointRadius: 0, yAxisID: 'y'},
+    {label: LBL(XS) + ' 위 비율', data: s.slice(st), borderColor: '#4dabf7', borderWidth: 1.8, pointRadius: 0, yAxisID: 'y'},
+    {label: '골드 ▲', data: gold.slice(st), showLine: false, pointStyle: 'triangle', pointRadius: 7, backgroundColor: '#ff6b6b', borderColor: '#ff6b6b', yAxisID: 'y'},
+    {label: '데드 ▼', data: dead.slice(st), showLine: false, pointStyle: 'triangle', rotation: 180, pointRadius: 7, backgroundColor: '#4dabf7', borderColor: '#74a7ff', yAxisID: 'y'}];
+  if (px) ds.push({label: XI + '(오른쪽)', data: px.slice(st), borderColor: '#6b7280', borderWidth: 1, pointRadius: 0, yAxisID: 'y2'});
+  if (xChart) xChart.destroy();
+  xChart = new Chart($('cCross'), {type: 'line', data: {labels: D.dates.slice(st), datasets: ds}, options: {responsive: true, maintainAspectRatio: false, animation: false,
+    interaction: {mode: 'index', intersect: false},
+    plugins: {legend: {labels: {color: '#e6e6e6', boxWidth: 12, font: {size: 11}}}, tooltip: {filter: c => c.parsed.y !== null, callbacks: {label: c => c.dataset.label + ': ' + (c.dataset.yAxisID === 'y2' ? c.parsed.y.toLocaleString() : c.parsed.y.toFixed(0) + '%')}}},
+    scales: {x: {ticks: {color: '#9aa0a6', maxTicksLimit: 8, maxRotation: 0}, grid: {display: false}}, y: {min: 0, max: 100, ticks: {color: '#9aa0a6', callback: v => v + '%'}, grid: {color: '#23262e'}},
+      y2: {display: !!px, position: 'right', grid: {display: false}, ticks: {color: '#6b7280'}}}}});
+  // 지금 상태
+  const i = N - 1, last = ev.length ? ev[ev.length - 1] : null;
+  const up = nn(f[i]) && nn(s[i]) ? f[i] > s[i] : null;
+  $('xNow').innerHTML = up === null ? '' : `<b style="color:${up ? '#ff8787' : '#74a7ff'}">지금 ${up ? '골드' : '데드'} 상태</b>${last ? ` · ${D.dates[last.i]} ${last.up ? '골드' : '데드'}크로스 뒤 ${i - last.i}거래일째` : ''} · ${LBL(XF)} 위 ${fmt(f[i])}% vs ${LBL(XS)} 위 ${fmt(s[i])}% (차 ${sgn(f[i] - s[i])}%p, 1주 전 ${nn(f[i - 5]) && nn(s[i - 5]) ? sgn(f[i - 5] - s[i - 5]) : '-'}%p)${D.live ? ' · 오늘 잠정' : ''}`;
+  // 최근 교차 표 + 이후 지수 수익률
+  const rows = ev.slice(-12).reverse();
+  const c = v => nn(v) ? `<span class="${v >= 0 ? 'pos' : 'neg'}">${v >= 0 ? '+' : ''}${v.toFixed(1)}%</span>` : '-';
+  $('xTbl').innerHTML = '<tr><th class="nosort">날짜</th><th class="nosort">교차</th><th class="nosort">' + LBL(XF) + ' 위</th><th class="nosort">' + LBL(XS) + ' 위</th>' + (px ? `<th class="nosort">이후 ${XI} 5일</th><th class="nosort">20일</th>` : '') + '<th class="nosort">유지 거래일</th></tr>' +
+    rows.map((e, k) => { const nx = k === 0 ? N - 1 : rows[k - 1].i; return `<tr><td>${D.dates[e.i]}</td><td style="color:${e.up ? '#ff8787' : '#74a7ff'}">${e.up ? '▲ 골드' : '▼ 데드'}</td><td>${fmt(f[e.i])}%</td><td>${fmt(s[e.i])}%</td>` +
+      (px ? `<td>${c(fwd(px, e.i, 5))}</td><td>${c(fwd(px, e.i, 20))}</td>` : '') + `<td>${nx - e.i}${k === 0 ? '(진행 중)' : ''}</td></tr>`; }).join('');
+  // 전체 기간 요약: 교차 뒤 지수 평균 vs 아무 날
+  if (px) {
+    const avg = a => { const b = a.filter(nn); return b.length ? b.reduce((x, y) => x + y, 0) / b.length : null; };
+    const all20 = avg(D.dates.map((_, k) => fwd(px, k, 20))), g20 = avg(ev.filter(e => e.up).map(e => fwd(px, e.i, 20))), d20 = avg(ev.filter(e => !e.up).map(e => fwd(px, e.i, 20)));
+    const yrs = N / 250;
+    $('xStat').innerHTML = `${D.dates[0]} 이후: 골드 ${ev.filter(e => e.up).length}번 · 데드 ${ev.filter(e => !e.up).length}번(1년 약 ${(ev.length / 2 / yrs).toFixed(0)}번씩). 이후 20거래일 ${XI} 평균 - 골드 뒤 ${c(g20)}, 데드 뒤 ${c(d20)}, 아무 날 ${c(all20)}. ` +
+      '5일/15일처럼 짧은 조합은 교차가 잦아 헛신호가 많습니다 - 평활(3·5일 평균)이나 10일/20일 조합과 비교해 보세요.';
+  } else $('xStat').innerHTML = '';
+}
+['xF', 'xS', 'xM', 'xT', 'xI'].forEach(id => $(id).onchange = () => { XF = $('xF').value; XS = $('xS').value; XM = +$('xM').value; XT = $('xT').value; XI = $('xI').value; renderCross(); });
+$('xP').onclick = e => { const b = e.target.closest('button'); if (!b) return; XP = +b.dataset.p; document.querySelectorAll('#xP button').forEach(x => x.classList.toggle('active', x === b)); renderCross(); };
 $('segR').onclick = e => { const b = e.target.closest('button'); if (!b) return; RP = b.dataset.r; document.querySelectorAll('#segR button').forEach(x => x.classList.toggle('active', x === b)); renderRet(); };
 renderRet();
 renderAll();
+renderCross();
 
 
 // ---------- 장중 실시간(잠정) 반영 - 2026-10-15 사용자 "실시간 정보가 차트 등 뭐든 바로 반영되게, 확정값은 그 날짜가 끝나면 적용".
@@ -497,7 +587,7 @@ function livePoll(apply) {
   setInterval(() => { if (!document.hidden) go(); }, 120000);
 }
 const N0 = D.dates.length;
-const KEYS = []; D.windows.forEach(w => ['n', 'c'].forEach(k => KEYS.push(k + w)));
+const KEYS = []; D.windows.concat(D.crossOnly || []).forEach(w => ['n', 'c'].forEach(k => KEYS.push(k + w)));
 const STK0 = {}; Object.keys(D.stocks).forEach(c => STK0[c] = {cap: D.stocks[c].cap, g: D.stocks[c].g});
 const RET0 = D.ret;
 function applyLive(j) {
@@ -505,6 +595,7 @@ function applyLive(j) {
   KEYS.forEach(k => { if (D.all[k]) D.all[k].length = N0; D.sectors.forEach(s => { if (s[k]) s[k].length = N0; }); });
   Object.keys(STK0).forEach(c => { D.stocks[c].cap = STK0[c].cap; D.stocks[c].g = STK0[c].g; });
   D.ret = RET0; D.live = false;
+  Object.values(D.idx || {}).forEach(a => a.length = N0);
   const L = j.sector;
   if (L && L.keys && j.date > D.asof) {
     const at = {}; L.keys.forEach((k, i) => at[k] = i);
@@ -515,10 +606,11 @@ function applyLive(j) {
     });
     Object.entries(L.stocks).forEach(([c, v]) => { const st = D.stocks[c]; if (!st) return; st.cap = v[0]; const g = {}; D.windows.forEach((w, i) => g[String(w)] = v[i + 1]); st.g = g; });
     if (L.ret) D.ret = L.ret;
+    if (D.idx) { if (D.idx['코스피']) D.idx['코스피'].push(j.index.KOSPI ? j.index.KOSPI[0] : null); if (D.idx['코스닥']) D.idx['코스닥'].push(j.index.KOSDAQ ? j.index.KOSDAQ[0] : null); }
     D.live = true;
   }
   N = D.dates.length;
-  renderRet(); renderAll();
+  renderRet(); renderAll(); renderCross();
   liveBanner(j, D.live);
 }
 livePoll(applyLive);
