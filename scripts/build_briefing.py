@@ -1,8 +1,8 @@
 """
 아침 회의용 시장 브리핑(A4 2장) - 2026-10-16 사용자 요청("지금 상황 자체를 아침 회의에 쓸 수 있도록 요약해서 2페이지짜리 자동으로").
 매일 아침 정규 갱신(run_pipeline)에서 시장 국면·섹터 이평선 페이지가 만들어진 뒤 실행:
-  docs/briefing.html(인쇄용 A4 2장, 사이트엔 인쇄/PDF 버튼) + 크롬 헤드리스 PDF는 바탕화면 클로드\브리핑\시장브리핑_YYYYMMDD.pdf에만
-  (매일 PDF를 저장소에 올리면 1년 50MB씩 쌓여서).
+  바탕화면 클로드\브리핑\시장브리핑_YYYYMMDD.pdf(크롬 헤드리스로 인쇄용 HTML을 PDF로)만 만든다 - 홈페이지엔 올리지 않음
+  (2026-10-16 사용자 "홈페이지로 보지 말고 그냥 생성해서 나한테 주라"). HTML은 PDF 만들 때만 임시로 쓰고 지움.
 1장 시장 판단: 국면·목표 비중·꺾임 주의, 지수, 국면 재료, 시장 폭(이평선 위 비율·20/40 교차·5/15), 밸류 바닥, 차트 2개.
 2장 섹터: 4사분면(5일/15일), 섹터 1주 등락, 20주선 위 강·약 섹터와 1주 변화, 실적 가속 섹터, 자동 요약.
 쓰는 데이터는 모두 이미 만들어진 산출물(같은 숫자가 각 페이지와 일치): market_phase_daily.csv, docs/sector_ma_breadth.html의 데이터,
@@ -20,7 +20,6 @@ import pandas as pd
 BASE = Path(__file__).resolve().parent.parent
 DATA = BASE / "data"
 DOCS = BASE / "docs"
-OUT_HTML = DOCS / "briefing.html"
 DESKTOP_DIR = Path(r"C:\Users\joonh\OneDrive\Desktop\클로드\브리핑")
 CHROME = [r"C:\Program Files\Google\Chrome\Application\chrome.exe", r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"]
 WD = "월화수목금토일"
@@ -460,12 +459,14 @@ def main():
   </div>
 </div>
 </body></html>"""
+    DESKTOP_DIR.mkdir(parents=True, exist_ok=True)
+    OUT_HTML = DESKTOP_DIR / f"_briefing_{now:%Y%m%d_%H%M%S}.html"   # PDF 변환용 임시 파일
     OUT_HTML.write_text(html, encoding="utf-8")
-    print(f"저장 완료: {OUT_HTML} (데이터 기준 {asof.date()}, 국면 {cur3} {target}%)")
+    print(f"브리핑 생성(데이터 기준 {asof.date()}, 국면 {cur3} {target}%)")
     # PDF(크롬 헤드리스) - 실패해도 페이지는 남김
     exe = next((c for c in CHROME if os.path.exists(c)), None)
     if not exe:
-        print("크롬/엣지 없음 - PDF 생략"); return
+        print("크롬/엣지 없음 - PDF 생략"); OUT_HTML.unlink(missing_ok=True); return
     try:
         DESKTOP_DIR.mkdir(parents=True, exist_ok=True)
         dst = DESKTOP_DIR / f"시장브리핑_{now:%Y%m%d}.pdf"
@@ -473,7 +474,9 @@ def main():
                        check=True, timeout=120, capture_output=True, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
         print(f"PDF 저장 완료: {dst}")
     except Exception as e:  # noqa: BLE001
-        print(f"PDF 실패(페이지는 저장됨): {e}")
+        print(f"PDF 실패: {e}")
+    finally:
+        OUT_HTML.unlink(missing_ok=True)
 
 if __name__ == "__main__":
     main()
