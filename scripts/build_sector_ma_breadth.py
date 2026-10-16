@@ -346,6 +346,17 @@ TEMPLATE = r"""<!doctype html>
   </div>
 
   <div class="box">
+    <h2>섹터 4사분면 <span style="font-size:12px;font-weight:normal;color:#9aa0a6">위 교차 칸의 빠른·느린 선·평활을 그대로 씀 · 점 크기 = 종목 수 · 점을 누르면 추이 차트에 추가</span></h2>
+    <div class="ctl" style="margin-bottom:8px">
+      <span>꼬리</span><span class="seg" id="qTail"><button data-t="0">없음</button><button data-t="5">1주</button><button data-t="10" class="active">2주</button><button data-t="20">4주</button></span>
+      <span>기준일</span><input type="range" id="qDay" min="0" max="0" value="0" style="width:160px"><span id="qDayLbl"></span>
+    </div>
+    <div class="desc" id="qDesc"></div>
+    <div class="chart-wrap" style="height:520px"><canvas id="cQuad"></canvas></div>
+    <div class="tblwrap" style="margin-top:10px"><table id="qTbl"></table></div>
+  </div>
+
+  <div class="box">
     <h2>섹터 순위 <span style="font-size:12px;font-weight:normal;color:#9aa0a6">행을 누르면 소속 종목, 머리글을 누르면 정렬</span></h2>
     <div class="tblwrap"><table id="tbl"></table></div>
   </div>
@@ -420,7 +431,7 @@ function renderTable(st) {
   });
   $('tbl').innerHTML = h;
   $('tbl').querySelectorAll('th[data-s]').forEach(th => th.onclick = () => { const s = th.dataset.s; if (SORT === s) DESC = !DESC; else { SORT = s; DESC = (s === 'cur' || s === 'w1' || s === 'm1' || s === 'n'); } renderAll(); });
-  $('tbl').querySelectorAll('input.chk').forEach(cb => cb.onclick = e => { e.stopPropagation(); cb.checked ? selected.add(cb.dataset.name) : selected.delete(cb.dataset.name); renderChart(); });
+  $('tbl').querySelectorAll('input.chk').forEach(cb => cb.onclick = e => { e.stopPropagation(); cb.checked ? selected.add(cb.dataset.name) : selected.delete(cb.dataset.name); renderChart(); if (typeof renderQuad === 'function' && qChart) renderQuad(); });
   $('tbl').querySelectorAll('tr.sec').forEach(tr => tr.onclick = () => toggleMembers(tr));
 }
 function toggleMembers(tr) {
@@ -561,12 +572,68 @@ function renderCross() {
       '빠른 선 15~20일 × 느린 선 40~60일 근처가 대체로 좋았고, 5일·10일처럼 짧은 빠른 선은 교차가 잦아(5/15는 1년 47번) 어떤 조합이든 손해였습니다. 개선폭이 크지 않아 국면 판단의 보조 신호로 보세요.';
   } else $('xStat').innerHTML = '';
 }
-['xF', 'xS', 'xM', 'xT', 'xI'].forEach(id => $(id).onchange = () => { XF = $('xF').value; XS = $('xS').value; XM = +$('xM').value; XT = $('xT').value; XI = $('xI').value; renderCross(); });
+['xF', 'xS', 'xM', 'xT', 'xI'].forEach(id => $(id).onchange = () => { XF = $('xF').value; XS = $('xS').value; XM = +$('xM').value; XT = $('xT').value; XI = $('xI').value; renderCross(); renderQuad(); });
 $('xP').onclick = e => { const b = e.target.closest('button'); if (!b) return; XP = +b.dataset.p; document.querySelectorAll('#xP button').forEach(x => x.classList.toggle('active', x === b)); renderCross(); };
+// ---------- 섹터 4사분면 - 2026-10-16 사용자 "섹터끼리의 변동, 4사분면에 어떤 섹터가 있는지"
+// 가로 = 느린 선 위 비율(추세 수준, 50% 기준), 세로 = 빠른 - 느린(모멘텀, 0 기준). 교차 칸의 선택(XF·XS·XM)을 그대로 씀.
+let QT = 10, QD = 0, qChart = null;   // QD = 마지막 날에서 며칠 전(0 = 최신)
+const QNAME = {1: '강세 지속', 2: '개선 중', 3: '약세', 4: '꺾이는 중'}, QCOL = {1: '#ff6b6b', 2: '#ffd43b', 3: '#4dabf7', 4: '#ffa94d'};
+function quadOf(x, y) { return x >= 50 ? (y >= 0 ? 1 : 4) : (y >= 0 ? 2 : 3); }
+function quadPts() {
+  return D.sectors.map(sec => {
+    const f = sma(sec['n' + XF] || [], XM), s = sma(sec['n' + XS] || [], XM);
+    const at = k => { const i = N - 1 - QD - k; return i >= 0 && nn(f[i]) && nn(s[i]) ? {x: s[i], y: f[i] - s[i]} : null; };
+    return {name: sec.name, n: sec.n, cur: at(0), wk: at(5), tail: QT ? [...Array(QT / 5 + 1).keys()].reverse().map(k => at(k * 5)).filter(Boolean) : []};
+  }).filter(p => p.cur);
+}
+const quadBg = {id: 'quadBg', beforeDatasetsDraw(c) {
+  const {ctx, chartArea: a, scales: {x, y}} = c, x0 = x.getPixelForValue(50), y0 = y.getPixelForValue(0);
+  ctx.save();
+  [[x0, a.top, a.right - x0, y0 - a.top, 1], [a.left, a.top, x0 - a.left, y0 - a.top, 2], [a.left, y0, x0 - a.left, a.bottom - y0, 3], [x0, y0, a.right - x0, a.bottom - y0, 4]].forEach(([l, t, w, h, q]) => {
+    ctx.fillStyle = QCOL[q] + '12'; ctx.fillRect(l, t, w, h);
+    ctx.fillStyle = QCOL[q] + 'aa'; ctx.font = 'bold 12px sans-serif'; ctx.textAlign = q === 1 || q === 4 ? 'right' : 'left'; ctx.textBaseline = q <= 2 ? 'top' : 'bottom';
+    ctx.fillText(QNAME[q], q === 1 || q === 4 ? a.right - 6 : a.left + 6, q <= 2 ? a.top + 4 : a.bottom - 4);
+  });
+  ctx.strokeStyle = '#6b7280'; ctx.setLineDash([4, 4]); ctx.beginPath(); ctx.moveTo(x0, a.top); ctx.lineTo(x0, a.bottom); ctx.moveTo(a.left, y0); ctx.lineTo(a.right, y0); ctx.stroke();
+  ctx.restore();
+}, afterDatasetsDraw(c) {
+  const {ctx} = c; ctx.save(); ctx.font = '11px sans-serif'; ctx.fillStyle = '#e6e6e6'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+  const ds = c.data.datasets.find(d => d.isCur); if (!ds) { ctx.restore(); return; }
+  const meta = c.getDatasetMeta(c.data.datasets.indexOf(ds));
+  meta.data.forEach((pt, i) => ctx.fillText(ds.data[i].name, pt.x + ds.data[i].r + 3, pt.y));
+  ctx.restore();
+}};
+function renderQuad() {
+  const qd = N - 1 - QD; $('qDay').max = Math.min(250, N - 1); $('qDay').value = QD;
+  $('qDayLbl').textContent = D.dates[qd] + (D.live && QD === 0 ? ' 잠정' : '') + (QD ? ` (${QD}거래일 전)` : ' (최신)');
+  const pts = quadPts(), maxN = Math.max(...pts.map(p => p.n));
+  const ds = [];
+  pts.forEach(p => { if (p.tail.length > 1) ds.push({type: 'line', data: p.tail, borderColor: QCOL[quadOf(p.cur.x, p.cur.y)] + '77', borderWidth: 1.2, pointRadius: p.tail.map((_, k) => k === p.tail.length - 1 ? 0 : 2), pointBackgroundColor: '#9aa0a688', tension: 0.3, label: '', isTail: true}); });
+  ds.push({type: 'scatter', isCur: true, label: '섹터', data: pts.map(p => ({x: p.cur.x, y: p.cur.y, r: 4 + 8 * Math.sqrt(p.n / maxN), name: p.name, n: p.n})),
+    pointRadius: pts.map(p => 4 + 8 * Math.sqrt(p.n / maxN)), backgroundColor: pts.map(p => QCOL[quadOf(p.cur.x, p.cur.y)] + 'cc'), borderColor: pts.map(p => selected && selected.has(p.name) ? '#ffffff' : '#0f1115'), borderWidth: pts.map(p => selected && selected.has(p.name) ? 2 : 1)});
+  const ys = pts.flatMap(p => [p.cur.y, ...p.tail.map(t => t.y)]), ym = Math.max(10, Math.ceil(Math.max(...ys.map(Math.abs)) / 5) * 5 + 5);
+  if (qChart) qChart.destroy();
+  qChart = new Chart($('cQuad'), {type: 'scatter', data: {datasets: ds}, plugins: [quadBg], options: {responsive: true, maintainAspectRatio: false, animation: false,
+    plugins: {legend: {display: false}, tooltip: {filter: c => c.dataset.isCur, callbacks: {label: c => { const d = c.raw; return `${d.name} (${d.n}종목): ${LBL(XS)} 위 ${d.x.toFixed(0)}%, ${LBL(XF)}-${LBL(XS)} ${d.y >= 0 ? '+' : ''}${d.y.toFixed(0)}%p`; }}}},
+    onClick: (e, els) => { const el = els.find(x => qChart.data.datasets[x.datasetIndex].isCur); if (!el) return; const nm = qChart.data.datasets[el.datasetIndex].data[el.index].name; selected.has(nm) ? selected.delete(nm) : selected.add(nm); renderAll(); renderQuad(); },
+    scales: {x: {type: 'linear', min: 0, max: 100, title: {display: true, text: LBL(XS) + ' 위 비율(%) - 추세 수준', color: '#9aa0a6'}, ticks: {color: '#9aa0a6'}, grid: {color: '#23262e'}},
+      y: {type: 'linear', min: -ym, max: ym, title: {display: true, text: LBL(XF) + ' - ' + LBL(XS) + ' (%p) - 모멘텀', color: '#9aa0a6'}, ticks: {color: '#9aa0a6'}, grid: {color: '#23262e'}}}}});
+  $('qDesc').innerHTML = `가로 = ${LBL(XS)} 위 비율(50% 기준), 세로 = ${LBL(XF)} 위 비율 − ${LBL(XS)} 위 비율${XM > 1 ? `(${XM}일 평균)` : ''}(0 기준, 위쪽 = 최근 개선). ` +
+    '보통 개선 중(왼쪽 위) → 강세 지속(오른쪽 위) → 꺾이는 중(오른쪽 아래) → 약세(왼쪽 아래)로 시계 방향으로 돕니다. 꼬리 = 지난 이동 경로(5거래일 간격).';
+  // 사분면별 표(1주 전 사분면에서 옮겨온 섹터 표시)
+  const by = {1: [], 2: [], 3: [], 4: []};
+  pts.forEach(p => by[quadOf(p.cur.x, p.cur.y)].push(p));
+  const cell = q => by[q].sort((a, b) => b.cur.y - a.cur.y).map(p => { const w = p.wk ? quadOf(p.wk.x, p.wk.y) : q; return `<span style="display:inline-block;margin:2px 10px 2px 0;white-space:nowrap">${p.name}${w !== q ? ` <span style="color:${QCOL[w]};font-size:11px">← ${QNAME[w]}</span>` : ''}</span>`; }).join('') || '-';
+  $('qTbl').innerHTML = [2, 1, 3, 4].map(q => `<tr><td style="width:110px;color:${QCOL[q]};font-weight:bold;vertical-align:top">${QNAME[q]} (${by[q].length})</td><td style="text-align:left;white-space:normal">${cell(q)}</td></tr>`).join('') +
+    '<tr><td colspan="2" style="text-align:left;color:#7c828b;font-size:11px">← 표시 = 1주(5거래일) 전에는 다른 사분면에 있던 섹터</td></tr>';
+}
+$('qTail').onclick = e => { const b = e.target.closest('button'); if (!b) return; QT = +b.dataset.t; document.querySelectorAll('#qTail button').forEach(x => x.classList.toggle('active', x === b)); renderQuad(); };
+$('qDay').oninput = () => { QD = +$('qDay').value; renderQuad(); };
 $('segR').onclick = e => { const b = e.target.closest('button'); if (!b) return; RP = b.dataset.r; document.querySelectorAll('#segR button').forEach(x => x.classList.toggle('active', x === b)); renderRet(); };
 renderRet();
 renderAll();
 renderCross();
+renderQuad();
 
 
 // ---------- 장중 실시간(잠정) 반영 - 2026-10-15 사용자 "실시간 정보가 차트 등 뭐든 바로 반영되게, 확정값은 그 날짜가 끝나면 적용".
@@ -613,7 +680,7 @@ function applyLive(j) {
     D.live = true;
   }
   N = D.dates.length;
-  renderRet(); renderAll(); renderCross();
+  renderRet(); renderAll(); renderCross(); renderQuad();
   liveBanner(j, D.live);
 }
 livePoll(applyLive);
