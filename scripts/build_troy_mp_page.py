@@ -1472,6 +1472,17 @@ def main_long_short(portfolio, other_portfolios):
 
     long_rows = [r for r in holdings if r["shares"] is not None and effective_side(r) > 0]
     short_rows = [r for r in holdings if r["shares"] is not None and effective_side(r) < 0]
+    # 롱 현금(2026-10-16 사용자 "롱숏펀드에 롱에서 현금 비중 나타내줄 수 있나"): 롱 북은 순자산(NAV) 100%
+    # 기준이고 인버스는 차입(전체 현금 마이너스)으로 사는 구조라, 롱 쪽 현금 = NAV - 롱 평가액.
+    # 예전 "현금(롱 잔여)"(롱 매매만 누적)은 인버스 매수까지 롱 현금에서 빼서 늘 0으로 바닥에 붙어 있었음.
+    long_eval = sum(r["eval_value"] for r in long_rows if r["eval_value"])
+    long_cash = total_eval - long_eval
+    holdings = [r for r in holdings if r["name"] != "현금(롱 잔여)"]
+    long_rows.append({
+        "code": "-", "name": "현금(롱 미투자)", "sector": "-", "shares": None, "avg_price": None,
+        "cost_basis": long_cash, "cur_price": None, "eval_value": long_cash, "ret_pct": None,
+        "day_ret_pct": None, "weight_pct": long_cash / total_eval * 100 if total_eval else None,
+    })
     ref_rows = [r for r in holdings if r["shares"] is None]
 
     # 섹터 OW/UW는 롱 북만 대상으로 한다 - 숏은 인버스ETF(코스닥 하락 베팅) 하나뿐이라
@@ -1522,8 +1533,9 @@ def main_long_short(portfolio, other_portfolios):
         kosdaq_actual=f"{kosdaq_actual_latest:,.2f}" if kosdaq_actual_latest is not None else "N/A",
         kosdaq_actual_date=kosdaq_actual_date,
         inception=trades['date'].min().strftime('%Y-%m-%d'),
-        n_holdings=len(long_rows) + len(short_rows),  # 현금/지수 참고행 제외, 롱+숏 실종목수만
-        n_long=len(long_rows),
+        n_holdings=len(long_rows) - 1 + len(short_rows),  # 현금/지수 참고행 제외, 롱+숏 실종목수만(롱 표의 현금 행 1개 뺌)
+        n_long=len(long_rows) - 1,
+        long_cash_pct=f"{long_cash / total_eval * 100:.1f}%" if total_eval else "N/A",
         n_short=len(short_rows),
         total_eval=f"{total_eval:,.0f}",
         long_rows_html=long_rows_html,
@@ -1534,7 +1546,7 @@ def main_long_short(portfolio, other_portfolios):
     os.makedirs(DOCS_DIR, exist_ok=True)
     with open(out_path, "w", encoding="utf-8") as f:
         f.write(html)
-    print(f"[{name}] 저장 완료: {out_path} (롱 {len(long_rows)}종목/숏 {len(short_rows)}종목, MP지수 {mp_latest:.2f} vs 코스닥 {bm_kosdaq_latest:.2f}, NET EXPOSURE {net_exposure_latest:+.1f}%, MDD {mdd:.2f}%)")
+    print(f"[{name}] 저장 완료: {out_path} (롱 {len(long_rows) - 1}종목·현금 {long_cash / total_eval * 100:.1f}%/숏 {len(short_rows)}종목, MP지수 {mp_latest:.2f} vs 코스닥 {bm_kosdaq_latest:.2f}, NET EXPOSURE {net_exposure_latest:+.1f}%, MDD {mdd:.2f}%)")
 
 
 TEMPLATE_LS = """<!doctype html>
@@ -1638,7 +1650,7 @@ TEMPLATE_LS = """<!doctype html>
 
   <div class="main-row">
     <div class="holdings-col">
-      <h3 class="side-h long">롱 ({n_long}종목)</h3>
+      <h3 class="side-h long">롱 ({n_long}종목 · 현금 {long_cash_pct})</h3>
       <table>
         <thead><tr>
           <th>#</th><th>종목명</th><th>코드</th><th>섹터</th><th>평균매수단가</th><th>현재가</th><th>1일 수익률</th><th>누적 수익률</th><th>매입금액(잔액)</th><th>평가금액</th><th>비중</th>
