@@ -346,8 +346,11 @@ TEMPLATE = r"""<!doctype html>
   </div>
 
   <div class="box">
-    <h2>섹터 4사분면 <span style="font-size:12px;font-weight:normal;color:#9aa0a6">위 교차 칸의 빠른·느린 선·평활을 그대로 씀 · 점 크기 = 종목 수 · 점을 누르면 추이 차트에 추가</span></h2>
+    <h2>섹터 4사분면 <span style="font-size:12px;font-weight:normal;color:#9aa0a6">섹터별 종목 수 기준 비율 · 점 크기 = 종목 수 · 점을 누르면 추이 차트에 추가</span></h2>
     <div class="ctl" style="margin-bottom:8px">
+      <span>빠른</span><select id="qF"></select>
+      <span>느린</span><select id="qS"></select>
+      <span>평활</span><select id="qM"><option value="1" selected>없음</option><option value="3">3일 평균</option><option value="5">5일 평균</option></select>
       <span>꼬리</span><span class="seg" id="qTail"><button data-t="0">없음</button><button data-t="5">1주</button><button data-t="10" class="active">2주</button><button data-t="20">4주</button></span>
       <span>기준일</span><input type="range" id="qDay" min="0" max="0" value="0" style="width:160px"><span id="qDayLbl"></span>
     </div>
@@ -572,16 +575,20 @@ function renderCross() {
       '빠른 선 15~20일 × 느린 선 40~60일 근처가 대체로 좋았고, 5일·10일처럼 짧은 빠른 선은 교차가 잦아(5/15는 1년 47번) 어떤 조합이든 손해였습니다. 개선폭이 크지 않아 국면 판단의 보조 신호로 보세요.';
   } else $('xStat').innerHTML = '';
 }
-['xF', 'xS', 'xM', 'xT', 'xI'].forEach(id => $(id).onchange = () => { XF = $('xF').value; XS = $('xS').value; XM = +$('xM').value; XT = $('xT').value; XI = $('xI').value; renderCross(); renderQuad(); });
+['xF', 'xS', 'xM', 'xT', 'xI'].forEach(id => $(id).onchange = () => { XF = $('xF').value; XS = $('xS').value; XM = +$('xM').value; XT = $('xT').value; XI = $('xI').value; renderCross(); });
 $('xP').onclick = e => { const b = e.target.closest('button'); if (!b) return; XP = +b.dataset.p; document.querySelectorAll('#xP button').forEach(x => x.classList.toggle('active', x === b)); renderCross(); };
 // ---------- 섹터 4사분면 - 2026-10-16 사용자 "섹터끼리의 변동, 4사분면에 어떤 섹터가 있는지"
 // 가로 = 느린 선 위 비율(추세 수준, 50% 기준), 세로 = 빠른 - 느린(모멘텀, 0 기준). 교차 칸의 선택(XF·XS·XM)을 그대로 씀.
 let QT = 10, QD = 0, qChart = null;   // QD = 마지막 날에서 며칠 전(0 = 최신)
+let QF = '5', QS = '15', QM = 1;   // 4사분면 전용(2026-10-16 사용자 "15일로 해라" - 교차 칸의 20/40과 따로)
+$('qF').innerHTML = XW.map(w => `<option value="${w}">${LBL(w)}</option>`).join(''); $('qF').value = QF;
+$('qS').innerHTML = XW.map(w => `<option value="${w}">${LBL(w)}</option>`).join(''); $('qS').value = QS;
+['qF', 'qS', 'qM'].forEach(id => $(id).onchange = () => { QF = $('qF').value; QS = $('qS').value; QM = +$('qM').value; renderQuad(); });
 const QNAME = {1: '강세 지속', 2: '개선 중', 3: '약세', 4: '꺾이는 중'}, QCOL = {1: '#ff6b6b', 2: '#ffd43b', 3: '#4dabf7', 4: '#ffa94d'};
 function quadOf(x, y) { return x >= 50 ? (y >= 0 ? 1 : 4) : (y >= 0 ? 2 : 3); }
 function quadPts() {
   return D.sectors.map(sec => {
-    const f = sma(sec['n' + XF] || [], XM), s = sma(sec['n' + XS] || [], XM);
+    const f = sma(sec['n' + QF] || [], QM), s = sma(sec['n' + QS] || [], QM);
     const at = k => { const i = N - 1 - QD - k; return i >= 0 && nn(f[i]) && nn(s[i]) ? {x: s[i], y: f[i] - s[i]} : null; };
     return {name: sec.name, n: sec.n, cur: at(0), wk: at(5), tail: QT ? [...Array(QT / 5 + 1).keys()].reverse().map(k => at(k * 5)).filter(Boolean) : []};
   }).filter(p => p.cur);
@@ -614,11 +621,11 @@ function renderQuad() {
   const ys = pts.flatMap(p => [p.cur.y, ...p.tail.map(t => t.y)]), ym = Math.max(10, Math.ceil(Math.max(...ys.map(Math.abs)) / 5) * 5 + 5);
   if (qChart) qChart.destroy();
   qChart = new Chart($('cQuad'), {type: 'scatter', data: {datasets: ds}, plugins: [quadBg], options: {responsive: true, maintainAspectRatio: false, animation: false,
-    plugins: {legend: {display: false}, tooltip: {filter: c => c.dataset.isCur, callbacks: {label: c => { const d = c.raw; return `${d.name} (${d.n}종목): ${LBL(XS)} 위 ${d.x.toFixed(0)}%, ${LBL(XF)}-${LBL(XS)} ${d.y >= 0 ? '+' : ''}${d.y.toFixed(0)}%p`; }}}},
+    plugins: {legend: {display: false}, tooltip: {filter: c => c.dataset.isCur, callbacks: {label: c => { const d = c.raw; return `${d.name} (${d.n}종목): ${LBL(QS)} 위 ${d.x.toFixed(0)}%, ${LBL(QF)}-${LBL(QS)} ${d.y >= 0 ? '+' : ''}${d.y.toFixed(0)}%p`; }}}},
     onClick: (e, els) => { const el = els.find(x => qChart.data.datasets[x.datasetIndex].isCur); if (!el) return; const nm = qChart.data.datasets[el.datasetIndex].data[el.index].name; selected.has(nm) ? selected.delete(nm) : selected.add(nm); renderAll(); renderQuad(); },
-    scales: {x: {type: 'linear', min: 0, max: 100, title: {display: true, text: LBL(XS) + ' 위 비율(%) - 추세 수준', color: '#9aa0a6'}, ticks: {color: '#9aa0a6'}, grid: {color: '#23262e'}},
-      y: {type: 'linear', min: -ym, max: ym, title: {display: true, text: LBL(XF) + ' - ' + LBL(XS) + ' (%p) - 모멘텀', color: '#9aa0a6'}, ticks: {color: '#9aa0a6'}, grid: {color: '#23262e'}}}}});
-  $('qDesc').innerHTML = `가로 = ${LBL(XS)} 위 비율(50% 기준), 세로 = ${LBL(XF)} 위 비율 − ${LBL(XS)} 위 비율${XM > 1 ? `(${XM}일 평균)` : ''}(0 기준, 위쪽 = 최근 개선). ` +
+    scales: {x: {type: 'linear', min: 0, max: 100, title: {display: true, text: LBL(QS) + ' 위 비율(%) - 추세 수준', color: '#9aa0a6'}, ticks: {color: '#9aa0a6'}, grid: {color: '#23262e'}},
+      y: {type: 'linear', min: -ym, max: ym, title: {display: true, text: LBL(QF) + ' - ' + LBL(QS) + ' (%p) - 모멘텀', color: '#9aa0a6'}, ticks: {color: '#9aa0a6'}, grid: {color: '#23262e'}}}}});
+  $('qDesc').innerHTML = `가로 = ${LBL(QS)} 위 비율(50% 기준), 세로 = ${LBL(QF)} 위 비율 − ${LBL(QS)} 위 비율${QM > 1 ? `(${QM}일 평균)` : ''}(0 기준, 위쪽 = 최근 개선). ` +
     '보통 개선 중(왼쪽 위) → 강세 지속(오른쪽 위) → 꺾이는 중(오른쪽 아래) → 약세(왼쪽 아래)로 시계 방향으로 돕니다. 꼬리 = 지난 이동 경로(5거래일 간격).';
   // 사분면별 표(1주 전 사분면에서 옮겨온 섹터 표시)
   const by = {1: [], 2: [], 3: [], 4: []};
