@@ -93,11 +93,13 @@ def sector_returns(members, usable, series, live_idx=None):
                 idx[nm] = pd.concat([idx[nm].loc[:day - pd.Timedelta(days=1)], pd.Series({day: float(live_idx[nm])})])
             else:
                 del idx[nm]
-    res = {"date": px.index[-1].strftime("%Y-%m-%d")}
+    res = {"date": px.index[-1].strftime("%Y-%m-%d"), "stk": {}}
     for key, k in RET_PERIODS.items():
         if len(px) <= k:
             continue
         rk = (np.expm1(lr.iloc[-k:].sum(min_count=1)) * 100).where(traded)
+        for c, v in rk.dropna().items():   # 섹터 막대를 누르면 보여줄 종목별 등락률 [1일, 1주, 1달]
+            res["stk"].setdefault(c, [None] * len(RET_PERIODS))[list(RET_PERIODS).index(key)] = round(float(v), 1)
         rows = []
         for sec, cs in members.items():
             v = rk.reindex(cs).dropna()
@@ -298,7 +300,7 @@ TEMPLATE = r"""<!doctype html>
   <div class="cards" id="cards"></div>
 
   <div class="box">
-    <h2>섹터 등락률 <span id="retSub" style="font-size:12px;font-weight:normal;color:#9aa0a6"></span></h2>
+    <h2>섹터 등락률 <span style="font-size:12px;font-weight:normal;color:#9aa0a6">막대를 누르면 구성종목</span> <span id="retSub" style="font-size:12px;font-weight:normal;color:#9aa0a6"></span></h2>
     <div class="ctl" style="margin-bottom:8px"><span class="seg" id="segR"><button data-r="1" class="active">1일</button><button data-r="5">1주</button><button data-r="20">1달</button></span><span id="retHdr"></span></div>
     <div id="retBars"></div>
   </div>
@@ -450,8 +452,24 @@ function renderRet() {
     const w = Math.abs(x.r) / mx * 40, pos = x.r >= 0, lbl = (pos ? '+' : '') + x.r.toFixed(1) + '%';
     const bar = pos ? `<span class="b" style="left:50%;width:${w}%;background:#ff6b6b"></span><span class="v pos" style="left:calc(50% + ${w}% + 4px)">${lbl}</span>`
                     : `<span class="b" style="right:50%;width:${w}%;background:#4dabf7"></span><span class="v neg" style="right:calc(50% + ${w}% + 4px)">${lbl}</span>`;
-    return `<div class="rb"><span class="nm">${x.name}</span><span class="sb">${x.n}중 ${x.up}↑</span><span class="tr"><span class="z"></span>${bar}</span></div>`;
+    return `<div class="rb" data-name="${x.name}" style="cursor:pointer" title="눌러서 구성종목 보기"><span class="nm">${x.name}</span><span class="sb">${x.n}중 ${x.up}↑</span><span class="tr"><span class="z"></span>${bar}</span></div>`;
   }).join('');
+  bindRetClicks();
+}
+let OPEN_RET = null;   // 펼쳐 둔 섹터(기간을 바꾸거나 새 값이 와도 유지)
+function retMembers(name) {
+  const sec = D.sectors.find(x => x.name === name), stk = (D.ret && D.ret.stk) || {}, j = ['1', '5', '20'].indexOf(RP);
+  if (!sec) return '<div class="desc">구성종목 정보 없음</div>';
+  const list = sec.codes.map(c => ({c, nm: (D.stocks[c] || {}).name || c, cap: (D.stocks[c] || {}).cap, r: stk[c] ? stk[c][j] : null}))
+    .sort((a, b) => (nn(b.r) ? b.r : -1e9) - (nn(a.r) ? a.r : -1e9));
+  return '<div style="margin:2px 0 8px 0;padding:8px 12px;background:#0f1218;border-radius:8px;font-size:12px;line-height:1.9">' +
+    list.map(x => `<span style="display:inline-block;margin-right:14px;white-space:nowrap">${x.nm} <b class="${nn(x.r) && x.r < 0 ? 'neg' : 'pos'}">${nn(x.r) ? (x.r >= 0 ? '+' : '') + x.r.toFixed(1) + '%' : '-'}</b>${x.cap ? ` <span style="color:#7c828b">${x.cap.toLocaleString()}억</span>` : ''}</span>`).join('') + '</div>';
+}
+function bindRetClicks() {
+  $('retBars').querySelectorAll('.rb').forEach(el => {
+    el.onclick = () => { OPEN_RET = OPEN_RET === el.dataset.name ? null : el.dataset.name; renderRet(); };
+    if (el.dataset.name === OPEN_RET) el.insertAdjacentHTML('afterend', retMembers(OPEN_RET));
+  });
 }
 $('segR').onclick = e => { const b = e.target.closest('button'); if (!b) return; RP = b.dataset.r; document.querySelectorAll('#segR button').forEach(x => x.classList.toggle('active', x === b)); renderRet(); };
 renderRet();
