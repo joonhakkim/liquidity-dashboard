@@ -66,7 +66,7 @@ CORE_STEPS = [
     ("build_estimate_revision.py", "이익추정치 상향 트래커 빌드(FY1/FY2 컨센서스 1일·1주·1개월 변화율)"),
     ("build_yoy_accel_tracker.py", "YoY 가속화 트래커 빌드(data/manual/*QoQ*.xlsx 기반, 분기 영업이익 YoY 및 가속도)"),
     ("build_sector_yoy_accel_tracker.py", "섹터별 YoY 가속화 트래커 빌드(YoY 가속화 트래커를 사용자가 정한 42개 섹터로 묶어 평균)"),
-    ("build_briefing.py", "아침 회의용 시장 브리핑(A4 2장) PDF를 바탕화면 클로드\브리핑에 생성(홈페이지엔 안 올림) - 국면·시장 폭·섹터 4사분면 요약(2026-10-16 추가, 국면·섹터·섹터 YoY 페이지 다음)"),
+    ("build_briefing.py", "아침 회의용 시장 브리핑(A4 2장) PDF를 바탕화면 클로드/브리핑 폴더에 생성(홈페이지엔 안 올림) - 국면·시장 폭·섹터 4사분면 요약(2026-10-16 추가, 국면·섹터·섹터 YoY 페이지 다음)"),
     ("build_risk_signals.py", "조정 경고 신호 페이지 빌드(유동성 지표 + 돌파종목수 조합, 지표별 개별 발동 표시)"),
     ("build_tv_signal.py", "거래대금 신호 페이지 빌드(파동별 거래대금 고점 하락 + 가격 신고점 탐지)"),
     ("verify_prices_vs_krx.py", "MP 트래커 가격 시계열을 KRX 공식 정규장 종가와 주기적으로 대조(자동 수정 없음, 로그만)"),
