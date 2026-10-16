@@ -134,6 +134,74 @@ def svg_lines(dates, series, height=150, width=720, ymin=None, ymax=None, bands=
     return "".join(out)
 
 
+def svg_quad(pts, width=720, height=330):
+    """섹터 4사분면 산점도(SVG). pts: [(이름, x, y, x1주전, y1주전, 종목수)].
+    축은 지금 점들이 보이게 확대(50%·0 기준선은 항상 포함), 1주 전 꼬리는 그림 밖이면 잘림, 이름표는 겹치지 않게 배치."""
+    L, R, T, B = 46, 10, 10, 26
+    W, H = width - L - R, height - T - B
+    # 축은 섹터 대부분(가로 5~95%, 세로 90%)이 보이게 잡고, 그 밖의 튀는 섹터는 테두리에 붙여 실제 값을 이름 옆에 적는다
+    xs = sorted(p[1] for p in pts); ys = sorted(abs(p[2]) for p in pts)
+    qx = lambda a: xs[min(len(xs) - 1, max(0, int(round(a * (len(xs) - 1)))))]
+    xlo = max(0, min(45, (int(qx(0.05)) - 6) // 10 * 10)); xhi = min(100, max(55, (int(qx(0.95)) + 16) // 10 * 10))
+    ym = max(10, int(ys[min(len(ys) - 1, int(0.9 * (len(ys) - 1)))] * 1.4 / 5 + 1) * 5)
+    outl = {p[0]: (p[1], p[2]) for p in pts if not (xlo <= p[1] <= xhi and -ym <= p[2] <= ym)}
+    pts = [(nm, min(max(x, xlo), xhi), min(max(y, -ym), ym), x5, y5, n_) for nm, x, y, x5, y5, n_ in pts]
+    X = lambda v: L + W * (v - xlo) / (xhi - xlo)
+    Y = lambda v: T + H * (1 - (v + ym) / (2 * ym))
+    q = lambda x, y: (1 if y >= 0 else 4) if x >= 50 else (2 if y >= 0 else 3)
+    o = [f'<svg viewBox="0 0 {width} {height}" width="100%" style="display:block;font-family:Malgun Gothic,sans-serif">',
+         f'<defs><clipPath id="qc"><rect x="{L}" y="{T}" width="{W}" height="{H}"/></clipPath></defs>']
+    for qq, (x0, y0, x1, y1) in {1: (50, 0, xhi, ym), 2: (xlo, 0, 50, ym), 3: (xlo, -ym, 50, 0), 4: (50, -ym, xhi, 0)}.items():
+        o.append(f'<rect x="{X(x0):.1f}" y="{Y(y1):.1f}" width="{X(x1) - X(x0):.1f}" height="{Y(y0) - Y(y1):.1f}" fill="{QCOL[qq]}" opacity="0.06"/>')
+    step = 10 if xhi - xlo <= 60 else 25
+    for v in range(xlo, xhi + 1, step):
+        o.append(f'<line x1="{X(v):.1f}" x2="{X(v):.1f}" y1="{T}" y2="{T + H}" stroke="#f1f3f5"/><text x="{X(v):.1f}" y="{T + H + 11}" font-size="9" text-anchor="middle" fill="#868e96">{v}%</text>')
+    ystep = 5 if ym <= 20 else (10 if ym <= 50 else 20)
+    for v in range(-ym, ym + 1, ystep):
+        o.append(f'<line x1="{L}" x2="{L + W}" y1="{Y(v):.1f}" y2="{Y(v):.1f}" stroke="#f8f9fa"/><text x="{L - 4}" y="{Y(v) + 3:.1f}" font-size="9" text-anchor="end" fill="#868e96">{v:+d}</text>')
+    o.append(f'<line x1="{X(50):.1f}" x2="{X(50):.1f}" y1="{T}" y2="{T + H}" stroke="#868e96" stroke-dasharray="4 3"/><line x1="{L}" x2="{L + W}" y1="{Y(0):.1f}" y2="{Y(0):.1f}" stroke="#868e96" stroke-dasharray="4 3"/>')
+    for qq, (x, y, anc) in {1: (L + W - 4, T + 12, "end"), 2: (L + 4, T + 12, "start"), 3: (L + 4, T + H - 5, "start"), 4: (L + W - 4, T + H - 5, "end")}.items():
+        o.append(f'<text x="{x:.1f}" y="{y:.1f}" font-size="11" font-weight="700" text-anchor="{anc}" fill="{QCOL[qq]}">{QNAME[qq]}</text>')
+    mx = max([p[5] for p in pts] or [1])
+    rad = {p[0]: 3 + 6 * (p[5] / mx) ** 0.5 for p in pts}
+    o.append('<g clip-path="url(#qc)">')
+    for nm, x, y, x5, y5, _n in pts:
+        if x5 == x5 and y5 == y5:
+            o.append(f'<line x1="{X(x5):.1f}" y1="{Y(y5):.1f}" x2="{X(x):.1f}" y2="{Y(y):.1f}" stroke="{QCOL[q(x, y)]}" stroke-opacity="0.18" stroke-width="1"/><circle cx="{X(x5):.1f}" cy="{Y(y5):.1f}" r="1.6" fill="#adb5bd"/>')
+    o.append('</g>')
+    for nm, x, y, x5, y5, _n in sorted(pts, key=lambda p: -p[5]):
+        o.append(f'<circle cx="{X(x):.1f}" cy="{Y(y):.1f}" r="{rad[nm]:.1f}" fill="{QCOL[q(x, y)]}" fill-opacity="0.85" stroke="#fff" stroke-width="0.8"/>')
+    # 이름표: 오른쪽·왼쪽·위·아래·대각 후보 중 다른 이름표·점과 안 겹치는 자리(없으면 가장 덜 겹치는 자리)
+    boxes = [(X(p[1]) - rad[p[0]], Y(p[2]) - rad[p[0]], X(p[1]) + rad[p[0]], Y(p[2]) + rad[p[0]]) for p in pts]
+    def ov(a, b):
+        return max(0, min(a[2], b[2]) - max(a[0], b[0])) * max(0, min(a[3], b[3]) - max(a[1], b[1]))
+    placed = []
+    for nm, x, y, *_ in sorted(pts, key=lambda p: (p[1], p[2])):
+        cx, cy, r = X(x), Y(y), rad[nm]
+        lab = nm + (f" ({outl[nm][0]:.0f}%, {outl[nm][1]:+.0f})" if nm in outl else "")
+        w, h = 8.6 * len(nm) * 0.95 + (6 * (len(lab) - len(nm)) if nm in outl else 0) + 2, 10
+        cands = [(cx + r + 2, cy - h / 2), (cx - r - 2 - w, cy - h / 2), (cx - w / 2, cy - r - h - 1), (cx - w / 2, cy + r + 1),
+                 (cx + r, cy - r - h), (cx + r, cy + r), (cx - r - w, cy - r - h), (cx - r - w, cy + r)]
+        best = None
+        for bx, by in cands:
+            bb = (bx, by, bx + w, by + h)
+            if bb[0] < L or bb[2] > L + W or bb[1] < T or bb[3] > T + H:
+                continue
+            cost = sum(ov(bb, z) for z in placed) * 3 + sum(ov(bb, z) for z in boxes)
+            if best is None or cost < best[0]:
+                best = (cost, bb)
+            if cost == 0:
+                break
+        if best is None:
+            best = (0, (cx + r + 2, cy - h / 2, cx + r + 2 + w, cy + h / 2))
+        bb = best[1]; placed.append(bb)
+        o.append(f'<text x="{bb[0]:.1f}" y="{bb[1] + 8.5:.1f}" font-size="8.5" fill="#212529" paint-order="stroke" stroke="#fff" stroke-width="2.2">{lab}</text>')
+    o.append(f'<text x="{L + W / 2:.1f}" y="{height - 2}" font-size="9" text-anchor="middle" fill="#868e96">15일선 위 비율(추세 수준) →</text>')
+    o.append(f'<text x="11" y="{T + H / 2:.1f}" font-size="9" text-anchor="middle" fill="#868e96" transform="rotate(-90 11 {T + H / 2:.1f})">5일 - 15일선 위 비율(%p, 모멘텀) →</text>')
+    o.append("</svg>")
+    return "".join(o)
+
+
 def main():
     d = pd.read_csv(DATA / "screening" / "market_phase_daily.csv", parse_dates=["date"], index_col="date")
     d = d[d["phase"].notna()]
@@ -199,6 +267,27 @@ def main():
         q = (1 if y >= 0 else 4) if x >= 50 else (2 if y >= 0 else 3)
         q5 = None if (x5 != x5 or y5 != y5) else ((1 if y5 >= 0 else 4) if x5 >= 50 else (2 if y5 >= 0 else 3))
         quad[q].append((sx["name"], y, q5))
+    qpts = []
+    for sx in secs:
+        x, y = sec_at(sx, "n15"), sec_at(sx, "n5") - sec_at(sx, "n15")
+        if x == x and y == y:
+            qpts.append((sx["name"], x, y, sec_at(sx, "n15", 5), sec_at(sx, "n5", 5) - sec_at(sx, "n15", 5), sx["n"]))
+    # 이익추정치 상향(이익추정치 상향 트래커와 같은 데이터) - 섹터는 섹터 정리 기준
+    code2sec = {c: sx["name"] for sx in secs for c in sx["codes"]}
+    try:
+        es = (DOCS / "estimate_revision.html").read_text(encoding="utf-8")
+        i = es.index("const ROWS = ") + len("const ROWS = ")
+        ER = pd.DataFrame(json.loads(es[i:es.index(";\n", i)]))
+        ER["c6"] = ER["code"].str[-6:]
+        ER["sec"] = ER["c6"].map(code2sec)
+        er_date = ER["latest_date"].max()
+    except Exception:  # noqa: BLE001
+        ER, er_date = pd.DataFrame(), "-"
+    # 코스피를 이긴 섹터(종목 상대강도 페이지와 같은 계산 - 섹터 소속 종목의 코스피 대비 초과수익 평균)
+    try:
+        RS = pd.read_csv(DATA / "screening" / "sector_relative_strength_summary.csv")
+    except Exception:  # noqa: BLE001
+        RS = pd.DataFrame()
     w20 = sorted([(sx["name"], sec_at(sx, "n20w"), sec_at(sx, "n20w") - sec_at(sx, "n20w", 5), sx["n"]) for sx in secs if sec_at(sx, "n20w") == sec_at(sx, "n20w")], key=lambda r: -r[1])
     movers = sorted([r for r in w20 if r[2] == r[2]], key=lambda r: r[2])
     ret5 = (D.get("ret") or {}).get("5", {})
@@ -221,7 +310,13 @@ def main():
     bullets.append(f"시장 폭 교차(20일/40일선 위 비율, 5일 평활) <b>{st2040}</b>" + (f" - {dates[lc2040]} 교차 뒤 {n - 1 - lc2040}거래일째" if lc2040 else "") +
                    f", 차이 {d2040[-1]:+.0f}%p(1주 전 {d2040[-6]:+.0f}%p). 단기(5/15)는 {'골드' if d515[-1] > 0 else '데드'}" + (f"({dates[lc515][5:]}부터)" if lc515 else ""))
     b20 = breadth[0]
-    bullets.append(f"20일선 위 종목 {f0(b20[1])}(1주 전 {f0(b20[2])}, 1달 전 {f0(b20[3])}) · 200일선 위 {f0(breadth[3][1])} · 밸류 하단(3년 하위 10% 아래) 비율 {C:.0f}%(1주 전 {C5:.0f}%)")
+    bullets.append(f"20일선 위 종목 {f0(b20[1])}(1주 전 {f0(b20[2])}, 1달 전 {f0(b20[3])}) · 200일선 위 {f0(breadth[3][1])}")
+    if len(RS):
+        wins = RS[RS["mean_1주"] > 0].sort_values("mean_1주", ascending=False)["sector"].tolist()
+        bullets.append(f"1주 코스피를 이긴 섹터 {len(wins)}/{len(RS)}개" + (": " + ", ".join(wins[:8]) + (" 등" if len(wins) > 8 else "") if wins else ""))
+    if len(ER):
+        up1m = ER[ER["fy2_1m"] > 0].shape[0]; dn1m = ER[ER["fy2_1m"] < 0].shape[0]
+        bullets.append(f"이익추정치(내년 FY2) 1달 상향 {up1m}종목 / 하향 {dn1m}종목")
     new_strong = [nm for nm, _y, q5 in quad[1] if q5 and q5 != 1]
     new_turn = [nm for nm, _y, q5 in quad[4] if q5 == 1]
     new_weak = [nm for nm, _y, q5 in quad[3] if q5 in (1, 4)]
@@ -233,16 +328,6 @@ def main():
     # ---------- 차트(최근 6달)
     cut = max(0, n - 126)
     dd = dates[cut:]
-    smw = smi.reindex(pd.to_datetime(dd)).values
-    maw = ma120.reindex(pd.to_datetime(dd)).values
-    p3w = p3.reindex(pd.to_datetime(dd))
-    bands, i0 = [], 0
-    for i in range(1, len(dd) + 1):
-        if i == len(dd) or p3w.iloc[i] != p3w.iloc[i0]:
-            if isinstance(p3w.iloc[i0], str):
-                bands.append((i0, i, PH3C[p3w.iloc[i0]]))
-            i0 = i
-    chart1 = svg_lines(dd, [(smw, "#f08c00", 1.8, "중소형 지수", False), (maw, "#495057", 1.2, "120일선", True)], bands=bands)
     marks = []
     for i in range(max(cut, 1), n):
         a, b = d2040[i - 1], d2040[i]
@@ -258,6 +343,29 @@ def main():
         return f"<tr{cls}>" + "".join(f"<td>{c}</td>" for c in cells) + "</tr>"
     idx_tbl = "".join(tr([nm] + [f"{v:,.2f}" if nm != "중소형 지수" else f"{v:,.1f}"] + [f"<span class='{'up' if x >= 0 else 'dn'}'>{sg(x)}</span>" for x in rets(s)])
                       for nm, s, v in (("코스피", ksp, ksp.iloc[-1]), ("코스닥", kq, kq.iloc[-1]), ("중소형 지수", smi, smi.iloc[-1])))
+    quad_svg = svg_quad(qpts)
+    def rs_rows(col, top=True):
+        if not len(RS):
+            return ""
+        t = RS.dropna(subset=[col]).sort_values(col, ascending=not top).head(7)
+        return "".join(tr([r["sector"], f"<b class='{'up' if r[col] >= 0 else 'dn'}'>{r[col]:+.1f}%p</b>", f"{r[col.replace('mean', 'win')]:.0f}%"]) for _, r in t.iterrows())
+    nwin1w = int((RS["mean_1주"] > 0).sum()) if len(RS) else 0
+    nwin1m = int((RS["mean_1달"] > 0).sum()) if len(RS) else 0
+    def er_rows():
+        if not len(ER):
+            return ""
+        t = ER[(ER["mktcap"] >= 1e11) & ER["fy2_1w"].between(0.5, 100)].sort_values("fy2_1w", ascending=False).head(8)
+        return "".join(tr([r["name"], r["sec"] if isinstance(r["sec"], str) else (r["sector"] or "-"), f"{r['mktcap'] / 1e8:,.0f}억",
+                           f"<b class='up'>{r['fy2_1w']:+.1f}%</b>", sg(r["fy2_1m"]), sg(r["fy1_1w"])]) for _, r in t.iterrows())
+    def er_sec():
+        if not len(ER):
+            return ""
+        g = ER.dropna(subset=["sec", "fy2_1m"]).groupby("sec")
+        t = pd.DataFrame({"n": g.size(), "up": g["fy2_1m"].apply(lambda v: (v > 0).sum()), "dn": g["fy2_1m"].apply(lambda v: (v < 0).sum()), "med": g["fy2_1m"].median()})
+        t = t[t["n"] >= 5]
+        t["net"] = (t["up"] - t["dn"]) / t["n"] * 100
+        t = t.sort_values("net", ascending=False).head(8)
+        return "".join(tr([nm, f"{int(r['n'])}", f"<span class='up'>{int(r['up'])}</span> / <span class='dn'>{int(r['dn'])}</span>", f"<b>{r['net']:+.0f}%p</b>", sg(r["med"])]) for nm, r in t.iterrows())
     br_tbl = "".join(tr([lbl, f"<b>{f0(a)}</b>", f0(b), f0(c), f"<span class='{'up' if a - b >= 0 else 'dn'}'>{sg(a - b, 0, '%p')}</span>"]) for lbl, a, b, c in breadth)
     mat = "".join(tr([nm, f"{v1:.1f}", f"{v0:.1f}", f"{s1:.0f}점", f"{s0:.0f}점"]) for nm, v1, v0, s1, s0 in (
         ("밸류 하단 종목 비율(%)", d["C"].iloc[-1] * 100, d["C"].iloc[-6] * 100, d["sC"].iloc[-1], d["sC"].iloc[-6]),
@@ -272,12 +380,12 @@ def main():
         return f"<tr><td>{r['name']}</td><td class='{'up' if r['r'] >= 0 else 'dn'}'><b>{r['r']:+.1f}%</b></td><td style='width:45%'><div class='bar' style='width:{w:.0f}%;background:{'#ffa8a8' if r['r'] >= 0 else '#a5d8ff'}'></div></td><td class='sub'>{r['up']}/{r['n']}↑</td></tr>"
     ret_top = "".join(rbar(r) for r in rrows[:6])
     ret_bot = "".join(rbar(r) for r in rrows[-6:][::-1])
-    strong = "".join(tr([nm, f"<b>{v:.0f}%</b>", f"<span class='{'up' if c >= 0 else 'dn'}'>{sg(c, 0, '%p')}</span>"]) for nm, v, c, _n in w20[:6])
-    weak = "".join(tr([nm, f"<b>{v:.0f}%</b>", f"<span class='{'up' if c >= 0 else 'dn'}'>{sg(c, 0, '%p')}</span>"]) for nm, v, c, _n in w20[-6:][::-1])
+    strong = "".join(tr([nm, f"<b>{v:.0f}%</b>", f"<span class='{'up' if c >= 0 else 'dn'}'>{sg(c, 0, '%p')}</span>"]) for nm, v, c, _n in w20[:5])
+    weak = "".join(tr([nm, f"<b>{v:.0f}%</b>", f"<span class='{'up' if c >= 0 else 'dn'}'>{sg(c, 0, '%p')}</span>"]) for nm, v, c, _n in w20[-5:][::-1])
     mv_up = ", ".join(f"{nm} {c:+.0f}" for nm, _v, c, _n in movers[::-1][:5])
     mv_dn = ", ".join(f"{nm} {c:+.0f}" for nm, _v, c, _n in movers[:5])
     yoy_tbl = "".join(tr([r["name"], f"{int(r['n_stocks'])}", f"<b>{r['accel']:+.1f}%p</b>", r.get("valuation_grade") if isinstance(r.get("valuation_grade"), str) else "-"])
-                      for _, r in yoy.head(6).iterrows()) if len(yoy) else ""
+                      for _, r in yoy.head(5).iterrows()) if len(yoy) else ""
     html = f"""<!doctype html>
 <html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>시장 브리핑 {title_date}</title>
@@ -319,37 +427,32 @@ def main():
     <div><h2>지수</h2><table><tr><th></th><th>종가</th><th>1일</th><th>1주</th><th>1달</th></tr>{idx_tbl}</table></div>
     <div><h2>시장 폭 (이평선 위 종목 비율)</h2><table><tr><th></th><th>지금</th><th>1주 전</th><th>1달 전</th><th>1주 변화</th></tr>{br_tbl}</table></div>
   </div>
+  <h2>코스피를 이긴 섹터 <span class="sub">섹터 소속 종목의 코스피 대비 초과수익 평균 · 오른쪽 = 코스피를 이긴 종목 비율 · 1주 {nwin1w}/{len(RS)}개, 1달 {nwin1m}/{len(RS)}개 섹터가 이김</span></h2>
   <div class="grid2">
-    <div><h2>국면 재료 (지금 / 1주 전)</h2><table><tr><th></th><th>지금</th><th>1주 전</th><th>점수</th><th>1주 전</th></tr>{mat}</table>
-      <div class="note">꺾임 판단 점수 {raw:.0f}점 · 주의선(20일 고점-20) {line:.0f}점 · 국면 점수 = 밸류3·공격방어2·120일선2</div></div>
-    <div><h2>밸류 바닥</h2><table>
-      <tr><td>OP밴드 3년 하위 10% 바텀 아래 종목</td><td><b>{below:,}개</b> / {nb:,}</td></tr>
-      <tr><td>밸류 하단 비율(국면 재료)</td><td><b>{C:.1f}%</b></td></tr><tr><td>1주 전 / 1달 전</td><td>{C5:.1f}% / {C20:.1f}%</td></tr></table>
-      <div class="note">많을수록 시장이 밸류 바닥권(국면 점수엔 거꾸로 반영)</div></div>
+    <div><table><tr><th>1주 상위</th><th>초과수익</th><th>이긴 종목</th></tr>{rs_rows("mean_1주")}</table></div>
+    <div><table><tr><th>1달 상위</th><th>초과수익</th><th>이긴 종목</th></tr>{rs_rows("mean_1달")}</table></div>
   </div>
-  <h2>중소형 지수와 120일선 <span class="sub">배경 = 국면(초록 상승 · 주황 고점권 조정 · 빨강 하락), 최근 6달</span></h2>{chart1}
   <h2>시장 폭 교차: 20일선 위 vs 40일선 위 비율(5일 평균) <span class="sub">▲ 골드 · ▼ 데드 · 회색 = 코스닥</span></h2>{chart2}
   <div class="note">교차 기준(20/40·5일 평활)은 2016~ 조합 288개 손익 비교(골드 100%/데드 60%)에서 네 칸 모두 보유보다 나았던 유일한 조합. 효과가 작아 국면 판단의 보조 신호.</div>
+  <h2>실적 가속 섹터 (섹터별 YoY 가속화, 절사평균) <span class="sub">가속도 = 2분기 뒤 추정 YoY - 최근 확정 YoY</span></h2>
+  <table><tr><th>섹터</th><th>종목</th><th>가속도</th><th>밸류 등급</th></tr>{yoy_tbl}</table>
+  <div class="note">기저효과 극단치(±200%p 초과)·5종목 미만 섹터 제외. 밸류 등급 = OP밴드 3년 하위 10% 바텀 대비 %의 5분위(상 = 바텀에 가까움).</div>
 </div>
 <div class="page">
-  <div class="hdr"><div><h1>섹터 흐름</h1><div class="sub">데이터 기준 {asof:%Y-%m-%d} · 섹터 정리 {len(secs)}개 섹터 · 종목 수 기준 비율</div></div><div class="sub">2/2 섹터</div></div>
+  <div class="hdr"><div><h1>섹터 흐름</h1><div class="sub">데이터 기준 {asof:%Y-%m-%d} · 섹터 정리 {len(secs)}개 섹터 · 종목 수 기준 비율</div></div><div class="sub">2/2 섹터 · joonhakkim.github.io/liquidity-dashboard</div></div>
   <h2>섹터 4사분면 (가로 15일선 위 비율 50% · 세로 5일-15일선 위 비율 0) <span class="sub">← = 1주 전 사분면</span></h2>
-  <table>{quad_tbl}</table>
-  <div class="note">보통 개선 중 → 강세 지속 → 꺾이는 중 → 약세로 돕니다. 지금 위치를 보는 지도이지 다음 성과 예측은 약함(사분면별 이후 20일 차이 ±0.5%p 안).</div>
+  {quad_svg}
+  <div class="note">점 크기 = 종목 수 · 회색 점에서 이어진 선 = 1주 전 위치. 보통 개선 중 → 강세 지속 → 꺾이는 중 → 약세로 돕니다(위치를 보는 지도, 이후 성과 예측력은 약함).</div>
+  <h2>이익추정치 상향 <span class="sub">내년(FY2) 영업이익 컨센서스 변화율 · {er_date} 기준 · 시총 1천억 이상</span></h2>
   <div class="grid2">
-    <div><h2>1주 섹터 등락 상위</h2><table>{ret_top}</table></div>
-    <div><h2>1주 섹터 등락 하위</h2><table>{ret_bot}</table></div>
+    <div><table><tr><th>1주 상향 상위 종목</th><th>섹터</th><th>시총</th><th>FY2 1주</th><th>1달</th><th>FY1 1주</th></tr>{er_rows()}</table></div>
+    <div><table><tr><th>상향 우세 섹터(1달)</th><th>종목</th><th>상향/하향</th><th>순상향</th><th>중앙값</th></tr>{er_sec()}</table></div>
   </div>
   <div class="grid2">
     <div><h2>20주선 위 비율 높은 섹터 <span class="sub">(1주 변화)</span></h2><table>{strong}</table></div>
     <div><h2>20주선 위 비율 낮은 섹터 <span class="sub">(1주 변화)</span></h2><table>{weak}</table></div>
   </div>
   <div class="note">20주선 위 비율 1주 변화 - 많이 오른 섹터: {mv_up} / 많이 내린 섹터: {mv_dn} (%p). 40% 아래에 오래 머문 섹터는 이후 6달 평균 3~6%p 약했음.</div>
-  <h2>실적 가속 섹터 (섹터별 YoY 가속화, 절사평균) <span class="sub">가속도 = 2분기 뒤 추정 YoY - 최근 확정 YoY</span></h2>
-  <table><tr><th>섹터</th><th>종목</th><th>가속도</th><th>밸류 등급</th></tr>{yoy_tbl}</table>
-  <div class="note">기저효과 극단치(±200%p 초과)·5종목 미만 섹터 제외. 밸류 등급 = OP밴드 3년 하위 10% 바텀 대비 %의 5분위(상 = 바텀에 가까움).</div>
-  <h2>자세히 보기</h2>
-  <div class="sub">시장 국면 market_phase.html · 섹터 이평선(교차·4사분면) sector_ma_breadth.html · OP밴드 op_band.html · 섹터 YoY sector_yoy_accel_tracker.html — https://joonhakkim.github.io/liquidity-dashboard/</div>
 </div>
 </body></html>"""
     OUT_HTML.write_text(html, encoding="utf-8")
