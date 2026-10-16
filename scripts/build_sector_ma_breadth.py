@@ -35,7 +35,9 @@ OUT_PATH = os.path.join(BASE_DIR, "docs", "sector_ma_breadth.html")
 SUMMARY_PATH = os.path.join(DATA_DIR, "screening", "sector_ma_breadth_summary.csv")
 WINDOWS = [10, 15, 20, 60, "20w", 120, 200]   # 20주(약 100거래일)는 기간 순서대로 60일과 120일 사이   # 2026-10-14 사용자 요청: 5일 빼고 15일 추가
 DEFAULT_WINDOW = "20w"   # 2026-10-15 사용자: "20일선이 아니라 20주선이었어" - 20주선(지난 19주 주간 종가 + 오늘 값의 평균)이 기본
-CROSS_ONLY = [5]   # 교차(골드·데드크로스) 비교용으로만 계산하는 이평선(위쪽 선택 버튼엔 없음, 2026-10-16 사용자 "5일 15일을 우선")
+# 교차(골드·데드크로스) 비교용으로만 계산하는 이평선(위쪽 선택 버튼엔 없음). 2026-10-16 사용자 "5일 15일을 우선" -> 같은 날 조합 손익 비교
+# (2016~, 골드 100%/데드 60%, 3일 분할, 288개) 결과 20일/40일·5일 평활이 중소형·코스닥 앞뒤 네 칸 모두 보유보다 나아 기본값으로(사용자 "그렇게 해봐").
+CROSS_ONLY = [5, 40]
 ALL_WINDOWS = WINDOWS + [w for w in CROSS_ONLY if w not in WINDOWS]
 HISTORY_FROM = "2023-01-01"
 MIN_MEMBERS = 3
@@ -333,7 +335,7 @@ TEMPLATE = r"""<!doctype html>
       <span>대상</span><select id="xT"></select>
       <span>빠른</span><select id="xF"></select>
       <span>느린</span><select id="xS"></select>
-      <span>평활</span><select id="xM"><option value="1">없음</option><option value="3">3일 평균</option><option value="5">5일 평균</option></select>
+      <span>평활</span><select id="xM"><option value="1">없음</option><option value="3">3일 평균</option><option value="5" selected>5일 평균</option></select>
       <span>지수</span><select id="xI"><option value="코스닥">코스닥</option><option value="코스피">코스피</option><option value="">없음</option></select>
       <span class="seg" id="xP"><button data-p="63">3달</button><button data-p="126" class="active">6달</button><button data-p="250">1년</button><button data-p="0">전체</button></span>
     </div>
@@ -504,8 +506,8 @@ function bindRetClicks() {
   });
 }
 // ---------- 이평선 위 비율 교차(골드·데드크로스) - 2026-10-16 사용자 "X일 이평선 위 비율 차트 2개를 조합해 변곡점을, 5일 15일 우선"
-const XW = [5, 10, 15, 20, 60, '20w', 120, 200].filter(w => D.all['n' + w]);
-let XF = '5', XS = '15', XM = 1, XT = '', XI = '코스닥', XP = 126, xChart = null;
+const XW = [5, 10, 15, 20, 40, 60, '20w', 120, 200].filter(w => D.all['n' + w]);
+let XF = '20', XS = '40', XM = 5, XT = '', XI = '코스닥', XP = 126, xChart = null;
 $('xF').innerHTML = XW.map(w => `<option value="${w}">${LBL(w)}</option>`).join(''); $('xF').value = XF;
 $('xS').innerHTML = XW.map(w => `<option value="${w}">${LBL(w)}</option>`).join(''); $('xS').value = XS;
 $('xT').innerHTML = '<option value="">섹터 정리 전체</option>' + D.sectors.map(s => `<option value="${s.name}">${s.name}</option>`).join('');
@@ -555,7 +557,8 @@ function renderCross() {
     const all20 = avg(D.dates.map((_, k) => fwd(px, k, 20))), g20 = avg(ev.filter(e => e.up).map(e => fwd(px, e.i, 20))), d20 = avg(ev.filter(e => !e.up).map(e => fwd(px, e.i, 20)));
     const yrs = N / 250;
     $('xStat').innerHTML = `${D.dates[0]} 이후: 골드 ${ev.filter(e => e.up).length}번 · 데드 ${ev.filter(e => !e.up).length}번(1년 약 ${(ev.length / 2 / yrs).toFixed(0)}번씩). 이후 20거래일 ${XI} 평균 - 골드 뒤 ${c(g20)}, 데드 뒤 ${c(d20)}, 아무 날 ${c(all20)}. ` +
-      '5일/15일처럼 짧은 조합은 교차가 잦아 헛신호가 많습니다 - 평활(3·5일 평균)이나 10일/20일 조합과 비교해 보세요.';
+      '<br><b>기본값 근거</b>(2016~, 골드 100% / 데드 60%, 3일에 나눠 실행·비용 포함, 조합 288개 비교): 20일/40일·5일 평활만 중소형·코스닥 × 2016~21·2022~ 네 칸 모두 그냥 보유보다 나았음(연 +0.8~+2.4%p, 최대낙폭 4~19%p 개선, 1년 약 12번 전환, 무작위 시점 대비 상위 1%). ' +
+      '빠른 선 15~20일 × 느린 선 40~60일 근처가 대체로 좋았고, 5일·10일처럼 짧은 빠른 선은 교차가 잦아(5/15는 1년 47번) 어떤 조합이든 손해였습니다. 개선폭이 크지 않아 국면 판단의 보조 신호로 보세요.';
   } else $('xStat').innerHTML = '';
 }
 ['xF', 'xS', 'xM', 'xT', 'xI'].forEach(id => $(id).onchange = () => { XF = $('xF').value; XS = $('xS').value; XM = +$('xM').value; XT = $('xT').value; XI = $('xI').value; renderCross(); });
