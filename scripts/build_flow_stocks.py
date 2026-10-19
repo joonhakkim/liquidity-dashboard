@@ -5,6 +5,10 @@
   수급 볼린저(15일선의 60일 평균 ± 2σ) 과매수·과매도와 유지일, 5·20일 순매수(억), 20일 시총 변화(=주가), 시총.
 - 화면 단위(2026-10-19 사용자): 표 = 8·15·30일 누적 %(= 일평균 bp x 일수 / 100, 그 기간 동안 시총의 몇 %를 순매수했나),
   차트 = 막대 그날 %, 선 하루 평균 %(툴팁에 누적 %). 기본 차트 기간 1년.
+- 실험(2026-10-19): 수급 상태(60일 누적 수급의 종목 간 순위 - 시총 1천억+ 종목 분포의 상위·하위 20% 경계 - x 최근 8일 누적 방향
+  -> 매집 진행 / 정체 / 바닥 매수 / 이탈 / 중간)와 수급 평균단가(최근 60일 순매수한 날의 매수량 가중 평균 시총 = 평균 매수가 환산, 현재 대비 %).
+  검증(flow9.py, 시총 1천억+ 종목): 매집 진행 & 평균단가 +10% 이상 위 -> 이후 20일 +2.0/+2.0%p, 40일 +3.9/+2.3%p(두 해 모두),
+  매집 진행 & 단가 아래 -> -0.3/-1.1%p, 정체 -> 이후 40일 +3.2/+1.4%p(매도 신호 아님).
 - 대상: 수급.xlsx와 '기업 밴드 찾기 2' 시총이 둘 다 있는 전 종목(섹터 정리 밖 종목 포함). 섹터는 표시용(섹터 정리 우선, 없으면 네이버 업종).
 - 표는 Python이 기본 설정(8/15, 60일·2σ)으로 미리 계산한 최신값, 종목을 누르면 docs/flow_stock_data/{코드}.json(일별 외국인·기관 순매수 백만원, 시총 억)을
   불러와 차트 3개(수급 방향 / 볼린저 / 시총과 누적 순매수)를 그린다.
@@ -84,8 +88,25 @@ def main():
             nt = net[w][c].values / 1e8
             f = lambda v, d=2: None if v is None or not np.isfinite(v) else round(float(v), d)
             m30 = np.nanmean(r[-30:]) if np.isfinite(r[-30:]).sum() >= 24 else np.nan
-            rec[w] = [f(m8[-1]), f(m15[-1]), xs, xd, f(z[-1]), bs, bd if bs else 0, f(np.nansum(nt[-5:]), 1), f(np.nansum(nt[-20:]), 1), f(m30)]
+            # 실험: 60일·8일 누적(%), 수급 평균단가(최근 60일 순매수일의 매수량 가중 평균 시총) 대비 현재 %
+            r60 = r[-60:]; L60 = np.nansum(r60) / 100 if np.isfinite(r60).sum() >= 48 else np.nan
+            M8 = np.nansum(r[-8:]) / 100 if np.isfinite(r[-8:]).sum() >= 7 else np.nan
+            wgt = np.where(np.isfinite(r60) & (r60 > 0), r60, 0.0); cp = cap[c].values[-60:]
+            okc = np.isfinite(cp) & (wgt > 0)
+            cost = (wgt[okc] * cp[okc]).sum() / wgt[okc].sum() if okc.any() and np.isfinite(r60).sum() >= 40 else np.nan
+            gap = (cap[c].values[-1] / cost - 1) * 100 if np.isfinite(cost) and cost > 0 else np.nan
+            rec[w] = [f(m8[-1]), f(m15[-1]), xs, xd, f(z[-1]), bs, bd if bs else 0, f(np.nansum(nt[-5:]), 1), f(np.nansum(nt[-20:]), 1), f(m30),
+                      None, f(gap, 1), f(L60, 2), f(M8, 2)]
         rows.append(rec)
+    # 실험: 수급 상태 - 60일 누적의 상·하위 20% 경계는 시총 1천억+ 종목 분포로(검증과 같은 기준), 작은 종목도 같은 경계로 분류
+    for w in WHO:
+        big = np.array([r[w][12] for r in rows if r["cap"] and r["cap"] >= 1000 and r[w][12] is not None], float)
+        hi, lo = (np.quantile(big, 0.8), np.quantile(big, 0.2)) if len(big) > 50 else (np.nan, np.nan)
+        for r in rows:
+            L, M = r[w][12], r[w][13]
+            if L is None or M is None or not np.isfinite(hi):
+                continue
+            r[w][10] = (4 if M > 0 else 3) if L >= hi else ((1 if M > 0 else 0) if L <= lo else 2)
     # 종목별 상세(차트용) - 날짜는 페이지에 한 번, 종목 파일엔 외국인·기관(백만원 정수)·시총(억)만
     os.makedirs(DETAIL_DIR, exist_ok=True)
     for c in codes:
@@ -150,7 +171,7 @@ TEMPLATE = r"""<!doctype html>
     <span>주체</span><span class="seg" id="segWho"><button data-v="합산" class="active">외국인+기관</button><button data-v="외국인">외국인</button><button data-v="기관">기관</button></span>
     <span>시총</span><select id="selCap"><option value="0">전체</option><option value="300">300억+</option><option value="500">500억+</option><option value="1000" selected>1,000억+</option><option value="3000">3,000억+</option><option value="10000">1조+</option></select>
     <span>섹터</span><select id="selSec"></select>
-    <span>상태</span><select id="selSt"><option value="">전체</option><option value="bu">볼린저 과매수</option><option value="bd">볼린저 과매도</option><option value="gn">골드 새로(3일 이내)</option><option value="dn">데드 새로(3일 이내)</option><option value="g">골드 전체</option><option value="d">데드 전체</option></select>
+    <span>상태</span><select id="selSt"><option value="">전체</option><option value="bu">볼린저 과매수</option><option value="bd">볼린저 과매도</option><option value="gn">골드 새로(3일 이내)</option><option value="dn">데드 새로(3일 이내)</option><option value="g">골드 전체</option><option value="d">데드 전체</option><option value="s4">(실험) 매집 진행</option><option value="s3">(실험) 정체</option><option value="s1">(실험) 바닥 매수</option><option value="s0">(실험) 이탈</option><option value="c10">(실험) 매집 진행 + 평균단가 +10% 위</option><option value="cdn">(실험) 매집 진행 + 평균단가 아래</option></select>
     <span>검색</span><input id="q" placeholder="종목명·코드" style="width:110px">
     <label><input type="checkbox" id="onlyU"> 섹터 정리 종목만</label>
   </div>
@@ -172,7 +193,7 @@ TEMPLATE = r"""<!doctype html>
     <div class="cw"><canvas id="d1"></canvas></div>
     <div class="desc">② 수급 볼린저 - 15일선(하루 평균 %)과 60일 평균 ± 2σ 밴드, ▲ 과매수 진입 / ▼ 과매도 진입</div>
     <div class="cw"><canvas id="d2"></canvas></div>
-    <div class="desc">③ 시가총액(조·억, 왼쪽)과 차트 시작일부터 누적 순매수(억, 오른쪽) - 외국인·기관 따로는 범례를 눌러 켜기</div>
+    <div class="desc">③ 시가총액(조·억, 왼쪽)과 차트 시작일부터 누적 순매수(억, 오른쪽) - 외국인·기관 따로는 범례를 눌러 켜기. <span style="color:#ffd43b">노란 점선(실험) = 수급 평균단가</span>(최근 60일 순매수한 날들의 매수량 가중 평균 가격을 시총으로 환산, 주가 선보다 아래면 산 쪽이 수익 중)</div>
     <div class="cw"><canvas id="d3"></canvas></div>
   </div></div>
 
@@ -185,7 +206,8 @@ const sg = (v, d = 1) => nn(v) ? (v >= 0 ? '+' : '') + v.toFixed(d) : '-';
 const cls = v => nn(v) ? (v >= 0 ? 'pos' : 'neg') : '';
 const eok = v => !nn(v) ? '-' : (Math.abs(v) >= 10000 ? (v / 10000).toFixed(2) + '조' : (Math.abs(v) >= 100 ? Math.round(v).toLocaleString() : v.toFixed(1)) + '억');
 let WHO = '합산', SORT = 'm15', DESC = true, LIMIT = 300;
-const I = {m8: 0, m15: 1, xs: 2, xd: 3, z: 4, bs: 5, bd: 6, n5: 7, n20: 8, m30: 9};
+const I = {m8: 0, m15: 1, xs: 2, xd: 3, z: 4, bs: 5, bd: 6, n5: 7, n20: 8, m30: 9, st: 10, cg: 11, L60: 12, M8: 13};
+const STN = {4: '매집 진행', 3: '정체', 2: '중간', 1: '바닥 매수', 0: '이탈'}, STC = {4: '#ff8787', 3: '#ffd43b', 2: '#9aa0a6', 1: '#a9e34b', 0: '#74a7ff'};
 const pc = (bpv, d = 2) => nn(bpv) ? sg(bpv / 100, d) + '%' : '-';         // bp -> %
 const cum = (avg, n, d = 2) => nn(avg) ? sg(avg * n / 100, d) + '%' : '-';   // 일평균 bp -> n일 누적 %
 const secs = [...new Set(D.rows.map(r => r.s))].sort();
@@ -204,22 +226,26 @@ function filtered() {
     if (st === 'dn' && !(a[I.xs] === -1 && a[I.xd] <= 3)) return false;
     if (st === 'g' && a[I.xs] !== 1) return false;
     if (st === 'd' && a[I.xs] !== -1) return false;
+    if (st.length === 2 && st[0] === 's' && a[I.st] !== +st[1]) return false;
+    if (st === 'c10' && !(a[I.st] === 4 && a[I.cg] >= 10)) return false;
+    if (st === 'cdn' && !(a[I.st] === 4 && a[I.cg] < 0)) return false;
     return true;
   });
 }
 function render() {
   const rows = filtered();
-  const key = {n: r => r.n, s: r => r.s, cap: r => r.cap, r20: r => r.r20, m8: r => r[WHO][I.m8], m15: r => r[WHO][I.m15], m30: r => r[WHO][I.m30], x: r => r[WHO][I.xs] * (1000 - r[WHO][I.xd]), z: r => r[WHO][I.z], n5: r => r[WHO][I.n5], n20: r => r[WHO][I.n20],
+  const key = {n: r => r.n, s: r => r.s, cap: r => r.cap, r20: r => r.r20, m8: r => r[WHO][I.m8], m15: r => r[WHO][I.m15], m30: r => r[WHO][I.m30], x: r => r[WHO][I.xs] * (1000 - r[WHO][I.xd]), z: r => r[WHO][I.z], stt: r => r[WHO][I.st], cg: r => r[WHO][I.cg], n5: r => r[WHO][I.n5], n20: r => r[WHO][I.n20],
     nf: r => r['외국인'][I.n20], ni: r => r['기관'][I.n20]}[SORT];
   rows.sort((a, b) => { const va = key(a), vb = key(b); if (typeof va === 'string') return DESC ? vb.localeCompare(va) : va.localeCompare(vb); const x = nn(va) ? va : (DESC ? -1e18 : 1e18), y = nn(vb) ? vb : (DESC ? -1e18 : 1e18); return DESC ? y - x : x - y; });
   const H = (k, t) => `<th data-s="${k}"${SORT === k ? ' class="sorted"' : ''}>${t}${SORT === k ? (DESC ? ' ▼' : ' ▲') : ''}</th>`;
-  let h = '<tr><th class="nosort">#</th>' + H('n', '종목') + H('s', '섹터') + H('cap', '시총') + H('m8', D.fast + '일 누적') + H('m15', D.slow + '일 누적') + H('m30', '30일 누적') + H('x', '교차(' + D.fast + '/' + D.slow + ')') + H('z', '볼린저 z') + H('n5', '5일 순매수') + H('n20', '20일 순매수') + H('nf', '외국인 20일') + H('ni', '기관 20일') + H('r20', '20일 주가') + '</tr>';
+  let h = '<tr><th class="nosort">#</th>' + H('n', '종목') + H('s', '섹터') + H('cap', '시총') + H('m8', D.fast + '일 누적') + H('m15', D.slow + '일 누적') + H('m30', '30일 누적') + H('x', '교차(' + D.fast + '/' + D.slow + ')') + H('z', '볼린저 z') + H('stt', '수급 상태(실험)') + H('cg', '평균단가 대비(실험)') + H('n5', '5일 순매수') + H('n20', '20일 순매수') + H('nf', '외국인 20일') + H('ni', '기관 20일') + H('r20', '20일 주가') + '</tr>';
   rows.slice(0, LIMIT).forEach((r, i) => {
     const a = r[WHO], bs = a[I.bs];
     h += `<tr class="st" data-c="${r.c}"><td class="sub">${i + 1}</td><td>${r.n} <span class="sub">${r.c}</span></td><td class="sub">${r.s}</td><td>${nn(r.cap) ? (r.cap >= 10000 ? (r.cap / 10000).toFixed(1) + '조' : r.cap.toLocaleString() + '억') : '-'}</td>` +
       `<td class="${cls(a[I.m8])}">${cum(a[I.m8], D.fast)}</td><td class="${cls(a[I.m15])}"><b>${cum(a[I.m15], D.slow)}</b></td><td class="${cls(a[I.m30])}">${cum(a[I.m30], 30)}</td>` +
       `<td style="color:${a[I.xs] === 1 ? '#ff8787' : '#74a7ff'}">${a[I.xs] ? (a[I.xs] === 1 ? '▲ 골드 ' : '▼ 데드 ') + a[I.xd] + '일' + (a[I.xd] <= 3 ? ' <span style="color:#ffd43b;font-size:11px">새로</span>' : '') : '-'}</td>` +
       `<td style="color:${bs === 1 ? '#ff8787' : bs === -1 ? '#74a7ff' : '#9aa0a6'}">${sg(a[I.z], 1)}${bs ? (bs === 1 ? ' 과매수 ' : ' 과매도 ') + a[I.bd] + '일' : ''}</td>` +
+      `<td style="color:${nn(a[I.st]) ? STC[a[I.st]] : '#9aa0a6'}" title="60일 누적 ${sg(a[I.L60], 2)}% · 8일 누적 ${sg(a[I.M8], 2)}%">${nn(a[I.st]) ? STN[a[I.st]] : '-'}</td><td class="${cls(a[I.cg])}">${nn(a[I.cg]) ? sg(a[I.cg]) + '%' : '-'}</td>` +
       `<td class="${cls(a[I.n5])}">${eok(a[I.n5])}</td><td class="${cls(a[I.n20])}">${eok(a[I.n20])}</td>` +
       `<td class="${cls(r['외국인'][I.n20])}">${eok(r['외국인'][I.n20])}</td><td class="${cls(r['기관'][I.n20])}">${eok(r['기관'][I.n20])}</td><td class="${cls(r.r20)}">${sg(r.r20)}%</td></tr>`;
   });
@@ -234,6 +260,7 @@ function render() {
   $('cards').innerHTML =
     `<div class="card">볼린저 과매수 / 과매도<div class="val"><span class="pos">${cnt(r => A(r)[I.bs] === 1)}</span> / <span class="neg">${cnt(r => A(r)[I.bs] === -1)}</span>종목</div>지금 필터 ${base.length.toLocaleString()}종목 중</div>` +
     `<div class="card">새 골드 / 새 데드(3일 이내)<div class="val"><span class="pos">${cnt(r => A(r)[I.xs] === 1 && A(r)[I.xd] <= 3)}</span> / <span class="neg">${cnt(r => A(r)[I.xs] === -1 && A(r)[I.xd] <= 3)}</span>종목</div>${D.fast}일 평균이 ${D.slow}일 평균을 뚫은 종목</div>` +
+    `<div class="card">수급 상태 <span style="color:#ffd43b">(실험)</span><div class="val" style="font-size:14px;line-height:1.6"><span style="color:${STC[4]}">매집 ${cnt(r => A(r)[I.st] === 4)}</span> · <span style="color:${STC[3]}">정체 ${cnt(r => A(r)[I.st] === 3)}</span> · <span style="color:${STC[1]}">바닥매수 ${cnt(r => A(r)[I.st] === 1)}</span> · <span style="color:${STC[0]}">이탈 ${cnt(r => A(r)[I.st] === 0)}</span></div>매집 진행 + 평균단가 10%↑ 위: ${cnt(r => A(r)[I.st] === 4 && A(r)[I.cg] >= 10)}종목</div>` +
     `<div class="card">15일 누적 상위<div class="val" style="font-size:13px;line-height:1.5">${top(r => nn(A(r)[I.m15]), r => A(r)[I.m15])}</div></div>` +
     `<div class="card">20일 순매수 금액 상위<div class="val" style="font-size:13px;line-height:1.5">${top(r => nn(A(r)[I.n20]), r => A(r)[I.n20])}</div></div>`;
 }
@@ -258,7 +285,7 @@ function drawDetail() {
   const a = r[WHO];
   $('dTitle').textContent = `${r.n} (${r.c}) · ${r.s}`;
   $('dSub').innerHTML = `${WHO === '합산' ? '외국인+기관' : WHO} · 시총 ${nn(r.cap) ? (r.cap >= 10000 ? (r.cap / 10000).toFixed(1) + '조' : r.cap.toLocaleString() + '억') : '-'} · ${D.fast}일 누적 ${cum(a[I.m8], D.fast)} / ${D.slow}일 누적 ${cum(a[I.m15], D.slow)} / 30일 누적 ${cum(a[I.m30], 30)} · ` +
-    `${a[I.xs] === 1 ? '<span class="pos">골드</span>' : '<span class="neg">데드</span>'} ${a[I.xd]}일째 · 볼린저 z ${sg(a[I.z], 2)}${a[I.bs] ? (a[I.bs] === 1 ? ' <span class="pos">과매수</span>' : ' <span class="neg">과매도</span>') : ''} · 20일 순매수 ${eok(a[I.n20])} (외국인 ${eok(r['외국인'][I.n20])}, 기관 ${eok(r['기관'][I.n20])}) · 20일 주가 <span class="${cls(r.r20)}">${sg(r.r20)}%</span>`;
+    `${a[I.xs] === 1 ? '<span class="pos">골드</span>' : '<span class="neg">데드</span>'} ${a[I.xd]}일째 · 볼린저 z ${sg(a[I.z], 2)}${a[I.bs] ? (a[I.bs] === 1 ? ' <span class="pos">과매수</span>' : ' <span class="neg">과매도</span>') : ''} · 20일 순매수 ${eok(a[I.n20])} (외국인 ${eok(r['외국인'][I.n20])}, 기관 ${eok(r['기관'][I.n20])}) · 20일 주가 <span class="${cls(r.r20)}">${sg(r.r20)}%</span><br><span style="color:#ffd43b">실험</span> · 수급 상태 <b style="color:${nn(a[I.st]) ? STC[a[I.st]] : '#9aa0a6'}">${nn(a[I.st]) ? STN[a[I.st]] : '-'}</b>(60일 누적 ${sg(a[I.L60], 2)}%, 8일 누적 ${sg(a[I.M8], 2)}%) · 수급 평균단가 대비 <b class="${cls(a[I.cg])}">${nn(a[I.cg]) ? sg(a[I.cg]) + '%' : '-'}</b>`;
   Object.values(ch).forEach(c => c.destroy());
   const lim = Math.max(1, ...f.slice(s0).concat(s.slice(s0)).filter(nn).map(Math.abs)) * 2.5 / 100;
   const P1 = a => a.slice(s0).map(v => nn(v) ? v / 100 : null);
@@ -288,12 +315,16 @@ function drawDetail() {
     scales: {x: {ticks: {color: '#9aa0a6', maxTicksLimit: 8, maxRotation: 0}, grid: {display: false}}, y: {ticks: {color: '#9aa0a6', callback: v => v.toFixed(2) + '%'}, grid: {color: '#23262e'}}}})});
   const cumNet = arr => { let t = 0; return arr.slice(s0).map(v => { t += nn(v) ? v / 100 : 0; return t; }); };   // 백만원 -> 억
   const capS = d.cap.slice(s0), big = Math.max(...capS.filter(nn)) >= 10000;
+  const cost = d.cap.map((_, t) => { if (t < 59) return null; let sw = 0, sp = 0, c = 0;   // 실험: 수급 평균단가(시총 환산)
+    for (let i = t - 59; i <= t; i++) { if (nn(ratio[i])) c++; if (nn(ratio[i]) && ratio[i] > 0 && nn(d.cap[i])) { sw += ratio[i]; sp += ratio[i] * d.cap[i]; } }
+    return c >= 40 && sw > 0 ? sp / sw : null; });
   if (ch.c) { [2, 3].forEach(i => D3SHOW[i] = ch.c.isDatasetVisible(i)); }
   ch.c = new Chart($('d3'), {type: 'line', data: {labels: L, datasets: [
     {label: big ? '시가총액(조)' : '시가총액(억)', data: capS.map(v => nn(v) ? (big ? v / 10000 : v) : null), borderColor: '#e6e6e6', borderWidth: 1.8, pointRadius: 0, yAxisID: 'y'},
     {label: '누적 외국인+기관(억)', data: cumNet(d.F.map((v, i) => (v || 0) + (d.I[i] || 0))), borderColor: '#ff6b6b', borderWidth: 1.6, pointRadius: 0, yAxisID: 'y2'},
     {label: '누적 외국인(억)', data: cumNet(d.F), borderColor: '#ffa94d', borderWidth: 1.2, borderDash: [4, 3], pointRadius: 0, yAxisID: 'y2', hidden: !D3SHOW[2]},
-    {label: '누적 기관(억)', data: cumNet(d.I), borderColor: '#69db7c', borderWidth: 1.2, borderDash: [4, 3], pointRadius: 0, yAxisID: 'y2', hidden: !D3SHOW[3]}
+    {label: '누적 기관(억)', data: cumNet(d.I), borderColor: '#69db7c', borderWidth: 1.2, borderDash: [4, 3], pointRadius: 0, yAxisID: 'y2', hidden: !D3SHOW[3]},
+    {label: '수급 평균단가(60일, 실험)', data: cost.slice(s0).map(v => nn(v) ? (big ? v / 10000 : v) : null), borderColor: '#ffd43b', borderWidth: 1.4, borderDash: [6, 3], pointRadius: 0, yAxisID: 'y'}
   ]}, options: opt({scales: {x: {ticks: {color: '#9aa0a6', maxTicksLimit: 8, maxRotation: 0}, grid: {display: false}}, y: {position: 'left', ticks: {color: '#c9ccd1'}, grid: {color: '#23262e'}}, y2: {position: 'right', grid: {display: false}, ticks: {color: '#ff8787'}}}})});
 }
 $('closeBtn').onclick = () => $('overlay').classList.remove('open');
@@ -306,6 +337,7 @@ $('q').oninput = render;
 $('study').innerHTML = '<b>종목 수급 쓰는 법</b> (검증 2025-01 ~ ' + D.asof + ')<br>' +
   '· 종목 하나하나 단위로는 섹터보다 신호가 약합니다. 15일 평균 수급 순위로 이후 수익을 맞히는 힘은 거의 0이었습니다(날짜별 순위상관 ±0.02).<br>' +
   '· 극단값만 의미가 있었습니다: <b>외국인 과매수</b> 종목은 이후 20일 다른 종목보다 강했고(2025 +1.2%p / 2026 +1.1%p), <b>외국인 과매도</b>는 약했습니다(-0.6 / -1.4%p). 반대로 <b>기관 과매도</b> 종목은 이후 오히려 반등했습니다(+0.9 / +0.6%p) - 기관이 이례적으로 판 것만으로 팔 이유는 아닙니다.<br>' +
+  '· <b style="color:#ffd43b">실험 - 수급 상태·평균단가</b>: 외국인+기관이 최근 60일 많이 사서(종목 간 상위 20%) <b>아직 사고 있고(매집 진행) 평균단가보다 10% 이상 위</b>(산 쪽이 수익 중)인 종목은 이후 20일 다른 종목보다 +2.0%p(2025) / +2.0%p(2026), 40일 +3.9 / +2.3%p로 두 해 모두 강했습니다. 같은 매집 진행이라도 <b>평균단가 아래</b>(물려 있음)면 -0.3 / -1.1%p로 약했습니다. 많이 산 뒤 매수가 멈춘 <b>정체</b>는 매도 신호가 아니었습니다(이후 40일 +3.2 / +1.4%p). 상태의 상·하위 경계는 시총 1천억+ 종목 분포 기준이라 작은 종목은 참고만 하세요.<br>' +
   '· 8/15 골드·데드크로스 자체는 신호가 아닙니다. 지금 누가 얼마나 사고파는지 확인하는 용도로 쓰고, 섹터 수급·가격 추세와 같은 방향인지 같이 보세요. 시총이 작은 종목은 블록딜 하루로 비율이 크게 튈 수 있습니다.';
 render();
 </script>

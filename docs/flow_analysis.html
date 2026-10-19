@@ -38,7 +38,7 @@
   <a class="back" href="sector_ma_breadth.html">섹터 이평선 위 비율 &rarr;</a>
   <a class="back" href="flow_stocks.html">종목 수급 &rarr;</a>
   <h1>수급 분석<span class="sub">섹터 정리 섹터·종목의 외국인·기관 순매수, 시가총액 대비 비율</span></h1>
-  <div class="updated">최종 갱신: 2026-10-19 15:13 &middot; 데이터 2024-12-30 ~ 2026-10-16 &middot; 수급.xlsx(외국인·기관 순매수대금) + 기업 밴드 찾기 2 시가총액</div>
+  <div class="updated">최종 갱신: 2026-10-19 16:27 &middot; 데이터 2024-12-30 ~ 2026-10-16 &middot; 수급.xlsx(외국인·기관 순매수대금) + 기업 밴드 찾기 2 시가총액</div>
 
   <div class="ctl">
     <span>주체</span><span class="seg" id="segWho"><button data-v="합산" class="active">외국인+기관</button><button data-v="외국인">외국인</button><button data-v="기관">기관</button></span>
@@ -70,7 +70,7 @@
 
   <div class="box">
     <h2>시가총액과 누적 순매수 <span id="t2" style="font-size:12px;font-weight:normal;color:#9aa0a6"></span></h2>
-    <div class="desc">흰 선 = 섹터 시가총액(조원, 왼쪽), 빨간 선 = 차트 시작일부터 누적 외국인+기관 순매수(억원, 오른쪽). 외국인·기관 따로 보려면 범례의 '누적 외국인'·'누적 기관'을 누르세요. 누적 순매수가 오르는데 시총이 같이 오르면 수급이 주가를 받치는 것, 엇갈리면 다른 주체(개인 등)가 반대로 움직이는 것.</div>
+    <div class="desc">흰 선 = 섹터 시가총액(조원, 왼쪽), 빨간 선 = 차트 시작일부터 누적 외국인+기관 순매수(억원, 오른쪽). 외국인·기관 따로 보려면 범례의 '누적 외국인'·'누적 기관'을 누르세요. 누적 순매수가 오르는데 시총이 같이 오르면 수급이 주가를 받치는 것, 엇갈리면 다른 주체(개인 등)가 반대로 움직이는 것. <span style="color:#ffd43b">노란 점선(실험) = 수급 평균단가</span>: 최근 60일 동안 순매수한 날들의 매수량 가중 평균 가격을 시총으로 환산한 선 - 시총이 이 선보다 위면 산 쪽이 수익 중, 아래면 물려 있음.</div>
     <div class="chart-wrap"><canvas id="c2"></canvas></div>
   </div>
 
@@ -125,11 +125,28 @@ function bandOf(g, r) {
   return {line, other, m, up, dn, z, st, now: st[k], days: d, zNow: z[k]};
 }
 function sumLast(a, n, end = N - 1) { let s = 0, c = 0; for (let i = Math.max(0, end - n + 1); i <= end; i++) if (nn(a[i])) { s += a[i]; c++; } return c ? s : null; }
+// ---------- 실험: 수급 상태 · 수급 평균단가(2026-10-19)
+const STN = {4: '매집 진행', 3: '정체', 2: '중간', 1: '바닥 매수', 0: '이탈'}, STC = {4: '#ff8787', 3: '#ffd43b', 2: '#9aa0a6', 1: '#a9e34b', 0: '#74a7ff'};
+const STD = {4: '60일 누적 상위 + 최근 8일도 순매수', 3: '60일 누적 상위인데 최근 8일 순매수 없음(과거엔 이후에도 강했음 - 매도 신호 아님)', 2: '상·하위 20% 밖', 1: '60일 누적 하위인데 최근 8일 순매수(과거엔 이후에도 약했음)', 0: '60일 누적 하위 + 최근 8일도 순매도(과거 가장 약했음)'};
+function costOf(g, r) {   // 최근 60일 순매수한 날의 매수량(비율) 가중 평균 시총(억) = 수급 평균단가의 시총 환산
+  const c = new Array(N).fill(null);
+  for (let t = 59; t < N; t++) { let sw = 0, sp = 0, cnt = 0;
+    for (let i = t - 59; i <= t; i++) { if (nn(r[i])) cnt++; if (nn(r[i]) && r[i] > 0 && nn(g.cap[i])) { sw += r[i]; sp += r[i] * g.cap[i]; } }
+    if (cnt >= 40 && sw > 0) c[t] = sp / sw; }
+  return c;
+}
+function assignStates(list) {   // 60일 누적의 섹터 간 순위 x 8일 누적 방향
+  const v = list.filter(x => nn(x.L60)).map(x => x.L60).sort((a, b) => a - b), n = v.length;
+  list.forEach(x => { if (!nn(x.L60) || !nn(x.M8) || !n) { x.state = null; return; }
+    let c = 0; while (c < n && v[c] <= x.L60) c++; const q = c / n;
+    x.state = q >= 0.8 ? (x.M8 > 0 ? 4 : 3) : q <= 0.2 ? (x.M8 > 0 ? 1 : 0) : 2; });
+}
 function groupStats(g) {
   const r = ratioOf(g), f = ma(r, XF), s = ma(r, XS), nt = netOf(g, WHO), k = N - 1;
   const cap0 = g.cap[k], cap20 = g.cap[k - 20];
-  const m30 = ma(r, 30)[k];
+  const m30 = ma(r, 30)[k], m60 = ma(r, 60)[k], m8 = ma(r, 8)[k], cost = costOf(g, r);
   return {g, r, f, s, fast: f[k], slow: s[k], slow5: s[k - 5], fast5: f[k - 5], m30, x: crossState(f, s),
+    L60: nn(m60) ? m60 * 60 / 100 : null, M8: nn(m8) ? m8 * 8 / 100 : null, cost, cg: nn(cost[k]) && nn(g.cap[k]) ? (g.cap[k] / cost[k] - 1) * 100 : null,
     n5: sumLast(nt, 5), n20: sumLast(nt, 20), c20: nn(cap0) && nn(cap20) && cap20 ? (cap0 / cap20 - 1) * 100 : null, cap: cap0};
 }
 let c3 = null, c4 = null;
@@ -164,6 +181,8 @@ function renderCards() {
     `<div class="card">순매수(${D.asof} 까지)<div class="val">${eok(a.n5)} <span style="font-size:12px;color:#9aa0a6">5일</span></div>20일 ${eok(a.n20)} · 외국인 20일 ${eok(sumLast(fw, 20))} · 기관 20일 ${eok(sumLast(iw, 20))}</div>` +
     (() => { const B = D.sectors.map(x => ({n: x.name, b: bandOf(x)})); const up = B.filter(x => x.b.now === 1), dn = B.filter(x => x.b.now === -1);
       return `<div class="card">수급 볼린저(${BL}일선·${BW}일·${BK}σ)<div class="val"><span class="pos">과매수 ${up.length}</span> · <span class="neg">과매도 ${dn.length}</span></div>${up.map(x => x.n).slice(0, 4).join(', ') || '-'}${dn.length ? ' / ' + dn.map(x => x.n).slice(0, 4).join(', ') : ''}</div>`; })() +
+    (() => { const L = D.sectors.map(groupStats); assignStates(L); const by = q => L.filter(x => x.state === q).map(x => x.g.name);
+      return `<div class="card">수급 상태 <span style="color:#ffd43b">(실험)</span><div class="val" style="font-size:14px;line-height:1.6"><span style="color:${STC[4]}">매집 ${by(4).length}</span> · <span style="color:${STC[3]}">정체 ${by(3).length}</span> · <span style="color:${STC[1]}">바닥매수 ${by(1).length}</span> · <span style="color:${STC[0]}">이탈 ${by(0).length}</span></div>정체: ${by(3).join(', ') || '-'}<br>이탈: ${by(0).join(', ') || '-'}</div>`; })() +
     `<div class="card">섹터 정리 시가총액<div class="val">${nn(a.cap) ? (a.cap / 10000).toFixed(0) + '조' : '-'}</div>20일 변화 <span class="${cls(a.c20)}">${sg(a.c20)}%</span></div>`;
 }
 // ---------- 차트
@@ -199,32 +218,35 @@ function renderCharts() {
     {label: '시가총액(조)', data: g.cap.slice(s0).map(v => nn(v) ? v / 10000 : null), borderColor: '#e6e6e6', borderWidth: 1.8, pointRadius: 0, yAxisID: 'y'},
     {label: '누적 외국인+기관(억)', data: cumNet(netOf(g, '합산')), borderColor: '#ff6b6b', borderWidth: 1.6, pointRadius: 0, yAxisID: 'y2'},
     {label: '누적 외국인(억)', data: cumNet(g.net['외국인']), borderColor: '#ffa94d', borderWidth: 1.2, borderDash: [4, 3], pointRadius: 0, yAxisID: 'y2', hidden: !C2SHOW[2]},
-    {label: '누적 기관(억)', data: cumNet(g.net['기관']), borderColor: '#69db7c', borderWidth: 1.2, borderDash: [4, 3], pointRadius: 0, yAxisID: 'y2', hidden: !C2SHOW[3]}
+    {label: '누적 기관(억)', data: cumNet(g.net['기관']), borderColor: '#69db7c', borderWidth: 1.2, borderDash: [4, 3], pointRadius: 0, yAxisID: 'y2', hidden: !C2SHOW[3]},
+    {label: '수급 평균단가(60일, 실험)', data: st.cost.slice(s0).map(v => nn(v) ? v / 10000 : null), borderColor: '#ffd43b', borderWidth: 1.4, borderDash: [6, 3], pointRadius: 0, yAxisID: 'y'}
   ]}, options: {responsive: true, maintainAspectRatio: false, animation: false, interaction: {mode: 'index', intersect: false},
     plugins: {legend: {labels: {color: '#e6e6e6', boxWidth: 12, font: {size: 11}}}, tooltip: {callbacks: {label: c => c.dataset.label + ': ' + (c.dataset.yAxisID === 'y' ? c.parsed.y.toFixed(1) + '조' : Math.round(c.parsed.y).toLocaleString() + '억')}}},
     scales: {x: {ticks: xTicks(), grid: {display: false}}, y: {position: 'left', ticks: {color: '#c9ccd1'}, grid: {color: '#23262e'}},
       y2: {position: 'right', grid: {display: false}, ticks: {color: '#ff8787', callback: v => Math.round(v).toLocaleString()}}}}});
   const capChg = nn(g.cap[s0]) && nn(g.cap[N - 1]) ? (g.cap[N - 1] / g.cap[s0] - 1) * 100 : null;
-  $('t2').innerHTML = `${g.name} · ${D.dates[s0]} 이후 시총 <span class="${cls(capChg)}">${sg(capChg)}%</span>, 누적 외국인+기관 ${eok(cumNet(netOf(g, '합산')).slice(-1)[0])}`;
+  $('t2').innerHTML = `${g.name} · ${D.dates[s0]} 이후 시총 <span class="${cls(capChg)}">${sg(capChg)}%</span>, 누적 외국인+기관 ${eok(cumNet(netOf(g, '합산')).slice(-1)[0])} · <span style="color:#ffd43b">평균단가 대비 ${sg(st.cg)}%</span>(${WHO === '합산' ? '외국인+기관' : WHO}, 실험)`;
 }
 // ---------- 순위표
 function renderTable() {
   const st = D.sectors.map(groupStats);
   const rankBy = (arr, key) => { const o = arr.filter(x => nn(x[key])).sort((a, b) => b[key] - a[key]); const m = {}; o.forEach((x, i) => m[x.g.name] = i + 1); return m; };
   const rk = rankBy(st, 'slow'), rk5 = rankBy(st, 'slow5');
-  st.forEach(x => x.b = bandOf(x.g, x.r));
-  const keyf = {c30: x => x.m30, bb: x => x.b.zNow, name: x => x.g.name, n: x => x.g.n, fast: x => x.fast, slow: x => x.slow, x: x => x.x ? (x.x.up ? 1 : -1) * (1000 - x.x.days) : null, n5: x => x.n5, n20: x => x.n20, c20: x => x.c20, cap: x => x.cap, rkchg: x => nn(rk5[x.g.name]) && nn(rk[x.g.name]) ? rk5[x.g.name] - rk[x.g.name] : null};
+  st.forEach(x => x.b = bandOf(x.g, x.r)); assignStates(st);
+  const keyf = {stt: x => x.state, cg: x => x.cg, c30: x => x.m30, bb: x => x.b.zNow, name: x => x.g.name, n: x => x.g.n, fast: x => x.fast, slow: x => x.slow, x: x => x.x ? (x.x.up ? 1 : -1) * (1000 - x.x.days) : null, n5: x => x.n5, n20: x => x.n20, c20: x => x.c20, cap: x => x.cap, rkchg: x => nn(rk5[x.g.name]) && nn(rk[x.g.name]) ? rk5[x.g.name] - rk[x.g.name] : null};
   const rows = st.slice().sort((a, b) => { const f = keyf[SORT], va = f(a), vb = f(b); if (SORT === 'name') return DESC ? vb.localeCompare(va) : va.localeCompare(vb); const x = nn(va) ? va : (DESC ? -1e18 : 1e18), y = nn(vb) ? vb : (DESC ? -1e18 : 1e18); return DESC ? y - x : x - y; });
   // 고른 섹터는 정렬과 관계없이 맨 위(2026-10-19 사용자 "그 섹터가 맨 위로 오게") - 펼친 종목 목록도 바로 아래
   if (TGT) { const k = rows.findIndex(x => x.g.name === TGT); if (k > 0) rows.unshift(rows.splice(k, 1)[0]); }
   const H = (k, t) => `<th data-s="${k}"${SORT === k ? ' class="sorted"' : ''}>${t}${SORT === k ? (DESC ? ' ▼' : ' ▲') : ''}</th>`;
-  let h = '<tr>' + `<th class="nosort">${XS}일 순위</th>` + H('name', '섹터') + H('n', '종목') + H('fast', XF + '일 누적') + H('slow', XS + '일 누적') + H('c30', '30일 누적') + H('x', '교차(' + XF + '/' + XS + ')') + H('bb', '볼린저(z)') + H('n5', '5일 순매수') + H('n20', '20일 순매수') + H('c20', '20일 시총') + H('cap', '시총') + H('rkchg', '1주 전 순위') + '</tr>';
+  let h = '<tr>' + `<th class="nosort">${XS}일 순위</th>` + H('name', '섹터') + H('n', '종목') + H('fast', XF + '일 누적') + H('slow', XS + '일 누적') + H('c30', '30일 누적') + H('x', '교차(' + XF + '/' + XS + ')') + H('bb', '볼린저(z)') + H('stt', '수급 상태(실험)') + H('cg', '평균단가 대비(실험)') + H('n5', '5일 순매수') + H('n20', '20일 순매수') + H('c20', '20일 시총') + H('cap', '시총') + H('rkchg', '1주 전 순위') + '</tr>';
   rows.forEach(x => {
     const nm = x.g.name, chg = nn(rk5[nm]) && nn(rk[nm]) ? rk5[nm] - rk[nm] : null;
     h += `<tr class="sec${TGT === nm ? ' sel' : ''}" data-name="${nm}"><td>${rk[nm] || '-'}</td><td>${TGT === nm ? '<span style="color:#4dabf7">▶</span> ' : ''}${nm}</td><td>${x.g.n}</td>` +
       `<td class="${cls(x.fast)}">${cum(x.fast, XF)}</td><td class="${cls(x.slow)}"><b>${cum(x.slow, XS)}</b></td><td class="${cls(x.m30)}">${cum(x.m30, 30)}</td>` +
       `<td style="color:${x.x && x.x.up ? '#ff8787' : '#74a7ff'}">${x.x ? (x.x.up ? '▲ 골드 ' : '▼ 데드 ') + x.x.days + '일' + (x.x.days <= 3 ? ' <span style="color:#ffd43b;font-size:11px">새로</span>' : '') : '-'}</td>` +
       `<td style="color:${x.b.now > 0 ? '#ff8787' : x.b.now < 0 ? '#74a7ff' : '#9aa0a6'}">${nn(x.b.zNow) ? sg(x.b.zNow, 1) + (x.b.now ? ' ' + BNAME[x.b.now] + ' ' + x.b.days + '일' : '') : '-'}</td>` +
+      `<td style="color:${nn(x.state) ? STC[x.state] : '#9aa0a6'}" title="${nn(x.state) ? STD[x.state] + ' · 60일 누적 ' + sg(x.L60, 2) + '%, 8일 누적 ' + sg(x.M8, 2) + '%' : ''}">${nn(x.state) ? STN[x.state] : '-'}</td>` +
+      `<td class="${cls(x.cg)}">${nn(x.cg) ? sg(x.cg) + '%' : '-'}</td>` +
       `<td class="${cls(x.n5)}">${eok(x.n5)}</td><td class="${cls(x.n20)}">${eok(x.n20)}</td><td class="${cls(x.c20)}">${sg(x.c20)}%</td><td>${nn(x.cap) ? (x.cap / 10000).toFixed(1) + '조' : '-'}</td>` +
       `<td>${rk5[nm] || '-'}${nn(chg) && chg !== 0 ? ` <span class="${chg > 0 ? 'pos' : 'neg'}" style="font-size:11px">${chg > 0 ? '▲' : '▼'}${Math.abs(chg)}</span>` : ''}</td></tr>`;
     if (OPEN === nm) h += membersRow(x.g);
@@ -237,7 +259,7 @@ function membersRow(g) {
   const k = WHO;
   const list = g.codes.map(c => ({c, ...D.stocks[c]})).filter(x => x.name).sort((a, b) => (nn(b[k][1]) ? b[k][1] : -1e9) - (nn(a[k][1]) ? a[k][1] : -1e9));
   const cell = x => `<span style="display:inline-block;margin:2px 14px 2px 0;white-space:nowrap">${x.name} <b class="${cls(x[k][1])}">${cum(x[k][1], 15)}</b> · 20일 <span class="${cls(x[k][3])}">${eok(x[k][3])}</span> · 주가 <span class="${cls(x.r20)}">${sg(x.r20)}%</span></span>`;
-  return `<tr class="members"><td colspan="13">${g.name} 소속 종목 - ${k === '합산' ? '외국인+기관' : k} 15일 누적 수급(시총 대비 %) 높은 순 · 20일 순매수 · 20일 주가<br>${list.map(cell).join('')}</td></tr>`;
+  return `<tr class="members"><td colspan="15">${g.name} 소속 종목 - ${k === '합산' ? '외국인+기관' : k} 15일 누적 수급(시총 대비 %) 높은 순 · 20일 순매수 · 20일 주가<br>${list.map(cell).join('')}</td></tr>`;
 }
 function renderAll() { renderCards(); renderCharts(); renderBand(); renderTable(); }
 // ---------- 설정
@@ -263,6 +285,7 @@ $('study').innerHTML = `<b>수급과 주가 (${D.dates[1]} ~ ${D.asof} 검증, �
   '· <b>기준선 길이</b>(5~20일 비교): 12~18일은 두 해 모두 과매수 +, 과매도 - 로 안정적이었고, 11일 이하는 과매도 쪽은 맞지만 과매수 쪽이 해마다 흔들렸습니다(11일선: 과매수 뒤 +2.6 / +0.5%p, 과매도 뒤 -1.4 / -2.6%p). 밴드 기간 20일은 어떤 길이와도 일관성이 없었습니다.<br>' +
   '· <b>수급 볼린저</b>: 기준선·밴드 정의 8가지 x 주체·집계를 비교(96조합)했을 때 대부분은 2025년과 2026년 방향이 엇갈렸고, <b>15일선 + 60일 밴드(±2σ)</b>만 두 해 모두 같은 방향이었습니다 - 과매수 진입 섹터는 이후 20일 다른 섹터보다 강했고(+2.4%p / +2.6%p), 과매도 진입 섹터는 약했습니다(-1.2%p / -1.5%p). 즉 <b>되돌림이 아니라 추세 지속</b> 쪽입니다(외국인 기준 +2.5 / -2.1%p 비슷). 종목 단위도 같은 방향이었는데 기관 과매도 종목만 예외로 이후 반등했습니다. 시장 전체로는 <b>기관</b> 과매수 섹터 수 - 과매도 섹터 수만 이후 20일 시장(동일가중)과 두 해 모두 양의 관계였습니다(상관 +0.36 / +0.20). 이긴 비율은 50% 안팎이라 큰 수익 몇 번이 평균을 끌어올린 형태입니다.<br>' +
   '· <b>효과가 나타나는 기간</b>(외국인+기관·섹터 시총 합): 신호 뒤 1~5일은 거의 효과가 없고(2026년은 오히려 반대), 10~15일부터 나타나 20~40거래일(1~2달)에 걸쳐 쌓인 뒤 멈춥니다 - 볼린저 과매수 뒤 누적 +2.4/+2.6%p(20일) → +3.3/+7.8%p(40일), 15일선 순위 상위1/5-하위1/5도 +2.1/+2.1%p(20일) → +2.6/+6.6%p(40일). 단기 매매보다 1~2달 섹터 비중 조절용입니다. 외국인·기관 단독은 해마다 엇갈려 합산 기준이 맞습니다.<br>' +
+  '· <b style="color:#ffd43b">실험 - 수급 상태·평균단가</b>: 60일 누적 수급이 섹터 간 상위 20%인데 최근 8일 순매수가 멈춘 <b>정체</b>는 매도 신호가 아니었습니다 - 수급이 멈춰도 주가는 대체로 같은 방향으로 계속 갔습니다(이후 40일 +1.5 / +2.5%p, 매집 진행과 비슷하거나 나음). 하루 수급과 하루 주가의 상관은 정체 구간에도 0.6으로 같아서, 누적선이 평평해 보일 뿐 그날그날은 여전히 같이 움직입니다. 가장 약했던 건 누적 하위 + 계속 빠지는 <b>이탈</b>(-2.4 / -3.2%p)이고, 누적 하위에서 며칠 사기 시작한 <b>바닥 매수</b>도 이후 약했습니다(-2.0 / -1.4%p). 수급 평균단가는 종목 단위에서 더 의미가 있었습니다(종목 수급 페이지 참고) - 섹터 단위는 방향이 섞였습니다.<br>' +
   '· <b>쓰는 법</b>: 수급은 "지금 어느 섹터에 돈이 들어오고 있나"를 확인하는 지표로 보고, 단독 매매 신호보다는 가격 추세(섹터 이평선 위 비율)와 같은 방향인지 확인하는 용도가 맞습니다. 기간이 2025-01부터라 표본이 짧다는 점도 감안하세요.';
 renderAll();
 </script>
