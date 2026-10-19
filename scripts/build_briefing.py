@@ -3,7 +3,7 @@
 매일 아침 정규 갱신(run_pipeline)에서 시장 국면·섹터 이평선 페이지가 만들어진 뒤 실행:
   바탕화면 클로드\브리핑\시장브리핑_YYYYMMDD.pdf(크롬 헤드리스로 인쇄용 HTML을 PDF로)만 만든다 - 홈페이지엔 올리지 않음
   (2026-10-16 사용자 "홈페이지로 보지 말고 그냥 생성해서 나한테 주라"). HTML은 PDF 만들 때만 임시로 쓰고 지움.
-1장 시장 판단: 국면·목표 비중·꺾임 주의, 지수, 국면 재료, 시장 폭(이평선 위 비율·10/15 교차·5/15), 밸류 바닥, 차트 2개.
+1장 시장 판단: 국면·목표 비중·꺾임 주의, 지수, 국면 재료, 시장 폭(이평선 위 비율·8/15 교차·5/15), 밸류 바닥, 차트 2개.
 2장 섹터: 4사분면(5일/15일), 섹터 1주 등락, 20주선 위 강·약 섹터와 1주 변화, 실적 가속 섹터, 자동 요약.
 쓰는 데이터는 모두 이미 만들어진 산출물(같은 숫자가 각 페이지와 일치): market_phase_daily.csv, docs/sector_ma_breadth.html의 데이터,
 op_band_summary.csv, sector_yoy_accel_summary_trimmed.csv, phase_warning_inputs.csv(코스닥). MP 보유 내역(비밀번호 페이지)은 넣지 않음.
@@ -242,8 +242,8 @@ def main():
         a = A.get(key); i = n - 1 - back
         return a[i] if a and i >= 0 and a[i] is not None else np.nan
     breadth = [(lbl, at("n" + key), at("n" + key, 5), at("n" + key, 21)) for lbl, key in (("20일선", "20"), ("20주선", "20w"), ("120일선", "120"), ("200일선", "200"))]
-    # 브리핑 교차는 10일/15일선 위 비율(평활 없음) - 2026-10-19 사용자 "20/40 말고 10일 15일로"
-    f2040 = np.array(A["n10"], float); s2040 = np.array(A["n15"], float)
+    # 브리핑 교차는 8일/15일선 위 비율(평활 없음) - 2026-10-19 사용자 "20/40 말고 10일 15일로" -> 같은 날 "8일 15일로"
+    f2040 = np.array(A["n8"], float); s2040 = np.array(A["n15"], float)
     d2040, lc2040 = cross_state(f2040, s2040)
     f515, s515 = np.array(A["n5"], float), np.array(A["n15"], float)
     d515, lc515 = cross_state(f515, s515)
@@ -308,7 +308,7 @@ def main():
     r_sm = rets(smi)
     bullets.append(f"중소형 지수 1일 {sg(r_sm[0])}, 1주 {sg(r_sm[1])}, 1달 {sg(r_sm[2])} · 120일선 {'아래' if sm_below else '위'} {kb}거래일째({sg(pct(smi.iloc[-1], ma120.iloc[-1]))})")
     st2040 = "골드(빠른 선 위)" if d2040[-1] > 0 else "데드(빠른 선 아래)"
-    bullets.append(f"시장 폭 교차(10일/15일선 위 비율) <b>{st2040}</b>" + (f" - {dates[lc2040]} 교차, {n - lc2040}거래일째" if lc2040 else "") +
+    bullets.append(f"시장 폭 교차(8일/15일선 위 비율) <b>{st2040}</b>" + (f" - {dates[lc2040]} 교차, {n - lc2040}거래일째" if lc2040 else "") +
                    f", 차이 {d2040[-1]:+.0f}%p(1주 전 {d2040[-6]:+.0f}%p). 단기(5/15)는 {'골드' if d515[-1] > 0 else '데드'}" + (f"({dates[lc515][5:]}부터)" if lc515 else ""))
     b20 = breadth[0]
     bullets.append(f"20일선 위 종목 {f0(b20[1])}(1주 전 {f0(b20[2])}, 1달 전 {f0(b20[3])}) · 200일선 위 {f0(breadth[3][1])}")
@@ -335,7 +335,7 @@ def main():
         if a == a and b == b and ((a <= 0 < b) or (a >= 0 > b)):
             marks.append((i - cut, f2040[i], "▲" if b > 0 else "▼", "#c92a2a" if b > 0 else "#1971c2"))
     kqw = kq.reindex(pd.to_datetime(dd), method="ffill").values
-    chart2 = svg_lines(dd, [(f2040[cut:], "#e8590c", 1.8, "10일선 위", False), (s2040[cut:], "#1971c2", 1.8, "15일선 위", False)],
+    chart2 = svg_lines(dd, [(f2040[cut:], "#e8590c", 1.8, "8일선 위", False), (s2040[cut:], "#1971c2", 1.8, "15일선 위", False)],
                        ymin=0, ymax=100, marks=marks, hline=50, right=(kqw, "#adb5bd", "코스닥"))
 
     # ---------- HTML
@@ -423,7 +423,7 @@ def main():
     <div class="box" style="border-color:{PH3C[cur3]}"><div class="lbl">국면</div><div class="val" style="color:{PH3C[cur3]}">{cur3}</div><div class="sub">{since:%m/%d}부터 {k}거래일째</div></div>
     <div class="box"><div class="lbl">목표 비중</div><div class="val">{target}%</div><div class="sub">{'꺾임 주의 ' + str(ck) + '일째' if cau else '꺾임 주의 없음'}</div></div>
     <div class="box"><div class="lbl">국면 점수(65일 EMA)</div><div class="val">{sc:.1f}</div><div class="sub">1주 전 {sc5:.1f} · 낮음&lt;{d['lo'].iloc[-1]:.0f} 높음&gt;{d['hi'].iloc[-1]:.0f}</div></div>
-    <div class="box"><div class="lbl">시장 폭 교차 10/15</div><div class="val" style="color:{'#c92a2a' if d2040[-1] > 0 else '#1971c2'}">{'골드' if d2040[-1] > 0 else '데드'}</div><div class="sub">{(dates[lc2040][5:] + ' 교차 · ' + str(n - lc2040) + '일째') if lc2040 else ''}</div></div>
+    <div class="box"><div class="lbl">시장 폭 교차 8/15</div><div class="val" style="color:{'#c92a2a' if d2040[-1] > 0 else '#1971c2'}">{'골드' if d2040[-1] > 0 else '데드'}</div><div class="sub">{(dates[lc2040][5:] + ' 교차 · ' + str(n - lc2040) + '일째') if lc2040 else ''}</div></div>
   </div>
   <h2>요약</h2><ul>{''.join(f'<li>{b}</li>' for b in bullets)}</ul>
   <div class="grid2">
@@ -435,7 +435,7 @@ def main():
     <div><table><tr><th>1주 상위</th><th>초과수익</th><th>이긴 종목</th></tr>{rs_rows("mean_1주")}</table></div>
     <div><table><tr><th>1달 상위</th><th>초과수익</th><th>이긴 종목</th></tr>{rs_rows("mean_1달")}</table></div>
   </div>
-  <h2>시장 폭 교차: 10일선 위 vs 15일선 위 비율 <span class="sub">▲ 골드 · ▼ 데드 · 회색 = 코스닥</span></h2>{chart2}
+  <h2>시장 폭 교차: 8일선 위 vs 15일선 위 비율 <span class="sub">▲ 골드 · ▼ 데드 · 회색 = 코스닥</span></h2>{chart2}
   <div class="note">섹터 정리 전체 종목 기준. 짧은 조합이라 교차가 잦음(단기 흐름용) - 손익 비교(2016~)에서 가장 견고했던 조합은 20일/40일·5일 평활(섹터 이평선 페이지 기본값).</div>
   <h2>실적 가속 섹터 (섹터별 YoY 가속화, 절사평균) <span class="sub">가속도 = 2분기 뒤 추정 YoY - 최근 확정 YoY</span></h2>
   <table><tr><th>섹터</th><th>종목</th><th>가속도</th><th>밸류 등급</th></tr>{yoy_tbl}</table>
