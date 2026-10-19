@@ -196,7 +196,7 @@ TEMPLATE = r"""<!doctype html>
 
   <div class="box">
     <h2>시가총액과 누적 순매수 <span id="t2" style="font-size:12px;font-weight:normal;color:#9aa0a6"></span></h2>
-    <div class="desc">흰 선 = 섹터 시가총액(조원, 왼쪽), 색 선 = 차트 시작일부터 누적 순매수(억원, 오른쪽 - 빨강 외국인+기관 · 주황 외국인 · 초록 기관). 누적 순매수가 오르는데 시총이 같이 오르면 수급이 주가를 받치는 것, 엇갈리면 다른 주체(개인 등)가 반대로 움직이는 것.</div>
+    <div class="desc">흰 선 = 섹터 시가총액(조원, 왼쪽), 빨간 선 = 차트 시작일부터 누적 외국인+기관 순매수(억원, 오른쪽). 외국인·기관 따로 보려면 범례의 '누적 외국인'·'누적 기관'을 누르세요. 누적 순매수가 오르는데 시총이 같이 오르면 수급이 주가를 받치는 것, 엇갈리면 다른 주체(개인 등)가 반대로 움직이는 것.</div>
     <div class="chart-wrap"><canvas id="c2"></canvas></div>
   </div>
 
@@ -301,6 +301,7 @@ function renderCards() {
 }
 // ---------- 차트
 let c1 = null, c2 = null;
+const C2SHOW = {2: false, 3: false};
 Chart.defaults.color = '#9aa0a6'; Chart.defaults.borderColor = '#23262e';
 function xTicks() { return {color: '#9aa0a6', maxTicksLimit: 8, maxRotation: 0}; }
 function renderCharts() {
@@ -322,12 +323,13 @@ function renderCharts() {
   $('xNow').innerHTML = st.x ? `<b style="color:${st.x.up ? '#ff8787' : '#74a7ff'}">지금 ${st.x.up ? '골드' : '데드'} ${st.x.days}거래일째</b>${st.x.since ? ' (' + st.x.since + ' 교차)' : ''} · ${XF}일 ${sg(st.fast, 2)}bp vs ${XS}일 ${sg(st.slow, 2)}bp` : '';
   // 시총 + 누적 순매수
   const cum = a => { let s = 0; return a.slice(s0).map(v => { s += nn(v) ? v : 0; return s; }); };
-  if (c2) c2.destroy();
+  // 외국인·기관 따로 누적선은 기본 꺼짐(2026-10-19 사용자 "기본적으로 꺼진 상태, 나중에 켜서 보게") - 범례로 켜면 다시 그려도 유지
+  if (c2) { [2, 3].forEach(i => C2SHOW[i] = c2.isDatasetVisible(i)); c2.destroy(); }
   c2 = new Chart($('c2'), {type: 'line', data: {labels: L, datasets: [
     {label: '시가총액(조)', data: g.cap.slice(s0).map(v => nn(v) ? v / 10000 : null), borderColor: '#e6e6e6', borderWidth: 1.8, pointRadius: 0, yAxisID: 'y'},
     {label: '누적 외국인+기관(억)', data: cum(netOf(g, '합산')), borderColor: '#ff6b6b', borderWidth: 1.6, pointRadius: 0, yAxisID: 'y2'},
-    {label: '누적 외국인(억)', data: cum(g.net['외국인']), borderColor: '#ffa94d', borderWidth: 1.2, borderDash: [4, 3], pointRadius: 0, yAxisID: 'y2'},
-    {label: '누적 기관(억)', data: cum(g.net['기관']), borderColor: '#69db7c', borderWidth: 1.2, borderDash: [4, 3], pointRadius: 0, yAxisID: 'y2'}
+    {label: '누적 외국인(억)', data: cum(g.net['외국인']), borderColor: '#ffa94d', borderWidth: 1.2, borderDash: [4, 3], pointRadius: 0, yAxisID: 'y2', hidden: !C2SHOW[2]},
+    {label: '누적 기관(억)', data: cum(g.net['기관']), borderColor: '#69db7c', borderWidth: 1.2, borderDash: [4, 3], pointRadius: 0, yAxisID: 'y2', hidden: !C2SHOW[3]}
   ]}, options: {responsive: true, maintainAspectRatio: false, animation: false, interaction: {mode: 'index', intersect: false},
     plugins: {legend: {labels: {color: '#e6e6e6', boxWidth: 12, font: {size: 11}}}, tooltip: {callbacks: {label: c => c.dataset.label + ': ' + (c.dataset.yAxisID === 'y' ? c.parsed.y.toFixed(1) + '조' : Math.round(c.parsed.y).toLocaleString() + '억')}}},
     scales: {x: {ticks: xTicks(), grid: {display: false}}, y: {position: 'left', ticks: {color: '#c9ccd1'}, grid: {color: '#23262e'}},
