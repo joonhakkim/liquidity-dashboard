@@ -37,7 +37,7 @@
   <a class="back" href="index.html">&larr; 홈</a>
   <a class="back" href="sector_ma_breadth.html">섹터 이평선 위 비율 &rarr;</a>
   <h1>수급 분석<span class="sub">섹터 정리 섹터·종목의 외국인·기관 순매수, 시가총액 대비 비율</span></h1>
-  <div class="updated">최종 갱신: 2026-10-19 14:09 &middot; 데이터 2024-12-30 ~ 2026-10-16 &middot; 수급.xlsx(외국인·기관 순매수대금) + 기업 밴드 찾기 2 시가총액</div>
+  <div class="updated">최종 갱신: 2026-10-19 14:19 &middot; 데이터 2024-12-30 ~ 2026-10-16 &middot; 수급.xlsx(외국인·기관 순매수대금) + 기업 밴드 찾기 2 시가총액</div>
 
   <div class="ctl">
     <span>주체</span><span class="seg" id="segWho"><button data-v="합산" class="active">외국인+기관</button><button data-v="외국인">외국인</button><button data-v="기관">기관</button></span>
@@ -53,6 +53,20 @@
     <div class="desc">막대 = 그날 순매수 / 전일 시가총액(bp, 1bp = 시총의 0.01%), 선 = 이동평균. 빠른 선이 느린 선을 위로 뚫으면 골드 ▲, 아래로 뚫으면 데드 ▼. 아래 표에서 섹터를 누르면 그 섹터로 바뀝니다.</div>
     <div class="ctl" style="margin-bottom:6px"><span>대상</span><select id="selT"></select><span id="xNow"></span></div>
     <div class="chart-wrap"><canvas id="c1"></canvas></div>
+  </div>
+
+  <div class="box">
+    <h2>수급 볼린저(과매수·과매도) <span id="t3" style="font-size:12px;font-weight:normal;color:#9aa0a6"></span></h2>
+    <div class="desc">기준선(수급 비율의 이동평균)에 볼린저밴드를 씌운 것: 가운데 점선 = 기준선의 최근 W일 평균, 위·아래 선 = 평균 ± 배수 x W일 표준편차. 기준선이 위 밴드를 뚫으면 <b style="color:#ff8787">과매수 ▲</b>(평소보다 이례적으로 많이 사들임), 아래 밴드를 뚫으면 <b style="color:#74a7ff">과매도 ▼</b>(이례적으로 많이 팖). 대상 섹터는 위 '수급 방향' 칸과 같습니다.</div>
+    <div class="ctl" style="margin-bottom:6px">
+      <span>기준선</span><span class="seg" id="segBL"><button data-v="slow" class="active">느린 선(15일)</button><button data-v="fast">빠른 선(8일)</button></span>
+      <span>밴드 기간</span><span class="seg" id="segBW"><button data-v="20">20일</button><button data-v="60" class="active">60일</button></span>
+      <span>배수</span><span class="seg" id="segBK"><button data-v="1.5">1.5</button><button data-v="2" class="active">2</button></span>
+      <span id="bNow"></span>
+    </div>
+    <div class="chart-wrap"><canvas id="c3"></canvas></div>
+    <div class="desc" style="margin-top:10px">과매수·과매도 섹터 수 추이(42섹터, 위와 같은 기준) - 위로 = 과매수 섹터 수, 아래로 = 과매도 섹터 수.</div>
+    <div class="chart-wrap" style="height:200px"><canvas id="c4"></canvas></div>
   </div>
 
   <div class="box">
@@ -75,6 +89,7 @@ const nn = v => v !== null && v !== undefined && !isNaN(v);
 const N = D.dates.length;
 const WINS = [3, 5, 8, 10, 14, 15, 20, 40, 60];
 let WHO = '합산', HOW = 'cap', XF = 8, XS = 15, PERIOD = 126, TGT = '', SORT = 'slow', DESC = true, OPEN = null;
+let BL = 'slow', BW = 60, BK = 2;   // 수급 볼린저 기본: 15일선 + 60일 밴드 + 2배(두 해 모두 같은 방향이었던 유일한 정의)
 const f1 = (v, d = 1) => nn(v) ? v.toFixed(d) : '-';
 const sg = (v, d = 1) => nn(v) ? (v >= 0 ? '+' : '') + v.toFixed(d) : '-';
 const cls = v => nn(v) ? (v >= 0 ? 'pos' : 'neg') : '';
@@ -92,12 +107,58 @@ function crossState(f, s) {
   while (j - 1 >= 0 && nn(f[j - 1]) && nn(s[j - 1]) && (f[j - 1] > s[j - 1]) === up) j--;
   return {up, days: k - j + 1, since: j > 0 && nn(f[j - 1]) ? D.dates[j] : null};
 }
+function rollMS(a, w) {   // 이동평균·표본표준편차(값이 80% 이상 있을 때만)
+  const m = new Array(a.length).fill(null), s = new Array(a.length).fill(null), need = Math.ceil(w * 0.8);
+  for (let i = w - 1; i < a.length; i++) { const v = []; for (let j = i - w + 1; j <= i; j++) if (nn(a[j])) v.push(a[j]);
+    if (v.length >= need) { const mu = v.reduce((x, y) => x + y, 0) / v.length; m[i] = mu; s[i] = Math.sqrt(v.reduce((x, y) => x + (y - mu) ** 2, 0) / (v.length - 1)); } }
+  return {m, s};
+}
+function bandOf(g, r) {
+  r = r || ratioOf(g);
+  const line = ma(r, BL === 'slow' ? XS : XF), other = ma(r, BL === 'slow' ? XF : XS), {m, s} = rollMS(line, BW);
+  const up = m.map((v, i) => nn(v) && nn(s[i]) ? v + BK * s[i] : null), dn = m.map((v, i) => nn(v) && nn(s[i]) ? v - BK * s[i] : null);
+  const z = line.map((v, i) => nn(v) && nn(m[i]) && s[i] > 0 ? (v - m[i]) / s[i] : null);
+  const st = z.map(v => !nn(v) ? null : v > BK ? 1 : v < -BK ? -1 : 0);
+  const k = N - 1; let d = 0; if (nn(st[k])) { let j = k; while (j >= 0 && st[j] === st[k]) j--; d = k - j; }
+  return {line, other, m, up, dn, z, st, now: st[k], days: d, zNow: z[k]};
+}
 function sumLast(a, n, end = N - 1) { let s = 0, c = 0; for (let i = Math.max(0, end - n + 1); i <= end; i++) if (nn(a[i])) { s += a[i]; c++; } return c ? s : null; }
 function groupStats(g) {
   const r = ratioOf(g), f = ma(r, XF), s = ma(r, XS), nt = netOf(g, WHO), k = N - 1;
   const cap0 = g.cap[k], cap20 = g.cap[k - 20];
   return {g, r, f, s, fast: f[k], slow: s[k], slow5: s[k - 5], fast5: f[k - 5], x: crossState(f, s),
     n5: sumLast(nt, 5), n20: sumLast(nt, 20), c20: nn(cap0) && nn(cap20) && cap20 ? (cap0 / cap20 - 1) * 100 : null, cap: cap0};
+}
+let c3 = null, c4 = null;
+const BNAME = {1: '과매수', '-1': '과매도', 0: '보통'};
+function renderBand() {
+  const g = getGroup(TGT), B = bandOf(g), s0 = PERIOD ? Math.max(0, N - PERIOD) : 0, L = D.dates.slice(s0);
+  const ent = (sign) => B.line.map((v, i) => i > 0 && B.st[i] === sign && B.st[i - 1] !== sign && nn(B.st[i - 1]) ? v : null);
+  const lb = BL === 'slow' ? XS + '일선' : XF + '일선', ob = BL === 'slow' ? XF + '일선' : XS + '일선';
+  if (c3) c3.destroy();
+  c3 = new Chart($('c3'), {type: 'line', data: {labels: L, datasets: [
+    {label: '상단(평균+' + BK + 'σ)', data: B.up.slice(s0), borderColor: '#ff878799', borderWidth: 1, borderDash: [4, 3], pointRadius: 0, fill: '+1', backgroundColor: '#4dabf712'},
+    {label: '하단(평균-' + BK + 'σ)', data: B.dn.slice(s0), borderColor: '#74a7ff99', borderWidth: 1, borderDash: [4, 3], pointRadius: 0},
+    {label: BW + '일 평균', data: B.m.slice(s0), borderColor: '#6b7280', borderWidth: 1, borderDash: [2, 3], pointRadius: 0},
+    {label: lb + '(기준)', data: B.line.slice(s0), borderColor: BL === 'slow' ? '#4dabf7' : '#ffa94d', borderWidth: 2, pointRadius: 0},
+    {label: ob, data: B.other.slice(s0), borderColor: BL === 'slow' ? '#ffa94d66' : '#4dabf766', borderWidth: 1, pointRadius: 0},
+    {label: '과매수 ▲', data: ent(1).slice(s0), showLine: false, pointStyle: 'triangle', pointRadius: 7, backgroundColor: '#ff6b6b'},
+    {label: '과매도 ▼', data: ent(-1).slice(s0), showLine: false, pointStyle: 'triangle', rotation: 180, pointRadius: 7, backgroundColor: '#4dabf7'}
+  ]}, options: {responsive: true, maintainAspectRatio: false, animation: false, interaction: {mode: 'index', intersect: false},
+    plugins: {legend: {labels: {color: '#e6e6e6', boxWidth: 12, font: {size: 11}, filter: it => it.text}}, tooltip: {filter: c => c.parsed.y !== null, callbacks: {label: c => c.dataset.label + ': ' + sg(c.parsed.y, 2) + 'bp', afterBody: it => { const i = s0 + it[0].dataIndex; return nn(B.z[i]) ? '위치 z = ' + sg(B.z[i], 2) + ' (' + BNAME[B.st[i]] + ')' : ''; }}}},
+    scales: {x: {ticks: xTicks(), grid: {display: false}}, y: {ticks: {color: '#9aa0a6', callback: v => v.toFixed(1)}, grid: {color: '#23262e'}}}}});
+  $('t3').textContent = `${g.name} · ${lb} 기준 · ${BW}일 밴드 · ${BK}σ`;
+  $('bNow').innerHTML = nn(B.now) ? `<b style="color:${B.now > 0 ? '#ff8787' : B.now < 0 ? '#74a7ff' : '#c9ccd1'}">지금 ${BNAME[B.now]}${B.now ? ' ' + B.days + '일째' : ''}</b> · 밴드 안 위치 z = ${sg(B.zNow, 2)}(±${BK} 밖이면 과매수/과매도)` : '';
+  // 섹터 수 추이
+  const S = D.sectors.map(x => bandOf(x).st);
+  const nUp = D.dates.map((_, i) => S.filter(a => a[i] === 1).length), nDn = D.dates.map((_, i) => -S.filter(a => a[i] === -1).length);
+  if (c4) c4.destroy();
+  c4 = new Chart($('c4'), {type: 'bar', data: {labels: L, datasets: [
+    {label: '과매수 섹터 수', data: nUp.slice(s0), backgroundColor: '#ff6b6b99', stack: 's'},
+    {label: '과매도 섹터 수', data: nDn.slice(s0), backgroundColor: '#4dabf799', stack: 's'}
+  ]}, options: {responsive: true, maintainAspectRatio: false, animation: false, interaction: {mode: 'index', intersect: false},
+    plugins: {legend: {labels: {color: '#e6e6e6', boxWidth: 12, font: {size: 11}}}, tooltip: {callbacks: {label: c => c.dataset.label + ': ' + Math.abs(c.parsed.y) + '개'}}},
+    scales: {x: {stacked: true, ticks: xTicks(), grid: {display: false}}, y: {stacked: true, ticks: {color: '#9aa0a6', callback: v => Math.abs(v)}, grid: {color: '#23262e'}}}}});
 }
 function getGroup(name) { return name ? D.sectors.find(x => x.name === name) : D.all; }
 // ---------- 카드
@@ -108,6 +169,8 @@ function renderCards() {
     `<div class="card">섹터 정리 전체 · ${XF}일 / ${XS}일 평균<div class="val"><span class="${cls(a.fast)}">${sg(a.fast, 2)}</span> / <span class="${cls(a.slow)}">${sg(a.slow, 2)}</span>bp</div>${WHO === '합산' ? '외국인+기관' : WHO} · ${HOW === 'cap' ? '시총 합' : '종목 평균'} 기준 · 1주 전 ${XS}일 ${sg(a.slow5, 2)}bp</div>` +
     `<div class="card">교차 상태(${XF}/${XS})<div class="val" style="color:${a.x && a.x.up ? '#ff8787' : '#74a7ff'}">${a.x ? (a.x.up ? '▲ 골드' : '▼ 데드') + ' ' + a.x.days + '일째' : '-'}</div>${a.x && a.x.since ? a.x.since + ' 교차' : ''}</div>` +
     `<div class="card">순매수(${D.asof} 까지)<div class="val">${eok(a.n5)} <span style="font-size:12px;color:#9aa0a6">5일</span></div>20일 ${eok(a.n20)} · 외국인 20일 ${eok(sumLast(fw, 20))} · 기관 20일 ${eok(sumLast(iw, 20))}</div>` +
+    (() => { const B = D.sectors.map(x => ({n: x.name, b: bandOf(x)})); const up = B.filter(x => x.b.now === 1), dn = B.filter(x => x.b.now === -1);
+      return `<div class="card">수급 볼린저(${BL === 'slow' ? XS : XF}일선·${BW}일·${BK}σ)<div class="val"><span class="pos">과매수 ${up.length}</span> · <span class="neg">과매도 ${dn.length}</span></div>${up.map(x => x.n).slice(0, 4).join(', ') || '-'}${dn.length ? ' / ' + dn.map(x => x.n).slice(0, 4).join(', ') : ''}</div>`; })() +
     `<div class="card">섹터 정리 시가총액<div class="val">${nn(a.cap) ? (a.cap / 10000).toFixed(0) + '조' : '-'}</div>20일 변화 <span class="${cls(a.c20)}">${sg(a.c20)}%</span></div>`;
 }
 // ---------- 차트
@@ -151,46 +214,52 @@ function renderTable() {
   const st = D.sectors.map(groupStats);
   const rankBy = (arr, key) => { const o = arr.filter(x => nn(x[key])).sort((a, b) => b[key] - a[key]); const m = {}; o.forEach((x, i) => m[x.g.name] = i + 1); return m; };
   const rk = rankBy(st, 'slow'), rk5 = rankBy(st, 'slow5');
-  const keyf = {name: x => x.g.name, n: x => x.g.n, fast: x => x.fast, slow: x => x.slow, x: x => x.x ? (x.x.up ? 1 : -1) * (1000 - x.x.days) : null, n5: x => x.n5, n20: x => x.n20, c20: x => x.c20, cap: x => x.cap, rkchg: x => nn(rk5[x.g.name]) && nn(rk[x.g.name]) ? rk5[x.g.name] - rk[x.g.name] : null};
+  st.forEach(x => x.b = bandOf(x.g, x.r));
+  const keyf = {bb: x => x.b.zNow, name: x => x.g.name, n: x => x.g.n, fast: x => x.fast, slow: x => x.slow, x: x => x.x ? (x.x.up ? 1 : -1) * (1000 - x.x.days) : null, n5: x => x.n5, n20: x => x.n20, c20: x => x.c20, cap: x => x.cap, rkchg: x => nn(rk5[x.g.name]) && nn(rk[x.g.name]) ? rk5[x.g.name] - rk[x.g.name] : null};
   const rows = st.slice().sort((a, b) => { const f = keyf[SORT], va = f(a), vb = f(b); if (SORT === 'name') return DESC ? vb.localeCompare(va) : va.localeCompare(vb); const x = nn(va) ? va : (DESC ? -1e18 : 1e18), y = nn(vb) ? vb : (DESC ? -1e18 : 1e18); return DESC ? y - x : x - y; });
   const H = (k, t) => `<th data-s="${k}"${SORT === k ? ' class="sorted"' : ''}>${t}${SORT === k ? (DESC ? ' ▼' : ' ▲') : ''}</th>`;
-  let h = '<tr>' + `<th class="nosort">${XS}일 순위</th>` + H('name', '섹터') + H('n', '종목') + H('fast', XF + '일 평균') + H('slow', XS + '일 평균') + H('x', '교차(' + XF + '/' + XS + ')') + H('n5', '5일 순매수') + H('n20', '20일 순매수') + H('c20', '20일 시총') + H('cap', '시총') + H('rkchg', '1주 전 순위') + '</tr>';
+  let h = '<tr>' + `<th class="nosort">${XS}일 순위</th>` + H('name', '섹터') + H('n', '종목') + H('fast', XF + '일 평균') + H('slow', XS + '일 평균') + H('x', '교차(' + XF + '/' + XS + ')') + H('bb', '볼린저(z)') + H('n5', '5일 순매수') + H('n20', '20일 순매수') + H('c20', '20일 시총') + H('cap', '시총') + H('rkchg', '1주 전 순위') + '</tr>';
   rows.forEach(x => {
     const nm = x.g.name, chg = nn(rk5[nm]) && nn(rk[nm]) ? rk5[nm] - rk[nm] : null;
     h += `<tr class="sec${TGT === nm ? ' sel' : ''}" data-name="${nm}"><td>${rk[nm] || '-'}</td><td>${nm}</td><td>${x.g.n}</td>` +
       `<td class="${cls(x.fast)}">${sg(x.fast, 2)}</td><td class="${cls(x.slow)}"><b>${sg(x.slow, 2)}</b></td>` +
       `<td style="color:${x.x && x.x.up ? '#ff8787' : '#74a7ff'}">${x.x ? (x.x.up ? '▲ 골드 ' : '▼ 데드 ') + x.x.days + '일' + (x.x.days <= 3 ? ' <span style="color:#ffd43b;font-size:11px">새로</span>' : '') : '-'}</td>` +
+      `<td style="color:${x.b.now > 0 ? '#ff8787' : x.b.now < 0 ? '#74a7ff' : '#9aa0a6'}">${nn(x.b.zNow) ? sg(x.b.zNow, 1) + (x.b.now ? ' ' + BNAME[x.b.now] + ' ' + x.b.days + '일' : '') : '-'}</td>` +
       `<td class="${cls(x.n5)}">${eok(x.n5)}</td><td class="${cls(x.n20)}">${eok(x.n20)}</td><td class="${cls(x.c20)}">${sg(x.c20)}%</td><td>${nn(x.cap) ? (x.cap / 10000).toFixed(1) + '조' : '-'}</td>` +
       `<td>${rk5[nm] || '-'}${nn(chg) && chg !== 0 ? ` <span class="${chg > 0 ? 'pos' : 'neg'}" style="font-size:11px">${chg > 0 ? '▲' : '▼'}${Math.abs(chg)}</span>` : ''}</td></tr>`;
     if (OPEN === nm) h += membersRow(x.g);
   });
   $('tbl').innerHTML = h;
   $('tbl').querySelectorAll('th[data-s]').forEach(th => th.onclick = () => { const s = th.dataset.s; if (SORT === s) DESC = !DESC; else { SORT = s; DESC = s !== 'name'; } renderTable(); });
-  $('tbl').querySelectorAll('tr.sec').forEach(tr => tr.onclick = () => { const nm = tr.dataset.name; OPEN = OPEN === nm ? null : nm; TGT = nm; $('selT').value = nm; renderCharts(); renderTable(); });
+  $('tbl').querySelectorAll('tr.sec').forEach(tr => tr.onclick = () => { const nm = tr.dataset.name; OPEN = OPEN === nm ? null : nm; TGT = nm; $('selT').value = nm; renderCharts(); renderBand(); renderTable(); });
 }
 function membersRow(g) {
   const k = WHO;
   const list = g.codes.map(c => ({c, ...D.stocks[c]})).filter(x => x.name).sort((a, b) => (nn(b[k][1]) ? b[k][1] : -1e9) - (nn(a[k][1]) ? a[k][1] : -1e9));
   const cell = x => `<span style="display:inline-block;margin:2px 14px 2px 0;white-space:nowrap">${x.name} <b class="${cls(x[k][1])}">${sg(x[k][1], 2)}</b><span style="color:#7c828b">bp</span> · 20일 <span class="${cls(x[k][3])}">${eok(x[k][3])}</span> · 주가 <span class="${cls(x.r20)}">${sg(x.r20)}%</span></span>`;
-  return `<tr class="members"><td colspan="11">${g.name} 소속 종목 - ${k === '합산' ? '외국인+기관' : k} 15일 평균 수급 비율 높은 순(종목 표는 8·15일 고정) · 20일 순매수 · 20일 주가<br>${list.map(cell).join('')}</td></tr>`;
+  return `<tr class="members"><td colspan="12">${g.name} 소속 종목 - ${k === '합산' ? '외국인+기관' : k} 15일 평균 수급 비율 높은 순(종목 표는 8·15일 고정) · 20일 순매수 · 20일 주가<br>${list.map(cell).join('')}</td></tr>`;
 }
-function renderAll() { renderCards(); renderCharts(); renderTable(); }
+function renderAll() { renderCards(); renderCharts(); renderBand(); renderTable(); }
 // ---------- 설정
 $('selF').innerHTML = WINS.map(w => `<option value="${w}">${w}일</option>`).join(''); $('selF').value = XF;
 $('selS').innerHTML = WINS.map(w => `<option value="${w}">${w}일</option>`).join(''); $('selS').value = XS;
 $('selT').innerHTML = '<option value="">섹터 정리 전체</option>' + D.sectors.map(s => `<option value="${s.name}">${s.name}</option>`).join('');
 $('selF').onchange = () => { XF = +$('selF').value; renderAll(); };
 $('selS').onchange = () => { XS = +$('selS').value; renderAll(); };
-$('selT').onchange = () => { TGT = $('selT').value; renderCharts(); renderTable(); };
+$('selT').onchange = () => { TGT = $('selT').value; renderCharts(); renderBand(); renderTable(); };
 const seg = (id, fn) => $(id).onclick = e => { const b = e.target.closest('button'); if (!b) return; document.querySelectorAll('#' + id + ' button').forEach(x => x.classList.toggle('active', x === b)); fn(b); };
 seg('segWho', b => { WHO = b.dataset.v; renderAll(); });
 seg('segHow', b => { HOW = b.dataset.v; renderAll(); });
-seg('segP', b => { PERIOD = +b.dataset.p; renderCharts(); });
+seg('segP', b => { PERIOD = +b.dataset.p; renderCharts(); renderBand(); });
+seg('segBL', b => { BL = b.dataset.v; renderAll(); });
+seg('segBW', b => { BW = +b.dataset.v; renderAll(); });
+seg('segBK', b => { BK = +b.dataset.v; renderAll(); });
 $('study').innerHTML = `<b>수급과 주가 (${D.dates[1]} ~ ${D.asof} 검증, 섹터 정리 42섹터)</b><br>` +
   '· <b>같은 날</b>: 수급과 주가는 강하게 같이 움직입니다(섹터별 일간 상관 0.5~0.7, 시장 전체 0.71). 20일 누적으로 봐도 순매수가 많았던 섹터일수록 그 기간 시총도 많이 올랐습니다(섹터 간 순위상관 +0.53, 매번 양수). 이 관계는 기관(+0.56)이 외국인(+0.16)보다 훨씬 뚜렷합니다.<br>' +
   '· <b>수급이 주가를 앞서나</b>: 약합니다. 15일 평균 수급 상위 1/5 섹터가 하위 1/5보다 이후 20일 평균 +1.7~2.0%p 더 올랐지만, 겹치지 않는 20일 구간 20번 중 이긴 건 12번(60%) 정도라 우연과 잘 구분되지 않습니다. 종목 하나하나 단위로는 예측력이 없었습니다(순위상관 0 근처).<br>' +
   '· <b>주가가 수급을 끈다</b>: 최근 5·20일 많이 오른 섹터로 이후 수급이 더 들어옵니다(특히 기관 - 추종 매매, 순위상관 +0.15). 외국인은 약간 반대(오른 섹터를 덜 삼).<br>' +
   '· <b>교차·괴리</b>: 섹터 수급의 8일/15일 골드·데드크로스 뒤 이후 5·20일 상대수익은 골드와 데드가 비슷했습니다(이긴 비율 둘 다 45% 안팎) - 교차 자체로는 매매 신호가 안 됩니다. "주가는 약한데 수급은 강한" 섹터도 이후 계속 약했고(-0.7%p), 주가와 수급이 함께 강한 섹터가 가장 나았습니다(+2.2%p, 외국인 기준 +2.9%p).<br>' +
+  '· <b>수급 볼린저</b>: 기준선·밴드 정의 8가지 x 주체·집계를 비교(96조합)했을 때 대부분은 2025년과 2026년 방향이 엇갈렸고, <b>15일선 + 60일 밴드(±2σ)</b>만 두 해 모두 같은 방향이었습니다 - 과매수 진입 섹터는 이후 20일 다른 섹터보다 강했고(+2.4%p / +2.6%p), 과매도 진입 섹터는 약했습니다(-1.2%p / -1.5%p). 즉 <b>되돌림이 아니라 추세 지속</b> 쪽입니다(외국인 기준 +2.5 / -2.1%p 비슷). 종목 단위도 같은 방향이었는데 기관 과매도 종목만 예외로 이후 반등했습니다. 시장 전체로는 <b>기관</b> 과매수 섹터 수 - 과매도 섹터 수만 이후 20일 시장(동일가중)과 두 해 모두 양의 관계였습니다(상관 +0.36 / +0.20). 이긴 비율은 50% 안팎이라 큰 수익 몇 번이 평균을 끌어올린 형태입니다.<br>' +
   '· <b>쓰는 법</b>: 수급은 "지금 어느 섹터에 돈이 들어오고 있나"를 확인하는 지표로 보고, 단독 매매 신호보다는 가격 추세(섹터 이평선 위 비율)와 같은 방향인지 확인하는 용도가 맞습니다. 기간이 2025-01부터라 표본이 짧다는 점도 감안하세요.';
 renderAll();
 </script>
