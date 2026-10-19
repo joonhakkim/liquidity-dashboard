@@ -47,6 +47,25 @@ def load_sector_page():
     return json.loads(s[i:s.index(";\n", i)])
 
 
+def cut_to_date(D, asof):
+    """섹터 데이터를 국면 기준일까지로 자름(2026-10-20 사용자 "4사분면 느낌상 19일인 거 같은데?" - 아침엔 섹터 시총 캐시에 전날이 먼저 들어와
+    머리글(국면 10/16)과 4사분면(섹터 10/19)의 날짜가 섞였음). dates와 길이가 같은 리스트는 전부 같은 길이로 자른다."""
+    dates = D["dates"]
+    k = sum(1 for x in dates if x <= asof.strftime("%Y-%m-%d"))
+    if k >= len(dates):
+        return D
+    L = len(dates)
+    def cut(o):
+        if isinstance(o, list) and len(o) == L:
+            return o[:k]
+        if isinstance(o, dict):
+            return {kk: cut(v) for kk, v in o.items()}
+        if isinstance(o, list):
+            return [cut(v) for v in o]
+        return o
+    return cut(D)
+
+
 def sma(a, m):
     s = pd.Series(a, dtype="float64")
     return s.rolling(m, min_periods=m).mean().values if m > 1 else s.values
@@ -205,7 +224,7 @@ def main():
     d = pd.read_csv(DATA / "screening" / "market_phase_daily.csv", parse_dates=["date"], index_col="date")
     d = d[d["phase"].notna()]
     asof = d.index[-1]
-    D = load_sector_page()
+    D = cut_to_date(load_sector_page(), asof)
     dates = D["dates"]
     n = len(dates)
     now = datetime.now()
