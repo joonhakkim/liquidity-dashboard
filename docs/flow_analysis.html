@@ -38,20 +38,20 @@
   <a class="back" href="sector_ma_breadth.html">섹터 이평선 위 비율 &rarr;</a>
   <a class="back" href="flow_stocks.html">종목 수급 &rarr;</a>
   <h1>수급 분석<span class="sub">섹터 정리 섹터·종목의 외국인·기관 순매수, 시가총액 대비 비율</span></h1>
-  <div class="updated">최종 갱신: 2026-10-19 14:56 &middot; 데이터 2024-12-30 ~ 2026-10-16 &middot; 수급.xlsx(외국인·기관 순매수대금) + 기업 밴드 찾기 2 시가총액</div>
+  <div class="updated">최종 갱신: 2026-10-19 15:13 &middot; 데이터 2024-12-30 ~ 2026-10-16 &middot; 수급.xlsx(외국인·기관 순매수대금) + 기업 밴드 찾기 2 시가총액</div>
 
   <div class="ctl">
     <span>주체</span><span class="seg" id="segWho"><button data-v="합산" class="active">외국인+기관</button><button data-v="외국인">외국인</button><button data-v="기관">기관</button></span>
     <span>섹터 집계</span><span class="seg" id="segHow"><button data-v="cap" class="active">섹터 시총 합</button><button data-v="eq">종목 평균</button></span>
     <span>빠른</span><select id="selF"></select><span>느린</span><select id="selS"></select>
-    <span>차트 기간</span><span class="seg" id="segP"><button data-p="63">3달</button><button data-p="126" class="active">6달</button><button data-p="250">1년</button><button data-p="0">전체</button></span>
+    <span>차트 기간</span><span class="seg" id="segP"><button data-p="63">3달</button><button data-p="126">6달</button><button data-p="250" class="active">1년</button><button data-p="0">전체</button></span>
   </div>
 
   <div class="cards" id="cards"></div>
 
   <div class="box">
     <h2>수급 방향 <span id="t1" style="font-size:12px;font-weight:normal;color:#9aa0a6"></span></h2>
-    <div class="desc">막대 = 그날 순매수 / 전일 시가총액(bp, 1bp = 시총의 0.01%), 선 = 이동평균. 빠른 선이 느린 선을 위로 뚫으면 골드 ▲, 아래로 뚫으면 데드 ▼. 아래 표에서 섹터를 누르면 그 섹터로 바뀝니다.</div>
+    <div class="desc">막대 = 그날 순매수 / 전일 시가총액(%), 선 = 이동평균(하루 평균 %, 누적 % = 하루 평균 x 일수 - 마우스를 올리면 같이 보임). 빠른 선이 느린 선을 위로 뚫으면 골드 ▲, 아래로 뚫으면 데드 ▼. 아래 표에서 섹터를 누르면 그 섹터로 바뀝니다.</div>
     <div class="ctl" style="margin-bottom:6px"><span>대상</span><select id="selT"></select><span id="xNow"></span></div>
     <div class="chart-wrap"><canvas id="c1"></canvas></div>
   </div>
@@ -66,8 +66,6 @@
       <span id="bNow"></span>
     </div>
     <div class="chart-wrap"><canvas id="c3"></canvas></div>
-    <div class="desc" style="margin-top:10px">과매수·과매도 섹터 수 추이(42섹터, 위와 같은 기준) - 위로 = 과매수 섹터 수, 아래로 = 과매도 섹터 수.</div>
-    <div class="chart-wrap" style="height:200px"><canvas id="c4"></canvas></div>
   </div>
 
   <div class="box">
@@ -89,12 +87,14 @@ const $ = id => document.getElementById(id);
 const nn = v => v !== null && v !== undefined && !isNaN(v);
 const N = D.dates.length;
 const WINS = [3, 5, 8, 10, 14, 15, 20, 40, 60];
-let WHO = '합산', HOW = 'cap', XF = 8, XS = 15, PERIOD = 126, TGT = '', SORT = 'slow', DESC = true, OPEN = null;
+let WHO = '합산', HOW = 'cap', XF = 8, XS = 15, PERIOD = 250,   /* 차트 기본 1년(2026-10-19 사용자) */ TGT = '', SORT = 'slow', DESC = true, OPEN = null;
 let BL = 15, BW = 60, BK = 2;   // 수급 볼린저 기본: 15일선 + 60일 밴드 + 2배(두 해 모두 같은 방향이었던 유일한 정의)
 // 기준선 길이(2026-10-19 사용자 "기준선을 11로 하면" -> 5~20일 비교: 12~18일이 두 해 모두 안정, 11일 이하는 과매수 쪽이 해마다 흔들림 - 15 유지, 5~20 선택 가능)
 const f1 = (v, d = 1) => nn(v) ? v.toFixed(d) : '-';
 const sg = (v, d = 1) => nn(v) ? (v >= 0 ? '+' : '') + v.toFixed(d) : '-';
 const cls = v => nn(v) ? (v >= 0 ? 'pos' : 'neg') : '';
+const pc = (bpv, d = 2) => nn(bpv) ? sg(bpv / 100, d) + '%' : '-';         // bp -> %
+const cum = (avg, n, d = 2) => nn(avg) ? sg(avg * n / 100, d) + '%' : '-';   // 일평균 bp -> n일 누적 %
 const eok = v => !nn(v) ? '-' : (Math.abs(v) >= 10000 ? (v / 10000).toFixed(2) + '조' : Math.round(v).toLocaleString() + '억');
 function netOf(g, who) { const F = g.net['외국인'], I = g.net['기관']; return who === '외국인' ? F : who === '기관' ? I : F.map((v, i) => (nn(v) || nn(I[i])) ? (v || 0) + (I[i] || 0) : null); }
 function ratioOf(g) {   // 일별 수급 비율(bp)
@@ -128,7 +128,8 @@ function sumLast(a, n, end = N - 1) { let s = 0, c = 0; for (let i = Math.max(0,
 function groupStats(g) {
   const r = ratioOf(g), f = ma(r, XF), s = ma(r, XS), nt = netOf(g, WHO), k = N - 1;
   const cap0 = g.cap[k], cap20 = g.cap[k - 20];
-  return {g, r, f, s, fast: f[k], slow: s[k], slow5: s[k - 5], fast5: f[k - 5], x: crossState(f, s),
+  const m30 = ma(r, 30)[k];
+  return {g, r, f, s, fast: f[k], slow: s[k], slow5: s[k - 5], fast5: f[k - 5], m30, x: crossState(f, s),
     n5: sumLast(nt, 5), n20: sumLast(nt, 20), c20: nn(cap0) && nn(cap20) && cap20 ? (cap0 / cap20 - 1) * 100 : null, cap: cap0};
 }
 let c3 = null, c4 = null;
@@ -139,28 +140,18 @@ function renderBand() {
   const lb = BL + '일선', ob = (BL === XS ? XF : XS) + '일선';
   if (c3) c3.destroy();
   c3 = new Chart($('c3'), {type: 'line', data: {labels: L, datasets: [
-    {label: '상단(평균+' + BK + 'σ)', data: B.up.slice(s0), borderColor: '#ff878799', borderWidth: 1, borderDash: [4, 3], pointRadius: 0, fill: '+1', backgroundColor: '#4dabf712'},
-    {label: '하단(평균-' + BK + 'σ)', data: B.dn.slice(s0), borderColor: '#74a7ff99', borderWidth: 1, borderDash: [4, 3], pointRadius: 0},
-    {label: BW + '일 평균', data: B.m.slice(s0), borderColor: '#6b7280', borderWidth: 1, borderDash: [2, 3], pointRadius: 0},
-    {label: lb + '(기준)', data: B.line.slice(s0), borderColor: '#4dabf7', borderWidth: 2, pointRadius: 0},
-    {label: ob, data: B.other.slice(s0), borderColor: '#ffa94d66', borderWidth: 1, pointRadius: 0},
-    {label: '과매수 ▲', data: ent(1).slice(s0), showLine: false, pointStyle: 'triangle', pointRadius: 7, backgroundColor: '#ff6b6b'},
-    {label: '과매도 ▼', data: ent(-1).slice(s0), showLine: false, pointStyle: 'triangle', rotation: 180, pointRadius: 7, backgroundColor: '#4dabf7'}
+    {label: '상단(평균+' + BK + 'σ)', data: B.up.slice(s0).map(v => nn(v) ? v / 100 : null), borderColor: '#ff878799', borderWidth: 1, borderDash: [4, 3], pointRadius: 0, fill: '+1', backgroundColor: '#4dabf712'},
+    {label: '하단(평균-' + BK + 'σ)', data: B.dn.slice(s0).map(v => nn(v) ? v / 100 : null), borderColor: '#74a7ff99', borderWidth: 1, borderDash: [4, 3], pointRadius: 0},
+    {label: BW + '일 평균', data: B.m.slice(s0).map(v => nn(v) ? v / 100 : null), borderColor: '#6b7280', borderWidth: 1, borderDash: [2, 3], pointRadius: 0},
+    {label: lb + '(기준)', data: B.line.slice(s0).map(v => nn(v) ? v / 100 : null), borderColor: '#4dabf7', borderWidth: 2, pointRadius: 0},
+    {label: ob, data: B.other.slice(s0).map(v => nn(v) ? v / 100 : null), borderColor: '#ffa94d66', borderWidth: 1, pointRadius: 0},
+    {label: '과매수 ▲', data: ent(1).slice(s0).map(v => nn(v) ? v / 100 : null), showLine: false, pointStyle: 'triangle', pointRadius: 7, backgroundColor: '#ff6b6b'},
+    {label: '과매도 ▼', data: ent(-1).slice(s0).map(v => nn(v) ? v / 100 : null), showLine: false, pointStyle: 'triangle', rotation: 180, pointRadius: 7, backgroundColor: '#4dabf7'}
   ]}, options: {responsive: true, maintainAspectRatio: false, animation: false, interaction: {mode: 'index', intersect: false},
-    plugins: {legend: {labels: {color: '#e6e6e6', boxWidth: 12, font: {size: 11}, filter: it => it.text}}, tooltip: {filter: c => c.parsed.y !== null, callbacks: {label: c => c.dataset.label + ': ' + sg(c.parsed.y, 2) + 'bp', afterBody: it => { const i = s0 + it[0].dataIndex; return nn(B.z[i]) ? '위치 z = ' + sg(B.z[i], 2) + ' (' + BNAME[B.st[i]] + ')' : ''; }}}},
-    scales: {x: {ticks: xTicks(), grid: {display: false}}, y: {ticks: {color: '#9aa0a6', callback: v => v.toFixed(1)}, grid: {color: '#23262e'}}}}});
+    plugins: {legend: {labels: {color: '#e6e6e6', boxWidth: 12, font: {size: 11}, filter: it => it.text}}, tooltip: {filter: c => c.parsed.y !== null, callbacks: {label: c => c.dataset.label + ': ' + sg(c.parsed.y, 3) + '%' + (c.datasetIndex === 3 ? ' (' + BL + '일 누적 ' + sg(c.parsed.y * BL, 2) + '%)' : ''), afterBody: it => { const i = s0 + it[0].dataIndex; return nn(B.z[i]) ? '위치 z = ' + sg(B.z[i], 2) + ' (' + BNAME[B.st[i]] + ')' : ''; }}}},
+    scales: {x: {ticks: xTicks(), grid: {display: false}}, y: {ticks: {color: '#9aa0a6', callback: v => v.toFixed(2) + '%'}, grid: {color: '#23262e'}}}}});
   $('t3').textContent = `${g.name} · ${lb} 기준 · ${BW}일 밴드 · ${BK}σ`;
   $('bNow').innerHTML = nn(B.now) ? `<b style="color:${B.now > 0 ? '#ff8787' : B.now < 0 ? '#74a7ff' : '#c9ccd1'}">지금 ${BNAME[B.now]}${B.now ? ' ' + B.days + '일째' : ''}</b> · 밴드 안 위치 z = ${sg(B.zNow, 2)}(±${BK} 밖이면 과매수/과매도)` : '';
-  // 섹터 수 추이
-  const S = D.sectors.map(x => bandOf(x).st);
-  const nUp = D.dates.map((_, i) => S.filter(a => a[i] === 1).length), nDn = D.dates.map((_, i) => -S.filter(a => a[i] === -1).length);
-  if (c4) c4.destroy();
-  c4 = new Chart($('c4'), {type: 'bar', data: {labels: L, datasets: [
-    {label: '과매수 섹터 수', data: nUp.slice(s0), backgroundColor: '#ff6b6b99', stack: 's'},
-    {label: '과매도 섹터 수', data: nDn.slice(s0), backgroundColor: '#4dabf799', stack: 's'}
-  ]}, options: {responsive: true, maintainAspectRatio: false, animation: false, interaction: {mode: 'index', intersect: false},
-    plugins: {legend: {labels: {color: '#e6e6e6', boxWidth: 12, font: {size: 11}}}, tooltip: {callbacks: {label: c => c.dataset.label + ': ' + Math.abs(c.parsed.y) + '개'}}},
-    scales: {x: {stacked: true, ticks: xTicks(), grid: {display: false}}, y: {stacked: true, ticks: {color: '#9aa0a6', callback: v => Math.abs(v)}, grid: {color: '#23262e'}}}}});
 }
 function getGroup(name) { return name ? D.sectors.find(x => x.name === name) : D.all; }
 // ---------- 카드
@@ -168,7 +159,7 @@ function renderCards() {
   const a = groupStats(D.all);
   const fw = D.all.net['외국인'], iw = D.all.net['기관'];
   $('cards').innerHTML =
-    `<div class="card">섹터 정리 전체 · ${XF}일 / ${XS}일 평균<div class="val"><span class="${cls(a.fast)}">${sg(a.fast, 2)}</span> / <span class="${cls(a.slow)}">${sg(a.slow, 2)}</span>bp</div>${WHO === '합산' ? '외국인+기관' : WHO} · ${HOW === 'cap' ? '시총 합' : '종목 평균'} 기준 · 1주 전 ${XS}일 ${sg(a.slow5, 2)}bp</div>` +
+    `<div class="card">섹터 정리 전체 · ${XF}일 / ${XS}일 누적(시총 대비)<div class="val"><span class="${cls(a.fast)}">${cum(a.fast, XF)}</span> / <span class="${cls(a.slow)}">${cum(a.slow, XS)}</span></div>${WHO === '합산' ? '외국인+기관' : WHO} · ${HOW === 'cap' ? '시총 합' : '종목 평균'} 기준 · 30일 누적 ${cum(a.m30, 30)} · 1주 전 ${XS}일 누적 ${cum(a.slow5, XS)}</div>` +
     `<div class="card">교차 상태(${XF}/${XS})<div class="val" style="color:${a.x && a.x.up ? '#ff8787' : '#74a7ff'}">${a.x ? (a.x.up ? '▲ 골드' : '▼ 데드') + ' ' + a.x.days + '일째' : '-'}</div>${a.x && a.x.since ? a.x.since + ' 교차' : ''}</div>` +
     `<div class="card">순매수(${D.asof} 까지)<div class="val">${eok(a.n5)} <span style="font-size:12px;color:#9aa0a6">5일</span></div>20일 ${eok(a.n20)} · 외국인 20일 ${eok(sumLast(fw, 20))} · 기관 20일 ${eok(sumLast(iw, 20))}</div>` +
     (() => { const B = D.sectors.map(x => ({n: x.name, b: bandOf(x)})); const up = B.filter(x => x.b.now === 1), dn = B.filter(x => x.b.now === -1);
@@ -184,34 +175,37 @@ function renderCharts() {
   const g = getGroup(TGT), st = groupStats(g), s0 = PERIOD ? Math.max(0, N - PERIOD) : 0, L = D.dates.slice(s0);
   const gold = st.f.map((v, i) => i > 0 && nn(v) && nn(st.s[i]) && nn(st.f[i - 1]) && nn(st.s[i - 1]) && st.f[i - 1] <= st.s[i - 1] && v > st.s[i] ? v : null);
   const dead = st.f.map((v, i) => i > 0 && nn(v) && nn(st.s[i]) && nn(st.f[i - 1]) && nn(st.s[i - 1]) && st.f[i - 1] >= st.s[i - 1] && v < st.s[i] ? v : null);
-  const lim = Math.max(1, ...st.f.slice(s0).concat(st.s.slice(s0)).filter(nn).map(Math.abs)) * 2.2;
+  const lim = Math.max(1, ...st.f.slice(s0).concat(st.s.slice(s0)).filter(nn).map(Math.abs)) * 2.2 / 100;   // % 단위
   if (c1) c1.destroy();
   c1 = new Chart($('c1'), {data: {labels: L, datasets: [
-    {type: 'bar', label: '일별(bp)', data: st.r.slice(s0).map(v => nn(v) ? Math.max(-lim, Math.min(lim, v)) : null), backgroundColor: st.r.slice(s0).map(v => v >= 0 ? '#ff878744' : '#74a7ff44'), order: 3},
-    {type: 'line', label: XF + '일 평균', data: st.f.slice(s0), borderColor: '#ffa94d', borderWidth: 1.8, pointRadius: 0, order: 1},
-    {type: 'line', label: XS + '일 평균', data: st.s.slice(s0), borderColor: '#4dabf7', borderWidth: 1.8, pointRadius: 0, order: 1},
-    {type: 'line', label: '골드 ▲', data: gold.slice(s0), showLine: false, pointStyle: 'triangle', pointRadius: 7, backgroundColor: '#ff6b6b', order: 0},
-    {type: 'line', label: '데드 ▼', data: dead.slice(s0), showLine: false, pointStyle: 'triangle', rotation: 180, pointRadius: 7, backgroundColor: '#4dabf7', order: 0}
+    {type: 'bar', label: '그날(%)', data: st.r.slice(s0).map(v => nn(v) ? Math.max(-lim, Math.min(lim, v / 100)) : null), backgroundColor: st.r.slice(s0).map(v => v >= 0 ? '#ff878744' : '#74a7ff44'), order: 3},
+    {type: 'line', label: XF + '일 평균(하루 %)', data: st.f.slice(s0).map(v => nn(v) ? v / 100 : null), borderColor: '#ffa94d', borderWidth: 1.8, pointRadius: 0, order: 1},
+    {type: 'line', label: XS + '일 평균(하루 %)', data: st.s.slice(s0).map(v => nn(v) ? v / 100 : null), borderColor: '#4dabf7', borderWidth: 1.8, pointRadius: 0, order: 1},
+    {type: 'line', label: '골드 ▲', data: gold.slice(s0).map(v => nn(v) ? v / 100 : null), showLine: false, pointStyle: 'triangle', pointRadius: 7, backgroundColor: '#ff6b6b', order: 0},
+    {type: 'line', label: '데드 ▼', data: dead.slice(s0).map(v => nn(v) ? v / 100 : null), showLine: false, pointStyle: 'triangle', rotation: 180, pointRadius: 7, backgroundColor: '#4dabf7', order: 0}
   ]}, options: {responsive: true, maintainAspectRatio: false, animation: false, interaction: {mode: 'index', intersect: false},
-    plugins: {legend: {labels: {color: '#e6e6e6', boxWidth: 12, font: {size: 11}}}, tooltip: {filter: c => c.parsed.y !== null, callbacks: {label: c => c.dataset.label + ': ' + (c.dataset.type === 'bar' ? sg(st.r[s0 + c.dataIndex], 2) : sg(c.parsed.y, 2)) + 'bp'}}},
-    scales: {x: {ticks: xTicks(), grid: {display: false}}, y: {min: -lim, max: lim, ticks: {color: '#9aa0a6', callback: v => v.toFixed(1)}, grid: {color: '#23262e'}}}}});
+    plugins: {legend: {labels: {color: '#e6e6e6', boxWidth: 12, font: {size: 11}}}, tooltip: {filter: c => c.parsed.y !== null, callbacks: {label: c => { const i = s0 + c.dataIndex; if (c.dataset.type === 'bar') return '그날: ' + pc(st.r[i], 3);
+      if (c.datasetIndex === 1) return XF + '일: 하루 평균 ' + pc(st.f[i], 3) + ' · ' + XF + '일 누적 ' + cum(st.f[i], XF);
+      if (c.datasetIndex === 2) return XS + '일: 하루 평균 ' + pc(st.s[i], 3) + ' · ' + XS + '일 누적 ' + cum(st.s[i], XS);
+      return c.dataset.label; }}}},
+    scales: {x: {ticks: xTicks(), grid: {display: false}}, y: {min: -lim, max: lim, ticks: {color: '#9aa0a6', callback: v => v.toFixed(2) + '%'}, grid: {color: '#23262e'}}}}});
   $('t1').textContent = `${g.name} · ${WHO === '합산' ? '외국인+기관' : WHO} · ${HOW === 'cap' ? '섹터 시총 합' : '종목 평균'} 기준`;
-  $('xNow').innerHTML = st.x ? `<b style="color:${st.x.up ? '#ff8787' : '#74a7ff'}">지금 ${st.x.up ? '골드' : '데드'} ${st.x.days}거래일째</b>${st.x.since ? ' (' + st.x.since + ' 교차)' : ''} · ${XF}일 ${sg(st.fast, 2)}bp vs ${XS}일 ${sg(st.slow, 2)}bp` : '';
+  $('xNow').innerHTML = st.x ? `<b style="color:${st.x.up ? '#ff8787' : '#74a7ff'}">지금 ${st.x.up ? '골드' : '데드'} ${st.x.days}거래일째</b>${st.x.since ? ' (' + st.x.since + ' 교차)' : ''} · ${XF}일 누적 ${cum(st.fast, XF)} vs ${XS}일 누적 ${cum(st.slow, XS)} (하루 평균 ${pc(st.fast, 3)} vs ${pc(st.slow, 3)})` : '';
   // 시총 + 누적 순매수
-  const cum = a => { let s = 0; return a.slice(s0).map(v => { s += nn(v) ? v : 0; return s; }); };
+  const cumNet = a => { let s = 0; return a.slice(s0).map(v => { s += nn(v) ? v : 0; return s; }); };
   // 외국인·기관 따로 누적선은 기본 꺼짐(2026-10-19 사용자 "기본적으로 꺼진 상태, 나중에 켜서 보게") - 범례로 켜면 다시 그려도 유지
   if (c2) { [2, 3].forEach(i => C2SHOW[i] = c2.isDatasetVisible(i)); c2.destroy(); }
   c2 = new Chart($('c2'), {type: 'line', data: {labels: L, datasets: [
     {label: '시가총액(조)', data: g.cap.slice(s0).map(v => nn(v) ? v / 10000 : null), borderColor: '#e6e6e6', borderWidth: 1.8, pointRadius: 0, yAxisID: 'y'},
-    {label: '누적 외국인+기관(억)', data: cum(netOf(g, '합산')), borderColor: '#ff6b6b', borderWidth: 1.6, pointRadius: 0, yAxisID: 'y2'},
-    {label: '누적 외국인(억)', data: cum(g.net['외국인']), borderColor: '#ffa94d', borderWidth: 1.2, borderDash: [4, 3], pointRadius: 0, yAxisID: 'y2', hidden: !C2SHOW[2]},
-    {label: '누적 기관(억)', data: cum(g.net['기관']), borderColor: '#69db7c', borderWidth: 1.2, borderDash: [4, 3], pointRadius: 0, yAxisID: 'y2', hidden: !C2SHOW[3]}
+    {label: '누적 외국인+기관(억)', data: cumNet(netOf(g, '합산')), borderColor: '#ff6b6b', borderWidth: 1.6, pointRadius: 0, yAxisID: 'y2'},
+    {label: '누적 외국인(억)', data: cumNet(g.net['외국인']), borderColor: '#ffa94d', borderWidth: 1.2, borderDash: [4, 3], pointRadius: 0, yAxisID: 'y2', hidden: !C2SHOW[2]},
+    {label: '누적 기관(억)', data: cumNet(g.net['기관']), borderColor: '#69db7c', borderWidth: 1.2, borderDash: [4, 3], pointRadius: 0, yAxisID: 'y2', hidden: !C2SHOW[3]}
   ]}, options: {responsive: true, maintainAspectRatio: false, animation: false, interaction: {mode: 'index', intersect: false},
     plugins: {legend: {labels: {color: '#e6e6e6', boxWidth: 12, font: {size: 11}}}, tooltip: {callbacks: {label: c => c.dataset.label + ': ' + (c.dataset.yAxisID === 'y' ? c.parsed.y.toFixed(1) + '조' : Math.round(c.parsed.y).toLocaleString() + '억')}}},
     scales: {x: {ticks: xTicks(), grid: {display: false}}, y: {position: 'left', ticks: {color: '#c9ccd1'}, grid: {color: '#23262e'}},
       y2: {position: 'right', grid: {display: false}, ticks: {color: '#ff8787', callback: v => Math.round(v).toLocaleString()}}}}});
   const capChg = nn(g.cap[s0]) && nn(g.cap[N - 1]) ? (g.cap[N - 1] / g.cap[s0] - 1) * 100 : null;
-  $('t2').innerHTML = `${g.name} · ${D.dates[s0]} 이후 시총 <span class="${cls(capChg)}">${sg(capChg)}%</span>, 누적 외국인+기관 ${eok(cum(netOf(g, '합산')).slice(-1)[0])}`;
+  $('t2').innerHTML = `${g.name} · ${D.dates[s0]} 이후 시총 <span class="${cls(capChg)}">${sg(capChg)}%</span>, 누적 외국인+기관 ${eok(cumNet(netOf(g, '합산')).slice(-1)[0])}`;
 }
 // ---------- 순위표
 function renderTable() {
@@ -219,16 +213,16 @@ function renderTable() {
   const rankBy = (arr, key) => { const o = arr.filter(x => nn(x[key])).sort((a, b) => b[key] - a[key]); const m = {}; o.forEach((x, i) => m[x.g.name] = i + 1); return m; };
   const rk = rankBy(st, 'slow'), rk5 = rankBy(st, 'slow5');
   st.forEach(x => x.b = bandOf(x.g, x.r));
-  const keyf = {bb: x => x.b.zNow, name: x => x.g.name, n: x => x.g.n, fast: x => x.fast, slow: x => x.slow, x: x => x.x ? (x.x.up ? 1 : -1) * (1000 - x.x.days) : null, n5: x => x.n5, n20: x => x.n20, c20: x => x.c20, cap: x => x.cap, rkchg: x => nn(rk5[x.g.name]) && nn(rk[x.g.name]) ? rk5[x.g.name] - rk[x.g.name] : null};
+  const keyf = {c30: x => x.m30, bb: x => x.b.zNow, name: x => x.g.name, n: x => x.g.n, fast: x => x.fast, slow: x => x.slow, x: x => x.x ? (x.x.up ? 1 : -1) * (1000 - x.x.days) : null, n5: x => x.n5, n20: x => x.n20, c20: x => x.c20, cap: x => x.cap, rkchg: x => nn(rk5[x.g.name]) && nn(rk[x.g.name]) ? rk5[x.g.name] - rk[x.g.name] : null};
   const rows = st.slice().sort((a, b) => { const f = keyf[SORT], va = f(a), vb = f(b); if (SORT === 'name') return DESC ? vb.localeCompare(va) : va.localeCompare(vb); const x = nn(va) ? va : (DESC ? -1e18 : 1e18), y = nn(vb) ? vb : (DESC ? -1e18 : 1e18); return DESC ? y - x : x - y; });
   // 고른 섹터는 정렬과 관계없이 맨 위(2026-10-19 사용자 "그 섹터가 맨 위로 오게") - 펼친 종목 목록도 바로 아래
   if (TGT) { const k = rows.findIndex(x => x.g.name === TGT); if (k > 0) rows.unshift(rows.splice(k, 1)[0]); }
   const H = (k, t) => `<th data-s="${k}"${SORT === k ? ' class="sorted"' : ''}>${t}${SORT === k ? (DESC ? ' ▼' : ' ▲') : ''}</th>`;
-  let h = '<tr>' + `<th class="nosort">${XS}일 순위</th>` + H('name', '섹터') + H('n', '종목') + H('fast', XF + '일 평균') + H('slow', XS + '일 평균') + H('x', '교차(' + XF + '/' + XS + ')') + H('bb', '볼린저(z)') + H('n5', '5일 순매수') + H('n20', '20일 순매수') + H('c20', '20일 시총') + H('cap', '시총') + H('rkchg', '1주 전 순위') + '</tr>';
+  let h = '<tr>' + `<th class="nosort">${XS}일 순위</th>` + H('name', '섹터') + H('n', '종목') + H('fast', XF + '일 누적') + H('slow', XS + '일 누적') + H('c30', '30일 누적') + H('x', '교차(' + XF + '/' + XS + ')') + H('bb', '볼린저(z)') + H('n5', '5일 순매수') + H('n20', '20일 순매수') + H('c20', '20일 시총') + H('cap', '시총') + H('rkchg', '1주 전 순위') + '</tr>';
   rows.forEach(x => {
     const nm = x.g.name, chg = nn(rk5[nm]) && nn(rk[nm]) ? rk5[nm] - rk[nm] : null;
     h += `<tr class="sec${TGT === nm ? ' sel' : ''}" data-name="${nm}"><td>${rk[nm] || '-'}</td><td>${TGT === nm ? '<span style="color:#4dabf7">▶</span> ' : ''}${nm}</td><td>${x.g.n}</td>` +
-      `<td class="${cls(x.fast)}">${sg(x.fast, 2)}</td><td class="${cls(x.slow)}"><b>${sg(x.slow, 2)}</b></td>` +
+      `<td class="${cls(x.fast)}">${cum(x.fast, XF)}</td><td class="${cls(x.slow)}"><b>${cum(x.slow, XS)}</b></td><td class="${cls(x.m30)}">${cum(x.m30, 30)}</td>` +
       `<td style="color:${x.x && x.x.up ? '#ff8787' : '#74a7ff'}">${x.x ? (x.x.up ? '▲ 골드 ' : '▼ 데드 ') + x.x.days + '일' + (x.x.days <= 3 ? ' <span style="color:#ffd43b;font-size:11px">새로</span>' : '') : '-'}</td>` +
       `<td style="color:${x.b.now > 0 ? '#ff8787' : x.b.now < 0 ? '#74a7ff' : '#9aa0a6'}">${nn(x.b.zNow) ? sg(x.b.zNow, 1) + (x.b.now ? ' ' + BNAME[x.b.now] + ' ' + x.b.days + '일' : '') : '-'}</td>` +
       `<td class="${cls(x.n5)}">${eok(x.n5)}</td><td class="${cls(x.n20)}">${eok(x.n20)}</td><td class="${cls(x.c20)}">${sg(x.c20)}%</td><td>${nn(x.cap) ? (x.cap / 10000).toFixed(1) + '조' : '-'}</td>` +
@@ -242,8 +236,8 @@ function renderTable() {
 function membersRow(g) {
   const k = WHO;
   const list = g.codes.map(c => ({c, ...D.stocks[c]})).filter(x => x.name).sort((a, b) => (nn(b[k][1]) ? b[k][1] : -1e9) - (nn(a[k][1]) ? a[k][1] : -1e9));
-  const cell = x => `<span style="display:inline-block;margin:2px 14px 2px 0;white-space:nowrap">${x.name} <b class="${cls(x[k][1])}">${sg(x[k][1], 2)}</b><span style="color:#7c828b">bp</span> · 20일 <span class="${cls(x[k][3])}">${eok(x[k][3])}</span> · 주가 <span class="${cls(x.r20)}">${sg(x.r20)}%</span></span>`;
-  return `<tr class="members"><td colspan="12">${g.name} 소속 종목 - ${k === '합산' ? '외국인+기관' : k} 15일 평균 수급 비율 높은 순(종목 표는 8·15일 고정) · 20일 순매수 · 20일 주가<br>${list.map(cell).join('')}</td></tr>`;
+  const cell = x => `<span style="display:inline-block;margin:2px 14px 2px 0;white-space:nowrap">${x.name} <b class="${cls(x[k][1])}">${cum(x[k][1], 15)}</b> · 20일 <span class="${cls(x[k][3])}">${eok(x[k][3])}</span> · 주가 <span class="${cls(x.r20)}">${sg(x.r20)}%</span></span>`;
+  return `<tr class="members"><td colspan="13">${g.name} 소속 종목 - ${k === '합산' ? '외국인+기관' : k} 15일 누적 수급(시총 대비 %) 높은 순 · 20일 순매수 · 20일 주가<br>${list.map(cell).join('')}</td></tr>`;
 }
 function renderAll() { renderCards(); renderCharts(); renderBand(); renderTable(); }
 // ---------- 설정

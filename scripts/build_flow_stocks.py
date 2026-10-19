@@ -3,6 +3,8 @@
 수급 분석(섹터) 페이지와 같은 지표를 종목마다:
 - 수급 비율(bp) = 순매수(외국인·기관·합산) / 전일 시가총액 x 1e4, 8일·15일 이동평균, 8/15 골드·데드 상태와 유지일,
   수급 볼린저(15일선의 60일 평균 ± 2σ) 과매수·과매도와 유지일, 5·20일 순매수(억), 20일 시총 변화(=주가), 시총.
+- 화면 단위(2026-10-19 사용자): 표 = 8·15·30일 누적 %(= 일평균 bp x 일수 / 100, 그 기간 동안 시총의 몇 %를 순매수했나),
+  차트 = 막대 그날 %, 선 하루 평균 %(툴팁에 누적 %). 기본 차트 기간 1년.
 - 대상: 수급.xlsx와 '기업 밴드 찾기 2' 시총이 둘 다 있는 전 종목(섹터 정리 밖 종목 포함). 섹터는 표시용(섹터 정리 우선, 없으면 네이버 업종).
 - 표는 Python이 기본 설정(8/15, 60일·2σ)으로 미리 계산한 최신값, 종목을 누르면 docs/flow_stock_data/{코드}.json(일별 외국인·기관 순매수 백만원, 시총 억)을
   불러와 차트 3개(수급 방향 / 볼린저 / 시총과 누적 순매수)를 그린다.
@@ -81,7 +83,8 @@ def main():
             bs, bd = run_state(zf & (z > BK), zf & (z < -BK)) if zf[-1] else (0, 0)
             nt = net[w][c].values / 1e8
             f = lambda v, d=2: None if v is None or not np.isfinite(v) else round(float(v), d)
-            rec[w] = [f(m8[-1]), f(m15[-1]), xs, xd, f(z[-1]), bs, bd if bs else 0, f(np.nansum(nt[-5:]), 1), f(np.nansum(nt[-20:]), 1)]
+            m30 = np.nanmean(r[-30:]) if np.isfinite(r[-30:]).sum() >= 24 else np.nan
+            rec[w] = [f(m8[-1]), f(m15[-1]), xs, xd, f(z[-1]), bs, bd if bs else 0, f(np.nansum(nt[-5:]), 1), f(np.nansum(nt[-20:]), 1), f(m30)]
         rows.append(rec)
     # 종목별 상세(차트용) - 날짜는 페이지에 한 번, 종목 파일엔 외국인·기관(백만원 정수)·시총(억)만
     os.makedirs(DETAIL_DIR, exist_ok=True)
@@ -155,7 +158,7 @@ TEMPLATE = r"""<!doctype html>
 
   <div class="box">
     <h2>종목 순위 <span id="cnt" style="font-size:12px;font-weight:normal;color:#9aa0a6"></span></h2>
-    <div class="desc">bp = 시가총액의 0.01%. 머리글을 누르면 정렬, 행을 누르면 차트. 15일 평균이 높을수록 시총 대비 많이 사들이는 중. 볼린저 z가 +2 위면 과매수(평소보다 이례적 매수), -2 아래면 과매도.</div>
+    <div class="desc">누적 % = 그 기간 동안 시가총액의 몇 %를 순매수했나(예: 15일 누적 +1.5% = 15일간 시총의 1.5%어치 순매수). 머리글을 누르면 정렬, 행을 누르면 차트. 볼린저 z가 +2 위면 과매수(평소보다 이례적 매수), -2 아래면 과매도.</div>
     <div class="tblwrap"><table id="tbl"></table></div>
   </div>
   <div class="note" id="study"></div>
@@ -164,10 +167,10 @@ TEMPLATE = r"""<!doctype html>
     <button class="close" id="closeBtn">닫기</button>
     <h2 id="dTitle" style="font-size:16px;margin:0 0 4px 0"></h2>
     <div class="desc" id="dSub"></div>
-    <div class="ctl"><span>차트 기간</span><span class="seg" id="segP"><button data-p="63">3달</button><button data-p="126" class="active">6달</button><button data-p="250">1년</button><button data-p="0">전체</button></span></div>
-    <div class="desc">① 수급 방향 - 막대 = 일별 수급 비율(bp), 주황 = 8일 평균, 파랑 = 15일 평균, ▲ 골드 / ▼ 데드</div>
+    <div class="ctl"><span>차트 기간</span><span class="seg" id="segP"><button data-p="63">3달</button><button data-p="126">6달</button><button data-p="250" class="active">1년</button><button data-p="0">전체</button></span></div>
+    <div class="desc">① 수급 방향 - 막대 = 그날 순매수 / 시총(%), 주황 = 8일 평균, 파랑 = 15일 평균(하루 평균 %, 마우스를 올리면 누적 %), ▲ 골드 / ▼ 데드</div>
     <div class="cw"><canvas id="d1"></canvas></div>
-    <div class="desc">② 수급 볼린저 - 15일선과 60일 평균 ± 2σ 밴드, ▲ 과매수 진입 / ▼ 과매도 진입</div>
+    <div class="desc">② 수급 볼린저 - 15일선(하루 평균 %)과 60일 평균 ± 2σ 밴드, ▲ 과매수 진입 / ▼ 과매도 진입</div>
     <div class="cw"><canvas id="d2"></canvas></div>
     <div class="desc">③ 시가총액(조·억, 왼쪽)과 차트 시작일부터 누적 순매수(억, 오른쪽) - 외국인·기관 따로는 범례를 눌러 켜기</div>
     <div class="cw"><canvas id="d3"></canvas></div>
@@ -182,7 +185,9 @@ const sg = (v, d = 1) => nn(v) ? (v >= 0 ? '+' : '') + v.toFixed(d) : '-';
 const cls = v => nn(v) ? (v >= 0 ? 'pos' : 'neg') : '';
 const eok = v => !nn(v) ? '-' : (Math.abs(v) >= 10000 ? (v / 10000).toFixed(2) + '조' : (Math.abs(v) >= 100 ? Math.round(v).toLocaleString() : v.toFixed(1)) + '억');
 let WHO = '합산', SORT = 'm15', DESC = true, LIMIT = 300;
-const I = {m8: 0, m15: 1, xs: 2, xd: 3, z: 4, bs: 5, bd: 6, n5: 7, n20: 8};
+const I = {m8: 0, m15: 1, xs: 2, xd: 3, z: 4, bs: 5, bd: 6, n5: 7, n20: 8, m30: 9};
+const pc = (bpv, d = 2) => nn(bpv) ? sg(bpv / 100, d) + '%' : '-';         // bp -> %
+const cum = (avg, n, d = 2) => nn(avg) ? sg(avg * n / 100, d) + '%' : '-';   // 일평균 bp -> n일 누적 %
 const secs = [...new Set(D.rows.map(r => r.s))].sort();
 $('selSec').innerHTML = '<option value="">전체</option>' + secs.map(s => `<option>${s}</option>`).join('');
 function filtered() {
@@ -204,15 +209,15 @@ function filtered() {
 }
 function render() {
   const rows = filtered();
-  const key = {n: r => r.n, s: r => r.s, cap: r => r.cap, r20: r => r.r20, m8: r => r[WHO][I.m8], m15: r => r[WHO][I.m15], x: r => r[WHO][I.xs] * (1000 - r[WHO][I.xd]), z: r => r[WHO][I.z], n5: r => r[WHO][I.n5], n20: r => r[WHO][I.n20],
+  const key = {n: r => r.n, s: r => r.s, cap: r => r.cap, r20: r => r.r20, m8: r => r[WHO][I.m8], m15: r => r[WHO][I.m15], m30: r => r[WHO][I.m30], x: r => r[WHO][I.xs] * (1000 - r[WHO][I.xd]), z: r => r[WHO][I.z], n5: r => r[WHO][I.n5], n20: r => r[WHO][I.n20],
     nf: r => r['외국인'][I.n20], ni: r => r['기관'][I.n20]}[SORT];
   rows.sort((a, b) => { const va = key(a), vb = key(b); if (typeof va === 'string') return DESC ? vb.localeCompare(va) : va.localeCompare(vb); const x = nn(va) ? va : (DESC ? -1e18 : 1e18), y = nn(vb) ? vb : (DESC ? -1e18 : 1e18); return DESC ? y - x : x - y; });
   const H = (k, t) => `<th data-s="${k}"${SORT === k ? ' class="sorted"' : ''}>${t}${SORT === k ? (DESC ? ' ▼' : ' ▲') : ''}</th>`;
-  let h = '<tr><th class="nosort">#</th>' + H('n', '종목') + H('s', '섹터') + H('cap', '시총') + H('m8', D.fast + '일 평균') + H('m15', D.slow + '일 평균') + H('x', '교차(' + D.fast + '/' + D.slow + ')') + H('z', '볼린저 z') + H('n5', '5일 순매수') + H('n20', '20일 순매수') + H('nf', '외국인 20일') + H('ni', '기관 20일') + H('r20', '20일 주가') + '</tr>';
+  let h = '<tr><th class="nosort">#</th>' + H('n', '종목') + H('s', '섹터') + H('cap', '시총') + H('m8', D.fast + '일 누적') + H('m15', D.slow + '일 누적') + H('m30', '30일 누적') + H('x', '교차(' + D.fast + '/' + D.slow + ')') + H('z', '볼린저 z') + H('n5', '5일 순매수') + H('n20', '20일 순매수') + H('nf', '외국인 20일') + H('ni', '기관 20일') + H('r20', '20일 주가') + '</tr>';
   rows.slice(0, LIMIT).forEach((r, i) => {
     const a = r[WHO], bs = a[I.bs];
     h += `<tr class="st" data-c="${r.c}"><td class="sub">${i + 1}</td><td>${r.n} <span class="sub">${r.c}</span></td><td class="sub">${r.s}</td><td>${nn(r.cap) ? (r.cap >= 10000 ? (r.cap / 10000).toFixed(1) + '조' : r.cap.toLocaleString() + '억') : '-'}</td>` +
-      `<td class="${cls(a[I.m8])}">${sg(a[I.m8], 2)}</td><td class="${cls(a[I.m15])}"><b>${sg(a[I.m15], 2)}</b></td>` +
+      `<td class="${cls(a[I.m8])}">${cum(a[I.m8], D.fast)}</td><td class="${cls(a[I.m15])}"><b>${cum(a[I.m15], D.slow)}</b></td><td class="${cls(a[I.m30])}">${cum(a[I.m30], 30)}</td>` +
       `<td style="color:${a[I.xs] === 1 ? '#ff8787' : '#74a7ff'}">${a[I.xs] ? (a[I.xs] === 1 ? '▲ 골드 ' : '▼ 데드 ') + a[I.xd] + '일' + (a[I.xd] <= 3 ? ' <span style="color:#ffd43b;font-size:11px">새로</span>' : '') : '-'}</td>` +
       `<td style="color:${bs === 1 ? '#ff8787' : bs === -1 ? '#74a7ff' : '#9aa0a6'}">${sg(a[I.z], 1)}${bs ? (bs === 1 ? ' 과매수 ' : ' 과매도 ') + a[I.bd] + '일' : ''}</td>` +
       `<td class="${cls(a[I.n5])}">${eok(a[I.n5])}</td><td class="${cls(a[I.n20])}">${eok(a[I.n20])}</td>` +
@@ -229,11 +234,11 @@ function render() {
   $('cards').innerHTML =
     `<div class="card">볼린저 과매수 / 과매도<div class="val"><span class="pos">${cnt(r => A(r)[I.bs] === 1)}</span> / <span class="neg">${cnt(r => A(r)[I.bs] === -1)}</span>종목</div>지금 필터 ${base.length.toLocaleString()}종목 중</div>` +
     `<div class="card">새 골드 / 새 데드(3일 이내)<div class="val"><span class="pos">${cnt(r => A(r)[I.xs] === 1 && A(r)[I.xd] <= 3)}</span> / <span class="neg">${cnt(r => A(r)[I.xs] === -1 && A(r)[I.xd] <= 3)}</span>종목</div>${D.fast}일 평균이 ${D.slow}일 평균을 뚫은 종목</div>` +
-    `<div class="card">15일 평균 상위<div class="val" style="font-size:13px;line-height:1.5">${top(r => nn(A(r)[I.m15]), r => A(r)[I.m15])}</div></div>` +
+    `<div class="card">15일 누적 상위<div class="val" style="font-size:13px;line-height:1.5">${top(r => nn(A(r)[I.m15]), r => A(r)[I.m15])}</div></div>` +
     `<div class="card">20일 순매수 금액 상위<div class="val" style="font-size:13px;line-height:1.5">${top(r => nn(A(r)[I.n20]), r => A(r)[I.n20])}</div></div>`;
 }
 // ---------- 종목 차트
-let P = 126, CUR = null, ch = {}, D3SHOW = {2: false, 3: false};
+let P = 250, CUR = null, ch = {}, D3SHOW = {2: false, 3: false};
 function ma(a, w, need) { return a.map((_, i) => { if (i < w - 1) return null; let s = 0, c = 0; for (let j = i - w + 1; j <= i; j++) if (nn(a[j])) { s += a[j]; c++; } return c >= need ? s / c : null; }); }
 function rollMS(a, w, need) { const m = new Array(a.length).fill(null), s = new Array(a.length).fill(null);
   for (let i = w - 1; i < a.length; i++) { const v = []; for (let j = i - w + 1; j <= i; j++) if (nn(a[j])) v.push(a[j]); if (v.length >= need) { const mu = v.reduce((x, y) => x + y, 0) / v.length; m[i] = mu; s[i] = Math.sqrt(v.reduce((x, y) => x + (y - mu) ** 2, 0) / (v.length - 1)); } }
@@ -252,36 +257,43 @@ function drawDetail() {
   const band = (sign) => s.map((v, i) => i > 0 && nn(z[i]) && nn(z[i - 1]) && (sign > 0 ? z[i] > D.bk && z[i - 1] <= D.bk : z[i] < -D.bk && z[i - 1] >= -D.bk) ? v : null);
   const a = r[WHO];
   $('dTitle').textContent = `${r.n} (${r.c}) · ${r.s}`;
-  $('dSub').innerHTML = `${WHO === '합산' ? '외국인+기관' : WHO} · 시총 ${nn(r.cap) ? (r.cap >= 10000 ? (r.cap / 10000).toFixed(1) + '조' : r.cap.toLocaleString() + '억') : '-'} · ${D.fast}일 ${sg(a[I.m8], 2)}bp / ${D.slow}일 ${sg(a[I.m15], 2)}bp · ` +
+  $('dSub').innerHTML = `${WHO === '합산' ? '외국인+기관' : WHO} · 시총 ${nn(r.cap) ? (r.cap >= 10000 ? (r.cap / 10000).toFixed(1) + '조' : r.cap.toLocaleString() + '억') : '-'} · ${D.fast}일 누적 ${cum(a[I.m8], D.fast)} / ${D.slow}일 누적 ${cum(a[I.m15], D.slow)} / 30일 누적 ${cum(a[I.m30], 30)} · ` +
     `${a[I.xs] === 1 ? '<span class="pos">골드</span>' : '<span class="neg">데드</span>'} ${a[I.xd]}일째 · 볼린저 z ${sg(a[I.z], 2)}${a[I.bs] ? (a[I.bs] === 1 ? ' <span class="pos">과매수</span>' : ' <span class="neg">과매도</span>') : ''} · 20일 순매수 ${eok(a[I.n20])} (외국인 ${eok(r['외국인'][I.n20])}, 기관 ${eok(r['기관'][I.n20])}) · 20일 주가 <span class="${cls(r.r20)}">${sg(r.r20)}%</span>`;
   Object.values(ch).forEach(c => c.destroy());
-  const lim = Math.max(1, ...f.slice(s0).concat(s.slice(s0)).filter(nn).map(Math.abs)) * 2.5;
+  const lim = Math.max(1, ...f.slice(s0).concat(s.slice(s0)).filter(nn).map(Math.abs)) * 2.5 / 100;
+  const P1 = a => a.slice(s0).map(v => nn(v) ? v / 100 : null);
   const opt = extra => Object.assign({responsive: true, maintainAspectRatio: false, animation: false, interaction: {mode: 'index', intersect: false},
     plugins: {legend: {labels: {color: '#e6e6e6', boxWidth: 12, font: {size: 11}}}, tooltip: {filter: c => c.parsed.y !== null}},
     scales: {x: {ticks: {color: '#9aa0a6', maxTicksLimit: 8, maxRotation: 0}, grid: {display: false}}, y: {ticks: {color: '#9aa0a6'}, grid: {color: '#23262e'}}}}, extra || {});
   ch.a = new Chart($('d1'), {data: {labels: L, datasets: [
-    {type: 'bar', label: '일별(bp)', data: ratio.slice(s0).map(v => nn(v) ? Math.max(-lim, Math.min(lim, v)) : null), backgroundColor: ratio.slice(s0).map(v => v >= 0 ? '#ff878744' : '#74a7ff44'), order: 3},
-    {type: 'line', label: D.fast + '일 평균', data: f.slice(s0), borderColor: '#ffa94d', borderWidth: 1.8, pointRadius: 0, order: 1},
-    {type: 'line', label: D.slow + '일 평균', data: s.slice(s0), borderColor: '#4dabf7', borderWidth: 1.8, pointRadius: 0, order: 1},
-    {type: 'line', label: '골드 ▲', data: cross(1).slice(s0), showLine: false, pointStyle: 'triangle', pointRadius: 7, backgroundColor: '#ff6b6b', order: 0},
-    {type: 'line', label: '데드 ▼', data: cross(-1).slice(s0), showLine: false, pointStyle: 'triangle', rotation: 180, pointRadius: 7, backgroundColor: '#4dabf7', order: 0}
-  ]}, options: opt({scales: {x: {ticks: {color: '#9aa0a6', maxTicksLimit: 8, maxRotation: 0}, grid: {display: false}}, y: {min: -lim, max: lim, ticks: {color: '#9aa0a6'}, grid: {color: '#23262e'}}}})});
+    {type: 'bar', label: '그날(%)', data: ratio.slice(s0).map(v => nn(v) ? Math.max(-lim, Math.min(lim, v / 100)) : null), backgroundColor: ratio.slice(s0).map(v => v >= 0 ? '#ff878744' : '#74a7ff44'), order: 3},
+    {type: 'line', label: D.fast + '일 평균(하루 %)', data: P1(f), borderColor: '#ffa94d', borderWidth: 1.8, pointRadius: 0, order: 1},
+    {type: 'line', label: D.slow + '일 평균(하루 %)', data: P1(s), borderColor: '#4dabf7', borderWidth: 1.8, pointRadius: 0, order: 1},
+    {type: 'line', label: '골드 ▲', data: P1(cross(1)), showLine: false, pointStyle: 'triangle', pointRadius: 7, backgroundColor: '#ff6b6b', order: 0},
+    {type: 'line', label: '데드 ▼', data: P1(cross(-1)), showLine: false, pointStyle: 'triangle', rotation: 180, pointRadius: 7, backgroundColor: '#4dabf7', order: 0}
+  ]}, options: opt({plugins: {legend: {labels: {color: '#e6e6e6', boxWidth: 12, font: {size: 11}}}, tooltip: {filter: c => c.parsed.y !== null, callbacks: {label: c => { const i = s0 + c.dataIndex;
+      if (c.dataset.type === 'bar') return '그날: ' + pc(ratio[i], 3);
+      if (c.datasetIndex === 1) return D.fast + '일: 하루 평균 ' + pc(f[i], 3) + ' · 누적 ' + cum(f[i], D.fast);
+      if (c.datasetIndex === 2) return D.slow + '일: 하루 평균 ' + pc(s[i], 3) + ' · 누적 ' + cum(s[i], D.slow);
+      return c.dataset.label; }}}},
+    scales: {x: {ticks: {color: '#9aa0a6', maxTicksLimit: 8, maxRotation: 0}, grid: {display: false}}, y: {min: -lim, max: lim, ticks: {color: '#9aa0a6', callback: v => v.toFixed(2) + '%'}, grid: {color: '#23262e'}}}})});
   ch.b = new Chart($('d2'), {type: 'line', data: {labels: L, datasets: [
-    {label: '상단', data: up.slice(s0), borderColor: '#ff878799', borderWidth: 1, borderDash: [4, 3], pointRadius: 0, fill: '+1', backgroundColor: '#4dabf712'},
-    {label: '하단', data: dn.slice(s0), borderColor: '#74a7ff99', borderWidth: 1, borderDash: [4, 3], pointRadius: 0},
-    {label: D.bw + '일 평균', data: m.slice(s0), borderColor: '#6b7280', borderWidth: 1, borderDash: [2, 3], pointRadius: 0},
-    {label: D.slow + '일선', data: s.slice(s0), borderColor: '#4dabf7', borderWidth: 2, pointRadius: 0},
-    {label: '과매수 ▲', data: band(1).slice(s0), showLine: false, pointStyle: 'triangle', pointRadius: 7, backgroundColor: '#ff6b6b'},
-    {label: '과매도 ▼', data: band(-1).slice(s0), showLine: false, pointStyle: 'triangle', rotation: 180, pointRadius: 7, backgroundColor: '#4dabf7'}
-  ]}, options: opt()});
-  const cum = arr => { let t = 0; return arr.slice(s0).map(v => { t += nn(v) ? v / 100 : 0; return t; }); };   // 백만원 -> 억
+    {label: '상단', data: P1(up), borderColor: '#ff878799', borderWidth: 1, borderDash: [4, 3], pointRadius: 0, fill: '+1', backgroundColor: '#4dabf712'},
+    {label: '하단', data: P1(dn), borderColor: '#74a7ff99', borderWidth: 1, borderDash: [4, 3], pointRadius: 0},
+    {label: D.bw + '일 평균', data: P1(m), borderColor: '#6b7280', borderWidth: 1, borderDash: [2, 3], pointRadius: 0},
+    {label: D.slow + '일선(하루 %)', data: P1(s), borderColor: '#4dabf7', borderWidth: 2, pointRadius: 0},
+    {label: '과매수 ▲', data: P1(band(1)), showLine: false, pointStyle: 'triangle', pointRadius: 7, backgroundColor: '#ff6b6b'},
+    {label: '과매도 ▼', data: P1(band(-1)), showLine: false, pointStyle: 'triangle', rotation: 180, pointRadius: 7, backgroundColor: '#4dabf7'}
+  ]}, options: opt({plugins: {legend: {labels: {color: '#e6e6e6', boxWidth: 12, font: {size: 11}}}, tooltip: {filter: c => c.parsed.y !== null, callbacks: {label: c => c.dataset.label + ': ' + sg(c.parsed.y, 3) + '%' + (c.datasetIndex === 3 ? ' (' + D.slow + '일 누적 ' + sg(c.parsed.y * D.slow, 2) + '%)' : ''), afterBody: it => { const i = s0 + it[0].dataIndex; return nn(z[i]) ? '볼린저 z = ' + sg(z[i], 2) : ''; }}}},
+    scales: {x: {ticks: {color: '#9aa0a6', maxTicksLimit: 8, maxRotation: 0}, grid: {display: false}}, y: {ticks: {color: '#9aa0a6', callback: v => v.toFixed(2) + '%'}, grid: {color: '#23262e'}}}})});
+  const cumNet = arr => { let t = 0; return arr.slice(s0).map(v => { t += nn(v) ? v / 100 : 0; return t; }); };   // 백만원 -> 억
   const capS = d.cap.slice(s0), big = Math.max(...capS.filter(nn)) >= 10000;
   if (ch.c) { [2, 3].forEach(i => D3SHOW[i] = ch.c.isDatasetVisible(i)); }
   ch.c = new Chart($('d3'), {type: 'line', data: {labels: L, datasets: [
     {label: big ? '시가총액(조)' : '시가총액(억)', data: capS.map(v => nn(v) ? (big ? v / 10000 : v) : null), borderColor: '#e6e6e6', borderWidth: 1.8, pointRadius: 0, yAxisID: 'y'},
-    {label: '누적 외국인+기관(억)', data: cum(d.F.map((v, i) => (v || 0) + (d.I[i] || 0))), borderColor: '#ff6b6b', borderWidth: 1.6, pointRadius: 0, yAxisID: 'y2'},
-    {label: '누적 외국인(억)', data: cum(d.F), borderColor: '#ffa94d', borderWidth: 1.2, borderDash: [4, 3], pointRadius: 0, yAxisID: 'y2', hidden: !D3SHOW[2]},
-    {label: '누적 기관(억)', data: cum(d.I), borderColor: '#69db7c', borderWidth: 1.2, borderDash: [4, 3], pointRadius: 0, yAxisID: 'y2', hidden: !D3SHOW[3]}
+    {label: '누적 외국인+기관(억)', data: cumNet(d.F.map((v, i) => (v || 0) + (d.I[i] || 0))), borderColor: '#ff6b6b', borderWidth: 1.6, pointRadius: 0, yAxisID: 'y2'},
+    {label: '누적 외국인(억)', data: cumNet(d.F), borderColor: '#ffa94d', borderWidth: 1.2, borderDash: [4, 3], pointRadius: 0, yAxisID: 'y2', hidden: !D3SHOW[2]},
+    {label: '누적 기관(억)', data: cumNet(d.I), borderColor: '#69db7c', borderWidth: 1.2, borderDash: [4, 3], pointRadius: 0, yAxisID: 'y2', hidden: !D3SHOW[3]}
   ]}, options: opt({scales: {x: {ticks: {color: '#9aa0a6', maxTicksLimit: 8, maxRotation: 0}, grid: {display: false}}, y: {position: 'left', ticks: {color: '#c9ccd1'}, grid: {color: '#23262e'}}, y2: {position: 'right', grid: {display: false}, ticks: {color: '#ff8787'}}}})});
 }
 $('closeBtn').onclick = () => $('overlay').classList.remove('open');
