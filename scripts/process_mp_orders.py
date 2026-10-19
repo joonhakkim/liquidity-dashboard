@@ -81,7 +81,7 @@ def resolve_code(name):
     return None
 
 
-def get_price_or_fetch(code, prices):
+def get_price_or_fetch(code, prices, on_date=None):
     """포트폴리오 자체 가격 캐시(prices, 그 포트폴리오의 *_prices.csv)에 없으면 네이버에서
     그 종목 하나만 즉시 조회해 최신 종가를 쓴다.
 
@@ -91,7 +91,10 @@ def get_price_or_fetch(code, prices):
     받아오는 순환 의존이라 "오늘 가격 없음"으로 영영 스킵됐다(2026-09-23, mingu_mp에
     RF머트리얼즈 신규편입 지시가 troy_mp에만 그 종목이 있어서 이틀 연속 스킵된 걸 발견).
     다른 포트폴리오가 이미 그 종목을 갖고 있어도 가격 캐시가 포트폴리오별로 따로라 공유되지
-    않으므로, 못 찾으면 그냥 이 종목 하나만 가볍게 즉시 조회한다."""
+    않으므로, 못 찾으면 그냥 이 종목 하나만 가볍게 즉시 조회한다.
+    on_date(처리 기준일, "YYYY-MM-DD")를 주면 그날 종가(없으면 그 전 마지막 종가)를 쓴다 - 예전엔 무조건 "가장 최근
+    봉"이라, 장중에 지난 날짜 지시를 처리하면 신규 종목만 오늘 장중가로 체결됐다(2026-10-19 롱숏 10/16 지시에서
+    심텍 126,500 대신 10/19 장중 123,700, 에스엠씨지 3,345 대신 3,370으로 들어간 것을 발견해 고침)."""
     price = prices.get(code)
     if price is not None:
         return price
@@ -101,7 +104,12 @@ def get_price_or_fetch(code, prices):
         return None
     if df is None or df.empty:
         return None
-    return float(df.sort_values("date").iloc[-1]["close"])
+    df = df.sort_values("date")
+    if on_date is not None:
+        df = df[pd.to_datetime(df["date"]) <= pd.Timestamp(on_date)]
+        if df.empty:
+            return None
+    return float(df.iloc[-1]["close"])
 
 
 def load_sector_map():
@@ -129,6 +137,15 @@ def get_holdings(portfolio):
     latest_date, prev_date = dates[-1], dates[-2]
     latest_prices = {c: prices_wide.at[latest_date, c] for c in prices_wide.columns
                       if not pd.isna(prices_wide.at[latest_date, c])}
+    # 매매일지엔 있는데 가격 캐시에 아직 없는 종목(방금 신규편입해서 가격 이력을 안 받은 종목)은 그날 종가를 바로 조회 -
+    # 빠지면 그 종목 평가액이 0으로 잡혀 AUM이 줄고, 뒤이은 target_pct 같은 비중 계산이 틀어진다(2026-10-19 롱숏에서
+    # 심텍·에스엠씨지 8,700만원이 빠져 인버스 50% 목표가 45%로 체결된 것을 발견해 고침).
+    for c in trades["code"].unique():
+        c = str(c).zfill(6)
+        if c not in latest_prices:
+            px = get_price_or_fetch(c, {}, latest_date.strftime("%Y-%m-%d"))
+            if px is not None:
+                latest_prices[c] = px
     prev_prices = {c: prices_wide.at[prev_date, c] for c in prices_wide.columns
                     if not pd.isna(prices_wide.at[prev_date, c])}
     name_map = dict(zip(trades["code"], trades["name"]))
@@ -238,7 +255,7 @@ def main():
                     summary.append(f"[{pid}] '{new_name}' 종목코드 확인 실패 - 스킵(수동 확인 필요)")
                     continue
                 new_code = new_code.zfill(6)
-                new_price = get_price_or_fetch(new_code, prices)
+                new_price = get_price_or_fetch(new_code, prices, state['date'])
                 if new_price is None:
                     summary.append(f"[{pid}] {new_name}({new_code}) 오늘 가격 없음 - 스킵(가격 이력 백필 필요)")
                     continue
@@ -250,7 +267,7 @@ def main():
                 done_idx.append(idx)
                 continue
 
-            price = get_price_or_fetch(code, prices)
+            price = get_price_or_fetch(code, prices, state['date'])
             if price is None:
                 summary.append(f"[{pid}] {name}({code}) 오늘 가격 없음 - 스킵")
                 continue
@@ -324,7 +341,7 @@ def main():
                     summary.append(f"[{pid}] {name} target_pct pct 값 없음 - 스킵")
                     continue
                 h = held.get(code)
-                price = h["cur_price"] if h else get_price_or_fetch(code, prices)
+                price = h["cur_price"] if h else get_price_or_fetch(code, prices, state2["date"])
                 if price is None:
                     summary.append(f"[{pid}] {name}({code}) 오늘 가격 없음 - 스킵")
                     continue
