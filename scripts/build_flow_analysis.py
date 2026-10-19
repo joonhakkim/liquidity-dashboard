@@ -201,7 +201,7 @@ TEMPLATE = r"""<!doctype html>
   </div>
 
   <div class="box">
-    <h2>섹터 수급 순위 <span style="font-size:12px;font-weight:normal;color:#9aa0a6">머리글 = 정렬, 행 = 위 차트 대상 + 소속 종목 수급 펼치기</span></h2>
+    <h2>섹터 수급 순위 <span style="font-size:12px;font-weight:normal;color:#9aa0a6">머리글 = 정렬, 행 = 위 차트 대상 + 소속 종목 수급 펼치기(고른 섹터는 맨 위 ▶, '대상'에서 섹터 정리 전체를 고르면 원래 순서)</span></h2>
     <div class="tblwrap"><table id="tbl"></table></div>
   </div>
 
@@ -345,11 +345,13 @@ function renderTable() {
   st.forEach(x => x.b = bandOf(x.g, x.r));
   const keyf = {bb: x => x.b.zNow, name: x => x.g.name, n: x => x.g.n, fast: x => x.fast, slow: x => x.slow, x: x => x.x ? (x.x.up ? 1 : -1) * (1000 - x.x.days) : null, n5: x => x.n5, n20: x => x.n20, c20: x => x.c20, cap: x => x.cap, rkchg: x => nn(rk5[x.g.name]) && nn(rk[x.g.name]) ? rk5[x.g.name] - rk[x.g.name] : null};
   const rows = st.slice().sort((a, b) => { const f = keyf[SORT], va = f(a), vb = f(b); if (SORT === 'name') return DESC ? vb.localeCompare(va) : va.localeCompare(vb); const x = nn(va) ? va : (DESC ? -1e18 : 1e18), y = nn(vb) ? vb : (DESC ? -1e18 : 1e18); return DESC ? y - x : x - y; });
+  // 고른 섹터는 정렬과 관계없이 맨 위(2026-10-19 사용자 "그 섹터가 맨 위로 오게") - 펼친 종목 목록도 바로 아래
+  if (TGT) { const k = rows.findIndex(x => x.g.name === TGT); if (k > 0) rows.unshift(rows.splice(k, 1)[0]); }
   const H = (k, t) => `<th data-s="${k}"${SORT === k ? ' class="sorted"' : ''}>${t}${SORT === k ? (DESC ? ' ▼' : ' ▲') : ''}</th>`;
   let h = '<tr>' + `<th class="nosort">${XS}일 순위</th>` + H('name', '섹터') + H('n', '종목') + H('fast', XF + '일 평균') + H('slow', XS + '일 평균') + H('x', '교차(' + XF + '/' + XS + ')') + H('bb', '볼린저(z)') + H('n5', '5일 순매수') + H('n20', '20일 순매수') + H('c20', '20일 시총') + H('cap', '시총') + H('rkchg', '1주 전 순위') + '</tr>';
   rows.forEach(x => {
     const nm = x.g.name, chg = nn(rk5[nm]) && nn(rk[nm]) ? rk5[nm] - rk[nm] : null;
-    h += `<tr class="sec${TGT === nm ? ' sel' : ''}" data-name="${nm}"><td>${rk[nm] || '-'}</td><td>${nm}</td><td>${x.g.n}</td>` +
+    h += `<tr class="sec${TGT === nm ? ' sel' : ''}" data-name="${nm}"><td>${rk[nm] || '-'}</td><td>${TGT === nm ? '<span style="color:#4dabf7">▶</span> ' : ''}${nm}</td><td>${x.g.n}</td>` +
       `<td class="${cls(x.fast)}">${sg(x.fast, 2)}</td><td class="${cls(x.slow)}"><b>${sg(x.slow, 2)}</b></td>` +
       `<td style="color:${x.x && x.x.up ? '#ff8787' : '#74a7ff'}">${x.x ? (x.x.up ? '▲ 골드 ' : '▼ 데드 ') + x.x.days + '일' + (x.x.days <= 3 ? ' <span style="color:#ffd43b;font-size:11px">새로</span>' : '') : '-'}</td>` +
       `<td style="color:${x.b.now > 0 ? '#ff8787' : x.b.now < 0 ? '#74a7ff' : '#9aa0a6'}">${nn(x.b.zNow) ? sg(x.b.zNow, 1) + (x.b.now ? ' ' + BNAME[x.b.now] + ' ' + x.b.days + '일' : '') : '-'}</td>` +
