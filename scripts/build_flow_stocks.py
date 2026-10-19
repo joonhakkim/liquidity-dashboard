@@ -143,7 +143,7 @@ TEMPLATE = r"""<!doctype html>
 <body>
   <a class="back" href="index.html">&larr; 홈</a>
   <a class="back" href="flow_analysis.html">섹터 수급 분석 &rarr;</a>
-  <a class="back" href="flow_lab.html">수급 상태·평균단가(실험) &rarr;</a>
+  <a class="back" href="flow_lab.html">수급 국면·평균단가(실험) &rarr;</a>
   <h1>종목 수급<span class="sub">종목별 외국인·기관 순매수의 시가총액 대비 비율</span></h1>
   <div class="updated">최종 갱신: __UPDATED__ &middot; 데이터 __FROM__ ~ __ASOF__ &middot; 수급.xlsx + 기업 밴드 찾기 2 시가총액 &middot; 표 기준 8일/15일 평균, 볼린저 15일선·60일·2σ</div>
 

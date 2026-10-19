@@ -164,7 +164,7 @@ TEMPLATE = r"""<!doctype html>
   <a class="back" href="index.html">&larr; 홈</a>
   <a class="back" href="sector_ma_breadth.html">섹터 이평선 위 비율 &rarr;</a>
   <a class="back" href="flow_stocks.html">종목 수급 &rarr;</a>
-  <a class="back" href="flow_lab.html">수급 상태·평균단가(실험) &rarr;</a>
+  <a class="back" href="flow_lab.html">수급 국면·평균단가(실험) &rarr;</a>
   <h1>수급 분석<span class="sub">섹터 정리 섹터·종목의 외국인·기관 순매수, 시가총액 대비 비율</span></h1>
   <div class="updated">최종 갱신: __UPDATED__ &middot; 데이터 __FROM__ ~ __ASOF__ &middot; 수급.xlsx(외국인·기관 순매수대금) + 기업 밴드 찾기 2 시가총액</div>
 
