@@ -62,6 +62,7 @@ CORE_STEPS = [
     ("build_op_band_v2.py", "OP밴드 트래커 빌드(12개월 선행 보간 분모 + 최근3년 하위퍼센타일 바텀 - 2026-09-28부로 이 파일이 유일한 OP밴드 트래커, 구v1은 삭제됨)"),
     ("fetch_phase_warning_inputs.py", "시장 국면 대응 단계용 외부 시계열(코스닥 지수·SOX·Baa/ICE 등급별 스프레드) 수집(2026-10-14 추가, 섹터 페이지 지수 표시에도 씀)"),
     ("build_sector_ma_breadth.py", "섹터별 이평선 위 종목 비율 페이지 빌드(섹터 정리 기준, 기업밴드찾기2 일별 시총 - OP밴드 빌드가 저장한 캐시를 쓰므로 그 다음, 2026-10-14 추가)"),
+    ("build_flow_analysis.py", "수급 분석 페이지 빌드(data/manual/수급.xlsx 외국인·기관 순매수 / 시총, 섹터 정리 섹터별 8·15일 평균·교차·순위 - 시총 캐시 쓰므로 섹터 이평선 다음, 2026-10-19 추가)"),
     ("build_market_phase.py", "시장 국면 점수 페이지 빌드(밸류하단3·공격방어2·120일선2 배점, 6국면 + 대응 단계 - OP밴드 종목별 데이터를 쓰므로 OP밴드 빌드 다음, 2026-10-07 추가)"),
     ("build_estimate_revision.py", "이익추정치 상향 트래커 빌드(FY1/FY2 컨센서스 1일·1주·1개월 변화율)"),
     ("build_yoy_accel_tracker.py", "YoY 가속화 트래커 빌드(data/manual/*QoQ*.xlsx 기반, 분기 영업이익 YoY 및 가속도)"),
@@ -86,6 +87,7 @@ SLOW_STEPS = [
     ("fetch_op_band_consensus.py", "OP밴드: 전종목 FnGuide 컨센서스 교차검증 수집(종목당 API 호출, 느림)"),
     ("build_op_band_v2.py", "OP밴드 트래커 재빌드(FnGuide 교차검증 반영)"),
     ("build_sector_ma_breadth.py", "섹터별 이평선 위 종목 비율 재빌드(OP밴드 재빌드로 시총 캐시 갱신된 뒤)"),
+    ("build_flow_analysis.py", "수급 분석 재빌드(시총 캐시 갱신 반영)"),
     ("build_briefing.py", "아침 브리핑 재생성(섹터 재빌드 반영)"),
     ("build_home.py", "홈페이지 빌드(PER 트래커 최신 링크 반영용으로 한 번 더)"),
 ]
