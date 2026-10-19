@@ -4,7 +4,7 @@
   바탕화면 클로드\브리핑\시장브리핑_YYYYMMDD.pdf(크롬 헤드리스로 인쇄용 HTML을 PDF로)만 만든다 - 홈페이지엔 올리지 않음
   (2026-10-16 사용자 "홈페이지로 보지 말고 그냥 생성해서 나한테 주라"). HTML은 PDF 만들 때만 임시로 쓰고 지움.
 1장 시장 판단: 국면·목표 비중·꺾임 주의, 지수, 국면 재료, 시장 폭(이평선 위 비율·8/15 교차·5/15), 밸류 바닥, 차트 2개.
-2장 섹터: 4사분면(5일/15일), 섹터 1주 등락, 20주선 위 강·약 섹터와 1주 변화, 실적 가속 섹터, 자동 요약.
+2장 섹터: 4사분면(8일/15일 - 2026-10-20 사용자 "섹터 4사분면은 8일 15일인데 왜 브리핑은 이렇냐", 페이지와 같게), 섹터 1주 등락, 20주선 위 강·약 섹터와 1주 변화, 실적 가속 섹터, 자동 요약.
 쓰는 데이터는 모두 이미 만들어진 산출물(같은 숫자가 각 페이지와 일치): market_phase_daily.csv, docs/sector_ma_breadth.html의 데이터,
 op_band_summary.csv, sector_yoy_accel_summary_trimmed.csv, phase_warning_inputs.csv(코스닥). MP 보유 내역(비밀번호 페이지)은 넣지 않음.
 """
@@ -196,7 +196,7 @@ def svg_quad(pts, width=720, height=385):
         bb = best[1]; placed.append(bb)
         o.append(f'<text x="{bb[0]:.1f}" y="{bb[1] + 8.5:.1f}" font-size="8.5" fill="#212529" paint-order="stroke" stroke="#fff" stroke-width="2.2">{lab}</text>')
     o.append(f'<text x="{L + W / 2:.1f}" y="{height - 2}" font-size="9" text-anchor="middle" fill="#868e96">15일선 위 비율(추세 수준) →</text>')
-    o.append(f'<text x="11" y="{T + H / 2:.1f}" font-size="9" text-anchor="middle" fill="#868e96" transform="rotate(-90 11 {T + H / 2:.1f})">5일 - 15일선 위 비율(%p, 모멘텀) →</text>')
+    o.append(f'<text x="11" y="{T + H / 2:.1f}" font-size="9" text-anchor="middle" fill="#868e96" transform="rotate(-90 11 {T + H / 2:.1f})">8일 - 15일선 위 비율(%p, 모멘텀) →</text>')
     o.append("</svg>")
     return "".join(o)
 
@@ -245,8 +245,6 @@ def main():
     # 브리핑 교차는 8일/15일선 위 비율(평활 없음) - 2026-10-19 사용자 "20/40 말고 10일 15일로" -> 같은 날 "8일 15일로"
     f2040 = np.array(A["n8"], float); s2040 = np.array(A["n15"], float)
     d2040, lc2040 = cross_state(f2040, s2040)
-    f515, s515 = np.array(A["n5"], float), np.array(A["n15"], float)
-    d515, lc515 = cross_state(f515, s515)
     # 밸류
     ob = pd.read_csv(DATA / "screening" / "op_band_summary.csv", usecols=["latest_mult", "b_3y_p10", "gap_3y_p10"])
     below = int(((ob["latest_mult"] > 0) & (ob["gap_3y_p10"] < 0)).sum())
@@ -260,8 +258,8 @@ def main():
         return a[i] if a and i >= 0 and a[i] is not None else np.nan
     quad = {1: [], 2: [], 3: [], 4: []}
     for sx in secs:
-        x, y = sec_at(sx, "n15"), sec_at(sx, "n5") - sec_at(sx, "n15")
-        x5, y5 = sec_at(sx, "n15", 5), sec_at(sx, "n5", 5) - sec_at(sx, "n15", 5)
+        x, y = sec_at(sx, "n15"), sec_at(sx, "n8") - sec_at(sx, "n15")
+        x5, y5 = sec_at(sx, "n15", 5), sec_at(sx, "n8", 5) - sec_at(sx, "n15", 5)
         if x != x or y != y:
             continue
         q = (1 if y >= 0 else 4) if x >= 50 else (2 if y >= 0 else 3)
@@ -269,9 +267,9 @@ def main():
         quad[q].append((sx["name"], y, q5))
     qpts = []
     for sx in secs:
-        x, y = sec_at(sx, "n15"), sec_at(sx, "n5") - sec_at(sx, "n15")
+        x, y = sec_at(sx, "n15"), sec_at(sx, "n8") - sec_at(sx, "n15")
         if x == x and y == y:
-            qpts.append((sx["name"], x, y, sec_at(sx, "n15", 5), sec_at(sx, "n5", 5) - sec_at(sx, "n15", 5), sx["n"]))
+            qpts.append((sx["name"], x, y, sec_at(sx, "n15", 5), sec_at(sx, "n8", 5) - sec_at(sx, "n15", 5), sx["n"]))
     # 이익추정치 상향(이익추정치 상향 트래커와 같은 데이터) - 섹터는 섹터 정리 기준
     code2sec = {c: sx["name"] for sx in secs for c in sx["codes"]}
     try:
@@ -309,7 +307,7 @@ def main():
     bullets.append(f"중소형 지수 1일 {sg(r_sm[0])}, 1주 {sg(r_sm[1])}, 1달 {sg(r_sm[2])} · 120일선 {'아래' if sm_below else '위'} {kb}거래일째({sg(pct(smi.iloc[-1], ma120.iloc[-1]))})")
     st2040 = "골드(빠른 선 위)" if d2040[-1] > 0 else "데드(빠른 선 아래)"
     bullets.append(f"시장 폭 교차(8일/15일선 위 비율) <b>{st2040}</b>" + (f" - {dates[lc2040]} 교차, {n - lc2040}거래일째" if lc2040 else "") +
-                   f", 차이 {d2040[-1]:+.0f}%p(1주 전 {d2040[-6]:+.0f}%p). 단기(5/15)는 {'골드' if d515[-1] > 0 else '데드'}" + (f"({dates[lc515][5:]}부터)" if lc515 else ""))
+                   f", 차이 {d2040[-1]:+.0f}%p(1주 전 {d2040[-6]:+.0f}%p).")
     b20 = breadth[0]
     bullets.append(f"20일선 위 종목 {f0(b20[1])}(1주 전 {f0(b20[2])}, 1달 전 {f0(b20[3])}) · 200일선 위 {f0(breadth[3][1])}")
     if len(RS):
@@ -443,9 +441,9 @@ def main():
 </div>
 <div class="page">
   <div class="hdr"><div><h1>섹터 흐름</h1><div class="sub">데이터 기준 {asof:%Y-%m-%d} · 섹터 정리 {len(secs)}개 섹터 · 종목 수 기준 비율</div></div><div class="sub">2/2 섹터 · joonhakkim.github.io/liquidity-dashboard</div></div>
-  <h2>섹터 4사분면 (가로 15일선 위 비율 50% · 세로 5일-15일선 위 비율 0) <span class="sub">← = 1주 전 사분면</span></h2>
+  <h2>섹터 4사분면 (가로 15일선 위 비율 50% · 세로 8일-15일선 위 비율 0) <span class="sub">← = 1주 전 사분면</span></h2>
   {quad_svg}
-  <div class="qguide"><b>읽는 법</b> 가로 = 섹터 종목 중 15일선 위에 있는 비율(오른쪽일수록 단기 추세 강함, 50%가 기준) · 세로 = 5일선 위 비율 − 15일선 위 비율(위쪽일수록 최근 며칠 더 좋아지는 중, 0이 기준).
+  <div class="qguide"><b>읽는 법</b> 가로 = 섹터 종목 중 15일선 위에 있는 비율(오른쪽일수록 단기 추세 강함, 50%가 기준) · 세로 = 8일선 위 비율 − 15일선 위 비율(위쪽일수록 최근 며칠 더 좋아지는 중, 0이 기준).
     점 크기 = 종목 수, 회색 점에서 이어진 옅은 선 = 1주 전 위치. 섹터는 보통 <span style="color:#e67700">개선 중</span>(왼쪽 위) → <span style="color:#c92a2a">강세 지속</span>(오른쪽 위) → <span style="color:#e8590c">꺾이는 중</span>(오른쪽 아래) → <span style="color:#1971c2">약세</span>(왼쪽 아래)로 시계 방향으로 돕니다.
     지금 위치를 보는 지도이고, 다음 성과를 맞히는 힘은 약합니다(2016~ 사분면별 이후 20일 차이 ±0.5%p 안).</div>
   <table class="qtbl">{quad_tbl}</table>
