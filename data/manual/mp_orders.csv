@@ -315,3 +315,13 @@
 2026-10-20,mingu_mp,reduce_pct,비나텍,126340,3.0,,2026-10-20T20:06:21.364816
 2026-10-20,mingu_mp,increase_pct,한양디지텍,078350,3.0,,2026-10-20T20:06:21.364816
 2026-10-20,mingu_mp,exit,피노,033790,,,2026-10-20T20:06:21.364816
+2026-10-20,kosdaq_long_short_index,reduce_pct,두산테스나,131970,3.0,,2026-10-21T08:08:43.499262
+2026-10-20,kosdaq_long_short_index,reduce_pct,에프에스티,036810,1.0,,2026-10-21T08:08:43.499262
+2026-10-20,kosdaq_long_short_index,reduce_pct,유니테스트,086390,1.0,,2026-10-21T08:08:43.499262
+2026-10-20,kosdaq_long_short_index,exit,코스텍시스,355150,,,2026-10-21T08:08:43.499262
+2026-10-20,kosdaq_long_short_index,exit,서진시스템,178320,,신성에스티 교체,2026-10-21T08:08:43.499262
+2026-10-20,kosdaq_long_short_index,new_entry_pct,신성에스티,416180,3.0,서진시스템 교체,2026-10-21T08:08:43.499262
+2026-10-20,kosdaq_long_short_index,new_entry_pct,비나텍,126340,2.0,,2026-10-21T08:08:43.499262
+2026-10-20,kosdaq_long_short_index,new_entry_pct,인터로조,119610,2.0,,2026-10-21T08:08:43.499262
+2026-10-20,kosdaq_long_short_index,increase_pct,파인엠텍,441270,1.0,,2026-10-21T08:08:43.499262
+2026-10-20,kosdaq_long_short_index,target_pct,KODEX 코스닥150선물인버스,251340,60.0,숏 비중 50에서 60,2026-10-21T08:08:43.499262
