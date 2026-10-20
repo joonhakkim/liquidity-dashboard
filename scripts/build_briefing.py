@@ -224,7 +224,10 @@ def main():
     d = pd.read_csv(DATA / "screening" / "market_phase_daily.csv", parse_dates=["date"], index_col="date")
     d = d[d["phase"].notna()]
     asof = d.index[-1]
-    D = cut_to_date(load_sector_page(), asof)
+    # 2026-10-21 사용자 "시가총액은 내가 매일 올리니까 홈페이지엔 최신 수치가 있는데" - 섹터·시장 폭은 시총 파일 기준 최신일까지 쓰고
+    # (국면 점수·지수는 KRX 종가가 들어와야 갱신되므로 국면 기준일 그대로), 머리글에 두 날짜를 따로 표시한다.
+    D = load_sector_page()
+    sec_asof = D["dates"][-1]
     dates = D["dates"]
     n = len(dates)
     now = datetime.now()
@@ -305,6 +308,26 @@ def main():
         RS = pd.read_csv(DATA / "screening" / "sector_relative_strength_summary.csv")
     except Exception:  # noqa: BLE001
         RS = pd.DataFrame()
+    # 2026-10-21: 시총 파일 기준 최신일까지의 종목 수익률(D["ret"], 1/5/20일)로 다시 계산 - 파일(종가 기준)은 KRX가 늦으면 하루 뒤처짐.
+    # 코스피 대비 초과수익(%p) 섹터 평균·이긴 종목 비율, 1주=5거래일·1달=20거래일. 실패하면 위 csv를 그대로 쓴다.
+    try:
+        rt, ik = D.get("ret"), D.get("idx", {}).get("코스피")
+        if rt and ik and len(ik) == n:
+            kr = {h: (ik[-1] / ik[-1 - h] - 1) * 100 for h in (5, 20)}
+            rows_rs = []
+            for sx in secs:
+                e5, e20 = [], []
+                for c in sx["codes"]:
+                    v = rt["stk"].get(c)
+                    if v and v[1] is not None and v[2] is not None:
+                        e5.append(v[1] - kr[5]); e20.append(v[2] - kr[20])
+                if e5:
+                    rows_rs.append(dict(sector=sx["name"], mean_1주=float(np.mean(e5)), win_1주=100 * float(np.mean([x > 0 for x in e5])),
+                                        mean_1달=float(np.mean(e20)), win_1달=100 * float(np.mean([x > 0 for x in e20]))))
+            if len(rows_rs) >= 30:
+                RS = pd.DataFrame(rows_rs)
+    except Exception:  # noqa: BLE001
+        pass
     # 강·약 섹터는 15일선 위 비율(2026-10-16 사용자 "20주선 말고 15일선으로") - 4사분면 가로축과 같은 기준
     w20 = sorted([(sx["name"], sec_at(sx, "n15"), sec_at(sx, "n15") - sec_at(sx, "n15", 5), sx["n"]) for sx in secs if sec_at(sx, "n15") == sec_at(sx, "n15")], key=lambda r: -r[1])
     movers = sorted([r for r in w20 if r[2] == r[2]], key=lambda r: r[2])
@@ -351,7 +374,9 @@ def main():
         a, b = d2040[i - 1], d2040[i]
         if a == a and b == b and ((a <= 0 < b) or (a >= 0 > b)):
             marks.append((i - cut, f2040[i], "▲" if b > 0 else "▼", "#c92a2a" if b > 0 else "#1971c2"))
-    kqw = kq.reindex(pd.to_datetime(dd), method="ffill").values
+    # 2026-10-21: 코스닥 선도 섹터 이평선 페이지와 같은 시총 파일 기준 지수(D["idx"], 최신일까지) 사용 - 국면 파일은 KRX 종가가 늦어 하루 뒤처짐
+    kqw = np.array(D["idx"]["코스닥"][cut:], dtype=float) if D.get("idx", {}).get("코스닥") and len(D["idx"]["코스닥"]) == n \
+        else kq.reindex(pd.to_datetime(dd), method="ffill").values
     chart2 = svg_lines(dd, [(f2040[cut:], "#e8590c", 1.8, "8일선 위", False), (s2040[cut:], "#1971c2", 1.8, "15일선 위", False)],
                        ymin=0, ymax=100, marks=marks, hline=50, right=(kqw, "#adb5bd", "코스닥"))
 
@@ -359,6 +384,12 @@ def main():
     title_date = f"{now:%Y-%m-%d}({WD[now.weekday()]})"
     def tr(cells, cls=""):
         return f"<tr{cls}>" + "".join(f"<td>{c}</td>" for c in cells) + "</tr>"
+    try:
+        if D.get("idx", {}).get("코스피") and len(D["idx"]["코스피"]) == n:
+            ksp = pd.Series(D["idx"]["코스피"], index=pd.to_datetime(D["dates"]), dtype=float)
+            kq = pd.Series(D["idx"]["코스닥"], index=pd.to_datetime(D["dates"]), dtype=float)
+    except Exception:  # noqa: BLE001
+        pass
     idx_tbl = "".join(tr([nm] + [f"{v:,.2f}" if nm != "중소형 지수" else f"{v:,.1f}"] + [f"<span class='{'up' if x >= 0 else 'dn'}'>{sg(x)}</span>" for x in rets(s)])
                       for nm, s, v in (("코스피", ksp, ksp.iloc[-1]), ("코스닥", kq, kq.iloc[-1]), ("중소형 지수", smi, smi.iloc[-1])))
     quad_svg = svg_quad(qpts)
@@ -434,7 +465,7 @@ def main():
 </style></head><body>
 <button class="btn noprint" onclick="window.print()">인쇄 / PDF</button>
 <div class="page">
-  <div class="hdr"><div><h1>시장 브리핑 · {title_date}</h1><div class="sub">데이터 기준 {asof:%Y-%m-%d}({WD[asof.weekday()]}) 종가 · 섹터 정리 종목 기준 · 자동 생성 {now:%m/%d %H:%M}</div></div>
+  <div class="hdr"><div><h1>시장 브리핑 · {title_date}</h1><div class="sub">국면 {asof:%Y-%m-%d}({WD[asof.weekday()]}) 종가 · 지수·시장 폭·섹터 {sec_asof}(시가총액 파일 기준, 중소형 지수는 국면 기준일) · 섹터 정리 종목 기준 · 자동 생성 {now:%m/%d %H:%M}</div></div>
     <div class="sub">1/2 시장 판단</div></div>
   <div class="hero">
     <div class="box" style="border-color:{PH3C[cur3]}"><div class="lbl">국면</div><div class="val" style="color:{PH3C[cur3]}">{cur3}</div><div class="sub">{since:%m/%d}부터 {k}거래일째</div></div>
@@ -459,7 +490,7 @@ def main():
   <div class="note">기저효과 극단치(±200%p 초과)·5종목 미만 섹터 제외. 밸류 등급 = OP밴드 3년 하위 10% 바텀 대비 %의 5분위(상 = 바텀에 가까움).</div>
 </div>
 <div class="page">
-  <div class="hdr"><div><h1>섹터 흐름</h1><div class="sub">데이터 기준 {asof:%Y-%m-%d} · 섹터 정리 {len(secs)}개 섹터 · 종목 수 기준 비율</div></div><div class="sub">2/2 섹터 · joonhakkim.github.io/liquidity-dashboard</div></div>
+  <div class="hdr"><div><h1>섹터 흐름</h1><div class="sub">데이터 기준 {sec_asof} · 섹터 정리 {len(secs)}개 섹터 · 종목 수 기준 비율</div></div><div class="sub">2/2 섹터 · joonhakkim.github.io/liquidity-dashboard</div></div>
   <h2>섹터 4사분면 (가로 15일선 위 비율 50% · 세로 8일-15일선 위 비율 0) <span class="sub">← = 1주 전 사분면</span></h2>
   {quad_svg}
   <div class="qguide"><b>읽는 법</b> 가로 = 섹터 종목 중 15일선 위에 있는 비율(오른쪽일수록 단기 추세 강함, 50%가 기준) · 세로 = 8일선 위 비율 − 15일선 위 비율(위쪽일수록 최근 며칠 더 좋아지는 중, 0이 기준).
