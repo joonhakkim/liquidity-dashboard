@@ -328,3 +328,7 @@
 2026-10-21,troy_mp,exit,삼성E&A,028050,,,
 2026-10-21,troy_mp,new_entry_pct,DL이앤씨,375500,2.0,,
 2026-10-21,mingu_mp,reduce_pct,한양디지텍,078350,3.0,,
+2026-10-21,kosdaq_long_short_index,new_entry_pct,지투지바이오,456160,2.0,,
+2026-10-21,kosdaq_long_short_index,reduce_pct,상신이디피,091580,1.0,,
+2026-10-21,kosdaq_long_short_index,increase_pct,비나텍,126340,1.0,,
+2026-10-21,kosdaq_long_short_index,target_pct,KODEX 코스닥150선물인버스,251340,60.0,숏 비중 60% 유지(10/20에 50에서 60으로 바꾼 뒤 57%로 줄어든 것 다시 맞춤),
