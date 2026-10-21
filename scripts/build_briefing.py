@@ -400,10 +400,12 @@ def main():
         return "".join(tr([r["sector"], f"<b class='{'up' if r[col] >= 0 else 'dn'}'>{r[col]:+.1f}%p</b>", f"{r[col.replace('mean', 'win')]:.0f}%"]) for _, r in t.iterrows())
     nwin1w = int((RS["mean_1주"] > 0).sum()) if len(RS) else 0
     nwin1m = int((RS["mean_1달"] > 0).sum()) if len(RS) else 0
-    def er_rows():
+    ER_TOP_N = 15   # 2026-10-21 사용자 "이익추정치 상향 종목 15개까지" (6 -> 15, 두 표로 나눠 8+7)
+
+    def er_rows(lo=0, hi=ER_TOP_N):
         if not len(ER):
             return ""
-        t = ER[(ER["mktcap"] >= 1e11) & ER["fy2_1w"].between(0.5, 100)].sort_values("fy2_1w", ascending=False).head(6)
+        t = ER[(ER["mktcap"] >= 1e11) & ER["fy2_1w"].between(0.5, 100)].sort_values("fy2_1w", ascending=False).head(ER_TOP_N).iloc[lo:hi]
         return "".join(tr([r["name"], r["sec"] if isinstance(r["sec"], str) else (r["sector"] or "-"), f"{r['mktcap'] / 1e8:,.0f}억",
                            f"<b class='up'>{r['fy2_1w']:+.1f}%</b>", sg(r["fy2_1m"]), sg(r["fy1_1w"])]) for _, r in t.iterrows())
     def er_sec():
@@ -414,7 +416,7 @@ def main():
         t = t[t["n"] >= 5]
         t["net"] = (t["up"] - t["dn"]) / t["n"] * 100
         t = t.sort_values("net", ascending=False).head(6)
-        return "".join(tr([nm, f"{int(r['n'])}", f"<span class='up'>{int(r['up'])}</span> / <span class='dn'>{int(r['dn'])}</span>", f"<b>{r['net']:+.0f}%p</b>", sg(r["med"])]) for nm, r in t.iterrows())
+        return "".join(tr([nm, f"<span class='up'>{int(r['up'])}</span> / <span class='dn'>{int(r['dn'])}</span> ({int(r['n'])})", f"<b>{r['net']:+.0f}%p</b>"]) for nm, r in t.iterrows())
     br_tbl = "".join(tr([lbl, f"<b>{f0(a)}</b>", f0(b), f0(c), f"<span class='{'up' if a - b >= 0 else 'dn'}'>{sg(a - b, 0, '%p')}</span>"]) for lbl, a, b, c in breadth)
     mat = "".join(tr([nm, f"{v1:.1f}", f"{v0:.1f}", f"{s1:.0f}점", f"{s0:.0f}점"]) for nm, v1, v0, s1, s0 in (
         ("밸류 하단 종목 비율(%)", d["C"].iloc[-1] * 100, d["C"].iloc[-6] * 100, d["sC"].iloc[-1], d["sC"].iloc[-6]),
@@ -453,7 +455,7 @@ def main():
   ul {{ margin:4px 0; padding-left:16px; }} li {{ margin:2px 0; }}
   table {{ border-collapse:collapse; width:100%; }} td, th {{ padding:2px 5px; border-bottom:1px solid #f1f3f5; text-align:right; white-space:nowrap; }}
   td:first-child, th:first-child {{ text-align:left; }} th {{ color:#868e96; font-weight:normal; font-size:10px; }}
-  .grid2 {{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }}
+  .grid2 {{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }} .grid3 {{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; }}
   .up {{ color:#e03131; }} .dn {{ color:#1971c2; }}
   .bar {{ height:8px; border-radius:2px; }}
   .chip {{ display:inline-block; margin:1px 8px 1px 0; white-space:nowrap; }} .chip i {{ font-style:normal; font-size:9.5px; }}
@@ -499,10 +501,11 @@ def main():
   <table class="qtbl">{quad_tbl}</table>
   <h2>이익추정치 상향 <span class="sub">내년(FY2) 영업이익 컨센서스 변화율 · {er_date} 기준 · 시총 1천억 이상</span></h2>
   <div class="grid2">
-    <div><table><tr><th>1주 상향 상위 종목</th><th>섹터</th><th>시총</th><th>FY2 1주</th><th>1달</th><th>FY1 1주</th></tr>{er_rows()}</table></div>
-    <div><table><tr><th>상향 우세 섹터(1달)</th><th>종목</th><th>상향/하향</th><th>순상향</th><th>중앙값</th></tr>{er_sec()}</table></div>
+    <div><table><tr><th>1주 상향 상위 종목</th><th>섹터</th><th>시총</th><th>FY2 1주</th><th>1달</th><th>FY1 1주</th></tr>{er_rows(0, 8)}</table></div>
+    <div><table><tr><th>(이어서)</th><th>섹터</th><th>시총</th><th>FY2 1주</th><th>1달</th><th>FY1 1주</th></tr>{er_rows(8, ER_TOP_N)}</table></div>
   </div>
-  <div class="grid2">
+  <div class="grid3">
+    <div><h2>상향 우세 섹터 <span class="sub">(1달 · 괄호=종목수)</span></h2><table>{er_sec()}</table></div>
     <div><h2>15일선 위 비율 높은 섹터 <span class="sub">(1주 변화)</span></h2><table>{strong}</table></div>
     <div><h2>15일선 위 비율 낮은 섹터 <span class="sub">(1주 변화)</span></h2><table>{weak}</table></div>
   </div>
