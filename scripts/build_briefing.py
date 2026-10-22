@@ -445,8 +445,9 @@ def main():
     ret_bot = "".join(rbar(r) for r in rrows[-6:][::-1])
     xrow = lambda r: tr([r[0], f"{r[5]} ({r[1]}일째)", f"<b class='{'up' if r[2] >= 0 else 'dn'}'>{sg(r[2], 0, '%p')}</b>", f"{r[3]:.0f}% / {r[4]:.0f}%"])
     none_row = "<tr><td colspan='4' class='sub'>최근 5거래일 새로 교차한 섹터 없음</td></tr>"
-    strong = "".join(xrow(r) for r in new_gold[:10]) or none_row
-    weak = "".join(xrow(r) for r in new_dead[:10]) or none_row
+    more = lambda L: f"<tr><td colspan='4' class='sub'>그 외 {len(L) - 5}개: {', '.join(r[0] for r in L[5:])}</td></tr>" if len(L) > 5 else ""   # 3장 넘지 않게 5줄 + 나머지 이름만
+    strong = ("".join(xrow(r) for r in new_gold[:5]) + more(new_gold)) or none_row
+    weak = ("".join(xrow(r) for r in new_dead[:5]) + more(new_dead)) or none_row
     mv_up = ", ".join(f"{nm} {c:+.0f}" for nm, _v, c, _n in movers[::-1][:5])
     mv_dn = ", ".join(f"{nm} {c:+.0f}" for nm, _v, c, _n in movers[:5])
     yoy_tbl = "".join(tr([r["name"], f"{int(r['n_stocks'])}", f"<b>{r['accel']:+.1f}%p</b>", r.get("valuation_grade") if isinstance(r.get("valuation_grade"), str) else "-"])
