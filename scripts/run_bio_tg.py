@@ -21,7 +21,8 @@ def main():
             print("주말 - 건너뜀"); return
         try:
             import bio_tg_digest as b
-            parts = b.digest()   # 2026-10-22 사용자 요청으로 주가 동향만 보내므로 채널 수집(b.collect)은 생략
+            b.collect()
+            parts = b.digest()
             b.send(parts)
         except Exception:
             traceback.print_exc()

@@ -35,6 +35,7 @@ CH_PATH = os.path.join(BASE, "data", "manual", "bio_tg_channels.csv")
 CACHE = os.path.join(BASE, "data", "screening", "cache", "bio_tg")
 DB = os.path.join(CACHE, "posts.sqlite")
 OUT_TXT = os.path.join(CACHE, "digest_latest.html")
+OUT_CHART = os.path.join(CACHE, "rising_chart.png")   # ① 언급 급증 막대 차트(2026-10-22 사용자 "차트화, 막대그래프로 많은 순서로")
 H = {"User-Agent": "Mozilla/5.0"}
 BACKFILL_DAYS = 60
 BIO_NAVER = {"제약", "생물공학", "건강관리장비와용품", "생명과학도구및서비스", "건강관리업체및서비스", "건강관리기술"}
@@ -200,17 +201,50 @@ def section_rising(M, now):
     r["wk"] = r["p"] / 4
     r["ratio"] = (r["n"] + 1) / (r["wk"] + 1)
     r = r[(r["n"] >= 3) & (r["chs"] >= 2)].sort_values(["ratio", "n"], ascending=False).head(12)
-    lines = ["<b>① 언급이 늘어난 바이오 종목</b> <i>(최근 7일 vs 직전 4주 주평균, 채널 2곳 이상, 기업 IR 채널 제외 · 막대 = 최근 14일 하루 언급 수 · 조회 = 언급 글 조회수 합)</i>"]
-    days = pd.date_range((now - timedelta(days=13)).date(), now.date())
-    bars = "▁▂▃▄▅▆▇█"
+    lines = ["<b>① 언급이 늘어난 바이오 종목</b> <i>(최근 7일 vs 직전 4주 주평균, 채널 2곳 이상, 기업 IR 채널 제외 · 조회 = 언급 글 조회수 합 · 막대 차트는 아래 이미지)</i>"]
     for _, x in r.iterrows():
         src = recent[recent["code"] == x["code"]].sort_values("dt", ascending=False).drop_duplicates("ch").head(3)
-        cnt = M[M["code"] == x["code"]].groupby(M["dt"].dt.normalize()).size().reindex(days, fill_value=0)
-        mx = max(cnt.max(), 1)
-        spark = "".join(bars[min(7, int(c / mx * 7))] if c else "·" for c in cnt)
         vv = f" · 조회 {x['v'] / 1e4:.1f}만" if x["v"] and x["v"] > 0 else ""
-        lines.append(f"• <b>{esc(x['name'])}</b> {int(x['n'])}회(평소 주 {x['wk']:.1f}회, {int(x['chs'])}개 채널{vv}) <code>{spark}</code> — " + ", ".join(link(s.ch, s.id) for s in src.itertuples()))
+        lines.append(f"• <b>{esc(x['name'])}</b> {int(x['n'])}회(평소 주 {x['wk']:.1f}회, {int(x['chs'])}개 채널{vv}) — " + ", ".join(link(s.ch, s.id) for s in src.itertuples()))
+    rising_chart(r, now)
     return "\n".join(lines)
+
+
+def rising_chart(r, now):
+    """① 언급 급증 종목을 최근 7일 언급 수가 많은 순으로 가로 막대(회색 눈금 = 평소 주평균, 오른쪽 글자 = 채널 수·조회수).
+    2026-10-22 사용자 "검색량을 문자로 표시했는데 차트화시켜서, 막대그래프로 많은 거 순서로" - 글자 막대(▁~█)를 대신함."""
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    plt.rcParams["font.family"] = "Malgun Gothic"
+    plt.rcParams["axes.unicode_minus"] = False
+    if r.empty:
+        if os.path.exists(OUT_CHART):
+            os.remove(OUT_CHART)
+        return
+    d = r.sort_values(["n", "v"], ascending=True)          # 아래부터 그려지므로 오름차순 = 많은 게 맨 위
+    fig, ax = plt.subplots(figsize=(8, 0.42 * len(d) + 1.3), facecolor="#0f1115")
+    ax.set_facecolor("#0f1115")
+    y = list(range(len(d)))
+    ax.barh(y, d["n"], color="#ff6b6b", height=0.62, label="최근 7일 언급")
+    ax.scatter(d["wk"], y, marker="|", s=260, color="#9aa0a6", zorder=3, label="평소 주평균(직전 4주)")
+    mx = float(d["n"].max())
+    for i, x in enumerate(d.itertuples()):
+        vv = f" · 조회 {x.v / 1e4:.1f}만" if x.v and x.v > 0 else ""
+        ax.text(x.n + mx * 0.02, i, f"{int(x.n)}회 (평소 {x.wk:.1f}) · {int(x.chs)}채널{vv}", va="center", color="#e6e6e6", fontsize=8)
+    ax.set_yticks(y)
+    ax.set_yticklabels(d["name"], color="#e6e6e6", fontsize=9)
+    ax.set_xlim(0, mx * 1.75)
+    ax.tick_params(axis="x", colors="#9aa0a6")
+    for sp in ax.spines.values():
+        sp.set_color("#23262e")
+    ax.grid(axis="x", color="#23262e")
+    ax.set_axisbelow(True)
+    ax.legend(loc="lower right", fontsize=8, facecolor="#0f1115", edgecolor="#23262e", labelcolor="#e6e6e6")
+    ax.set_title(f"바이오 언급 급증 종목 · 최근 7일 언급 수 · {now:%Y-%m-%d %H:%M}", color="#e6e6e6", fontsize=11, fontweight="bold")
+    plt.tight_layout()
+    plt.savefig(OUT_CHART, dpi=130, facecolor=fig.get_facecolor())
+    plt.close()
 
 
 def parse_date(m, now):
@@ -288,7 +322,7 @@ def section_prices(pats):
     asof = P["d"].mode().iloc[0]
     live = asof == datetime.now().strftime("%Y%m%d") and datetime.now().hour < 20
     pc = lambda v: f"{v * 100:+.1f}%"
-    lines = [f"<i>({asof[:4]}-{asof[4:6]}-{asof[6:]} {'장중 현재가' if live else '종가'}, 하루 평균 거래대금 5억 이상 {len(P)}종목)</i>",
+    lines = [f"<b>② 바이오 주가 동향</b> <i>({asof[:4]}-{asof[4:6]}-{asof[6:]} {'장중 현재가' if live else '종가'}, 하루 평균 거래대금 5억 이상 {len(P)}종목)</i>",
              f"• 전체 중앙값: 1일 {pc(P.r1.median())} · 1주 {pc(P.r5.median())} · 1달 {pc(P.r20.median())} · 1주 오른 종목 {int((P.r5 > 0).mean() * 100)}%"]
     for lab, g in P.groupby("sec"):
         if len(g) >= 8:
@@ -304,9 +338,11 @@ def section_prices(pats):
 def digest():
     now = datetime.now()
     pats = universe()
-    # 2026-10-22 사용자 "바이오에서 이슈랑 뉴스 일정 이런거는 안 올려도 되겠다" -> ① 언급 급증·② 일정·이슈는 빼고 ③ 주가 동향만 보냄.
-    # section_rising·section_schedule 함수와 채널 수집 DB는 남겨 둠(다시 넣으려면 load_posts·mentions 호출 후 parts에 추가)
-    parts = [f"<b>🧬 바이오 주가 동향</b> {now:%Y-%m-%d %H:%M}\n<i>투자 권유 아님</i>", section_prices(pats)]
+    df = load_posts(40)
+    M = mentions(df, pats)
+    # 2026-10-22 사용자 "이슈랑 뉴스 일정 이런거는 안 올려도 되겠다" + "언급 급증은 있어야 되는데" -> ② 일정·이슈만 뺌(section_schedule 함수는 남겨 둠)
+    parts = [f"<b>🧬 바이오 텔레그램 다이제스트</b> {now:%Y-%m-%d %H:%M}\n<i>공개 채널 {df['ch'].nunique()}곳 최근 글 기준 · 투자 권유 아님 · 각 줄 끝 링크 = 원문</i>",
+             section_rising(M, now), section_prices(pats)]
     msg = "\n\n".join(parts)
     with open(OUT_TXT, "w", encoding="utf-8") as f:
         f.write(msg)
@@ -321,21 +357,32 @@ def send(parts=None):
         return
     if parts is None:
         parts = open(OUT_TXT, encoding="utf-8").read().split("\n\n")
-    chunks, cur = [], ""
-    for p in parts:                                        # 텔레그램 한 메시지 4096자 제한
-        for line in p.split("\n"):
-            if len(cur) + len(line) + 1 > 3900:
-                chunks.append(cur); cur = ""
-            cur += line + "\n"
-        cur += "\n"
-    if cur.strip():
-        chunks.append(cur)
-    for c in chunks:
-        r = requests.post(f"https://api.telegram.org/bot{tok}/sendMessage", data={"chat_id": chat, "text": c, "parse_mode": "HTML", "disable_web_page_preview": "true"}, timeout=30)
+    def send_text(ps):
+        chunks, cur = [], ""
+        for p in ps:                                       # 텔레그램 한 메시지 4096자 제한
+            for line in p.split("\n"):
+                if len(cur) + len(line) + 1 > 3900:
+                    chunks.append(cur); cur = ""
+                cur += line + "\n"
+            cur += "\n"
+        if cur.strip():
+            chunks.append(cur)
+        for c in chunks:
+            r = requests.post(f"https://api.telegram.org/bot{tok}/sendMessage", data={"chat_id": chat, "text": c, "parse_mode": "HTML", "disable_web_page_preview": "true"}, timeout=30)
+            if not r.ok:
+                print("보내기 실패:", r.status_code, r.text[:200])
+            time.sleep(1)
+        return len(chunks)
+
+    n = send_text(parts[:2])                               # 머리말 + ① 언급 급증
+    if os.path.exists(OUT_CHART) and time.time() - os.path.getmtime(OUT_CHART) < 3600:   # ① 막대 차트(이번 실행에서 만든 것만)
+        with open(OUT_CHART, "rb") as f:
+            r = requests.post(f"https://api.telegram.org/bot{tok}/sendPhoto", data={"chat_id": chat, "caption": "언급 급증 종목 · 최근 7일 언급 수 많은 순"}, files={"photo": f}, timeout=60)
         if not r.ok:
-            print("보내기 실패:", r.status_code, r.text[:200])
+            print("차트 보내기 실패:", r.status_code, r.text[:200])
         time.sleep(1)
-    print(f"보냄: {len(chunks)}개 메시지")
+    n += send_text(parts[2:])
+    print(f"보냄: {n}개 메시지 + 차트")
 
 
 if __name__ == "__main__":
