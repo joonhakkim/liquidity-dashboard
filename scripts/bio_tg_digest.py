@@ -55,7 +55,17 @@ def db():
     os.makedirs(CACHE, exist_ok=True)
     con = sqlite3.connect(DB)
     con.execute("CREATE TABLE IF NOT EXISTS posts(ch TEXT, id INTEGER, dt TEXT, text TEXT, h TEXT, PRIMARY KEY(ch, id))")
+    if "views" not in [r[1] for r in con.execute("PRAGMA table_info(posts)")]:
+        con.execute("ALTER TABLE posts ADD COLUMN views INTEGER")      # 조회수(2026-10-22 추가 - 검색량 대신 '조회수 가중 관심도')
     return con
+
+
+def views_num(v):
+    v = (v or "").strip().upper().replace(",", "")
+    try:
+        return int(float(v[:-1]) * 1000) if v.endswith("K") else int(float(v[:-1]) * 1e6) if v.endswith("M") else int(float(v))
+    except ValueError:
+        return None
 
 
 def fetch_page(ch, before=None):
@@ -82,15 +92,17 @@ def parse(t, ch):
         txt = x.group(1) if x else ""
         txt = re.sub(r"<br\s*/?>", "\n", txt)
         txt = html.unescape(re.sub(r"<[^>]+>", "", txt)).strip()
-        out.append((ch, int(m.group(1)), d.group(1)[:19], txt))
+        v = re.search(r'<span class="tgme_widget_message_views">([^<]+)</span>', blk)
+        out.append((ch, int(m.group(1)), d.group(1)[:19], txt, views_num(v.group(1)) if v else None))
     return out
 
 
-def collect_channel(ch):
+def collect_channel(ch, refresh_days=None):
+    """refresh_days를 주면 그 기간 글을 다시 받아 조회수만 갱신(이미 있는 글)."""
     con = sqlite3.connect(DB)
-    last = con.execute("SELECT MAX(id) FROM posts WHERE ch=?", (ch,)).fetchone()[0] or 0
+    last = 0 if refresh_days else (con.execute("SELECT MAX(id) FROM posts WHERE ch=?", (ch,)).fetchone()[0] or 0)
     con.close()
-    stop_dt = (datetime.now() - timedelta(days=BACKFILL_DAYS)).strftime("%Y-%m-%dT%H:%M:%S")
+    stop_dt = (datetime.now() - timedelta(days=refresh_days or BACKFILL_DAYS)).strftime("%Y-%m-%dT%H:%M:%S")
     rows, before = [], None
     for _ in range(60):
         t = fetch_page(ch, before)
@@ -103,19 +115,20 @@ def collect_channel(ch):
             break
         before = mn
         time.sleep(0.3)
-    rows = [r for r in rows if r[1] > last and r[2] >= stop_dt]
     con = sqlite3.connect(DB)
-    con.executemany("INSERT OR IGNORE INTO posts VALUES (?,?,?,?,?)",
-                    [(c, i, d, x, hashlib.md5(re.sub(r"\s+", "", x)[:300].encode()).hexdigest()) for c, i, d, x in rows])
+    con.executemany("UPDATE posts SET views=? WHERE ch=? AND id=?", [(v, c, i) for c, i, d, x, v in rows if v is not None])   # 받은 글은 조회수 갱신
+    rows = [r for r in rows if r[1] > last and r[2] >= stop_dt]
+    con.executemany("INSERT OR IGNORE INTO posts(ch, id, dt, text, h, views) VALUES (?,?,?,?,?,?)",
+                    [(c, i, d, x, hashlib.md5(re.sub(r"\s+", "", x)[:300].encode()).hexdigest(), v) for c, i, d, x, v in rows])
     con.commit(); con.close()
     return ch, len(rows)
 
 
-def collect():
+def collect(refresh_days=None):
     db().close()
     chs = pd.read_csv(CH_PATH, encoding="utf-8-sig")["채널"].tolist()
     with ThreadPoolExecutor(4) as ex:
-        res = list(ex.map(collect_channel, chs))
+        res = list(ex.map(lambda c: collect_channel(c, refresh_days), chs))
     n = sum(r[1] for r in res)
     print(f"수집: 채널 {len(chs)}개, 새 글 {n}건", {c: k for c, k in res if k})
 
@@ -170,7 +183,7 @@ def mentions(df, pats):
     for _, p in df.iterrows():
         for code, nm, sec, rx in pats:
             if rx.search(p["text"] or ""):
-                rows.append({"code": code, "name": nm, "sector": sec, "ch": p["ch"], "id": p["id"], "dt": p["dt"], "h": p["h"], "cat": p["분류"]})
+                rows.append({"code": code, "name": nm, "sector": sec, "ch": p["ch"], "id": p["id"], "dt": p["dt"], "h": p["h"], "cat": p["분류"], "views": p.get("views")})
     return pd.DataFrame(rows)
 
 
@@ -181,16 +194,22 @@ def section_rising(M, now):
     M = M.drop_duplicates(["code", "h"])        # 같은 글 퍼온 건 한 번만
     recent = M[M["dt"] >= now - timedelta(days=7)]
     prior = M[(M["dt"] < now - timedelta(days=7)) & (M["dt"] >= now - timedelta(days=35))]
-    r = recent.groupby(["code", "name"]).agg(n=("id", "size"), chs=("ch", "nunique")).reset_index()
+    r = recent.groupby(["code", "name"]).agg(n=("id", "size"), chs=("ch", "nunique"), v=("views", "sum")).reset_index()
     p = prior.groupby("code").size().rename("p").reset_index()
     r = r.merge(p, on="code", how="left").fillna({"p": 0})
     r["wk"] = r["p"] / 4
     r["ratio"] = (r["n"] + 1) / (r["wk"] + 1)
     r = r[(r["n"] >= 3) & (r["chs"] >= 2)].sort_values(["ratio", "n"], ascending=False).head(12)
-    lines = ["<b>① 언급이 늘어난 바이오 종목</b> <i>(최근 7일 vs 직전 4주 주평균, 채널 2곳 이상, 기업 IR 채널 제외)</i>"]
+    lines = ["<b>① 언급이 늘어난 바이오 종목</b> <i>(최근 7일 vs 직전 4주 주평균, 채널 2곳 이상, 기업 IR 채널 제외 · 막대 = 최근 14일 하루 언급 수 · 조회 = 언급 글 조회수 합)</i>"]
+    days = pd.date_range((now - timedelta(days=13)).date(), now.date())
+    bars = "▁▂▃▄▅▆▇█"
     for _, x in r.iterrows():
         src = recent[recent["code"] == x["code"]].sort_values("dt", ascending=False).drop_duplicates("ch").head(3)
-        lines.append(f"• <b>{esc(x['name'])}</b> {int(x['n'])}회(평소 주 {x['wk']:.1f}회, {int(x['chs'])}개 채널) — " + ", ".join(link(s.ch, s.id) for s in src.itertuples()))
+        cnt = M[M["code"] == x["code"]].groupby(M["dt"].dt.normalize()).size().reindex(days, fill_value=0)
+        mx = max(cnt.max(), 1)
+        spark = "".join(bars[min(7, int(c / mx * 7))] if c else "·" for c in cnt)
+        vv = f" · 조회 {x['v'] / 1e4:.1f}만" if x["v"] and x["v"] > 0 else ""
+        lines.append(f"• <b>{esc(x['name'])}</b> {int(x['n'])}회(평소 주 {x['wk']:.1f}회, {int(x['chs'])}개 채널{vv}) <code>{spark}</code> — " + ", ".join(link(s.ch, s.id) for s in src.itertuples()))
     return "\n".join(lines)
 
 
@@ -322,6 +341,8 @@ def send(parts=None):
 
 if __name__ == "__main__":
     cmd = sys.argv[1] if len(sys.argv) > 1 else "all"
+    if cmd == "refresh":
+        collect(refresh_days=BACKFILL_DAYS); sys.exit()
     if cmd in ("collect", "all"):
         collect()
     parts = digest() if cmd in ("digest", "all") else None
