@@ -288,7 +288,7 @@ def section_prices(pats):
     asof = P["d"].mode().iloc[0]
     live = asof == datetime.now().strftime("%Y%m%d") and datetime.now().hour < 20
     pc = lambda v: f"{v * 100:+.1f}%"
-    lines = [f"<b>③ 바이오 주가 동향</b> <i>({asof[:4]}-{asof[4:6]}-{asof[6:]} {'장중 현재가' if live else '종가'}, 하루 평균 거래대금 5억 이상 {len(P)}종목)</i>",
+    lines = [f"<i>({asof[:4]}-{asof[4:6]}-{asof[6:]} {'장중 현재가' if live else '종가'}, 하루 평균 거래대금 5억 이상 {len(P)}종목)</i>",
              f"• 전체 중앙값: 1일 {pc(P.r1.median())} · 1주 {pc(P.r5.median())} · 1달 {pc(P.r20.median())} · 1주 오른 종목 {int((P.r5 > 0).mean() * 100)}%"]
     for lab, g in P.groupby("sec"):
         if len(g) >= 8:
@@ -304,10 +304,9 @@ def section_prices(pats):
 def digest():
     now = datetime.now()
     pats = universe()
-    df = load_posts(40)
-    M = mentions(df, pats)
-    parts = [f"<b>🧬 바이오 텔레그램 다이제스트</b> {now:%Y-%m-%d %H:%M}\n<i>공개 채널 {df['ch'].nunique()}곳 최근 글 기준 · 투자 권유 아님 · 각 줄 끝 링크 = 원문</i>",
-             section_rising(M, now), section_schedule(df[df["dt"] >= now - timedelta(days=21)], pats, now), section_prices(pats)]
+    # 2026-10-22 사용자 "바이오에서 이슈랑 뉴스 일정 이런거는 안 올려도 되겠다" -> ① 언급 급증·② 일정·이슈는 빼고 ③ 주가 동향만 보냄.
+    # section_rising·section_schedule 함수와 채널 수집 DB는 남겨 둠(다시 넣으려면 load_posts·mentions 호출 후 parts에 추가)
+    parts = [f"<b>🧬 바이오 주가 동향</b> {now:%Y-%m-%d %H:%M}\n<i>투자 권유 아님</i>", section_prices(pats)]
     msg = "\n\n".join(parts)
     with open(OUT_TXT, "w", encoding="utf-8") as f:
         f.write(msg)
