@@ -331,6 +331,18 @@ def main():
     # 강·약 섹터는 15일선 위 비율(2026-10-16 사용자 "20주선 말고 15일선으로") - 4사분면 가로축과 같은 기준
     w20 = sorted([(sx["name"], sec_at(sx, "n15"), sec_at(sx, "n15") - sec_at(sx, "n15", 5), sx["n"]) for sx in secs if sec_at(sx, "n15") == sec_at(sx, "n15")], key=lambda r: -r[1])
     movers = sorted([r for r in w20 if r[2] == r[2]], key=lambda r: r[2])
+    # 섹터 8일/15일선 위 비율 골드·데드크로스 신규 진입(최근 5거래일 안에 교차) - 2026-10-22 사용자 "15일선 위 비율 높은/낮은 섹터 빼고 골드·데드 신규 진입 섹터로"
+    new_gold, new_dead = [], []
+    for sx in secs:
+        f8, s15 = np.array(sx.get("n8") or [], float)[:n], np.array(sx.get("n15") or [], float)[:n]
+        if len(f8) < 10 or len(s15) < 10:
+            continue
+        dd, lc = cross_state(f8, s15)
+        if lc is None or n - 1 - lc >= 5 or dd[-1] != dd[-1] or dd[-1] == 0:   # 차이 0(동률)은 제외
+            continue
+        rec = (sx["name"], n - lc, dd[-1], f8[-1], s15[-1], dates[lc][5:])
+        (new_gold if dd[-1] > 0 else new_dead).append(rec)
+    new_gold.sort(key=lambda r: (r[1], -r[2])); new_dead.sort(key=lambda r: (r[1], r[2]))   # 최근 교차 먼저, 같은 날이면 차이 큰 순
     ret5 = (D.get("ret") or {}).get("5", {})
     rrows = ret5.get("rows", [])
     try:
@@ -431,8 +443,10 @@ def main():
         return f"<tr><td>{r['name']}</td><td class='{'up' if r['r'] >= 0 else 'dn'}'><b>{r['r']:+.1f}%</b></td><td style='width:45%'><div class='bar' style='width:{w:.0f}%;background:{'#ffa8a8' if r['r'] >= 0 else '#a5d8ff'}'></div></td><td class='sub'>{r['up']}/{r['n']}↑</td></tr>"
     ret_top = "".join(rbar(r) for r in rrows[:6])
     ret_bot = "".join(rbar(r) for r in rrows[-6:][::-1])
-    strong = "".join(tr([nm, f"<b>{v:.0f}%</b>", f"<span class='{'up' if c >= 0 else 'dn'}'>{sg(c, 0, '%p')}</span>"]) for nm, v, c, _n in w20[:5])
-    weak = "".join(tr([nm, f"<b>{v:.0f}%</b>", f"<span class='{'up' if c >= 0 else 'dn'}'>{sg(c, 0, '%p')}</span>"]) for nm, v, c, _n in w20[-5:][::-1])
+    xrow = lambda r: tr([r[0], f"{r[5]} ({r[1]}일째)", f"<b class='{'up' if r[2] >= 0 else 'dn'}'>{sg(r[2], 0, '%p')}</b>", f"{r[3]:.0f}% / {r[4]:.0f}%"])
+    none_row = "<tr><td colspan='4' class='sub'>최근 5거래일 새로 교차한 섹터 없음</td></tr>"
+    strong = "".join(xrow(r) for r in new_gold[:10]) or none_row
+    weak = "".join(xrow(r) for r in new_dead[:10]) or none_row
     mv_up = ", ".join(f"{nm} {c:+.0f}" for nm, _v, c, _n in movers[::-1][:5])
     mv_dn = ", ".join(f"{nm} {c:+.0f}" for nm, _v, c, _n in movers[:5])
     yoy_tbl = "".join(tr([r["name"], f"{int(r['n_stocks'])}", f"<b>{r['accel']:+.1f}%p</b>", r.get("valuation_grade") if isinstance(r.get("valuation_grade"), str) else "-"])
@@ -506,8 +520,8 @@ def main():
   </div>
   <div class="grid3">
     <div><h2>상향 우세 섹터 <span class="sub">(1달 · 괄호=종목수)</span></h2><table>{er_sec()}</table></div>
-    <div><h2>15일선 위 비율 높은 섹터 <span class="sub">(1주 변화)</span></h2><table>{strong}</table></div>
-    <div><h2>15일선 위 비율 낮은 섹터 <span class="sub">(1주 변화)</span></h2><table>{weak}</table></div>
+    <div><h2>골드크로스 신규 진입 섹터 {len(new_gold)}개 <span class="sub">(8일선 위 비율이 15일선 위 비율을 위로 · 교차일·차이·8일/15일)</span></h2><table>{strong}</table></div>
+    <div><h2>데드크로스 신규 진입 섹터 {len(new_dead)}개 <span class="sub">(8일선 위 비율이 15일선 위 비율 아래로 · 최근 5거래일)</span></h2><table>{weak}</table></div>
   </div>
 </div>
 </body></html>"""
