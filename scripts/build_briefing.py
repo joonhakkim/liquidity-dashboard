@@ -443,11 +443,12 @@ def main():
         return f"<tr><td>{r['name']}</td><td class='{'up' if r['r'] >= 0 else 'dn'}'><b>{r['r']:+.1f}%</b></td><td style='width:45%'><div class='bar' style='width:{w:.0f}%;background:{'#ffa8a8' if r['r'] >= 0 else '#a5d8ff'}'></div></td><td class='sub'>{r['up']}/{r['n']}↑</td></tr>"
     ret_top = "".join(rbar(r) for r in rrows[:6])
     ret_bot = "".join(rbar(r) for r in rrows[-6:][::-1])
-    xrow = lambda r: tr([r[0], f"{r[5]} ({r[1]}일째)", f"<b class='{'up' if r[2] >= 0 else 'dn'}'>{sg(r[2], 0, '%p')}</b>", f"{r[3]:.0f}% / {r[4]:.0f}%"])
+    xrow = lambda r: tr([r[0], f"{r[5]}({r[1]}일)", f"<b class='{'up' if r[2] >= 0 else 'dn'}'>{sg(r[2], 0, '%p')}</b>", f"{r[3]:.0f}% / {r[4]:.0f}%"])
     none_row = "<tr><td colspan='4' class='sub'>최근 5거래일 새로 교차한 섹터 없음</td></tr>"
-    more = lambda L: f"<tr><td colspan='4' class='sub'>그 외 {len(L) - 5}개: {', '.join(r[0] for r in L[5:])}</td></tr>" if len(L) > 5 else ""   # 3장 넘지 않게 5줄 + 나머지 이름만
-    strong = ("".join(xrow(r) for r in new_gold[:5]) + more(new_gold)) or none_row
-    weak = ("".join(xrow(r) for r in new_dead[:5]) + more(new_dead)) or none_row
+    XN = 6   # 2장 3칸 표(넘치면 PDF 전체가 축소됨 - 2026-10-23 사용자 "원래 꽉 차있었는데 비어있다")
+    more = lambda L: f"<tr><td colspan='4' class='sub' style='white-space:normal'>그 외 {len(L) - XN}개: {', '.join(r[0] for r in L[XN:])}</td></tr>" if len(L) > XN else ""
+    strong = ("".join(xrow(r) for r in new_gold[:XN]) + more(new_gold)) or none_row
+    weak = ("".join(xrow(r) for r in new_dead[:XN]) + more(new_dead)) or none_row
     mv_up = ", ".join(f"{nm} {c:+.0f}" for nm, _v, c, _n in movers[::-1][:5])
     mv_dn = ", ".join(f"{nm} {c:+.0f}" for nm, _v, c, _n in movers[:5])
     yoy_tbl = "".join(tr([r["name"], f"{int(r['n_stocks'])}", f"<b>{r['accel']:+.1f}%p</b>", r.get("valuation_grade") if isinstance(r.get("valuation_grade"), str) else "-"])
@@ -470,7 +471,7 @@ def main():
   ul {{ margin:4px 0; padding-left:16px; }} li {{ margin:2px 0; }}
   table {{ border-collapse:collapse; width:100%; }} td, th {{ padding:2px 5px; border-bottom:1px solid #f1f3f5; text-align:right; white-space:nowrap; }}
   td:first-child, th:first-child {{ text-align:left; }} th {{ color:#868e96; font-weight:normal; font-size:10px; }}
-  .grid2 {{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }} .grid3 {{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; }}
+  .grid2 {{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }} .grid3 {{ display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:10px; }} .grid3 td {{ padding:2px 3px; font-size:10px; }}   /* minmax(0) - 넘치면 크롬이 PDF 전체를 줄여 1장이 비어 보임(2026-10-23) */
   .up {{ color:#e03131; }} .dn {{ color:#1971c2; }}
   .bar {{ height:8px; border-radius:2px; }}
   .chip {{ display:inline-block; margin:1px 8px 1px 0; white-space:nowrap; }} .chip i {{ font-style:normal; font-size:9.5px; }}
@@ -521,8 +522,8 @@ def main():
   </div>
   <div class="grid3">
     <div><h2>상향 우세 섹터 <span class="sub">(1달 · 괄호=종목수)</span></h2><table>{er_sec()}</table></div>
-    <div><h2>골드크로스 신규 진입 섹터 {len(new_gold)}개 <span class="sub">(8일선 위 비율이 15일선 위 비율을 위로 · 교차일·차이·8일/15일)</span></h2><table>{strong}</table></div>
-    <div><h2>데드크로스 신규 진입 섹터 {len(new_dead)}개 <span class="sub">(8일선 위 비율이 15일선 위 비율 아래로 · 최근 5거래일)</span></h2><table>{weak}</table></div>
+    <div><h2>골드크로스 신규 진입 {len(new_gold)}개 <span class="sub">(최근 5거래일 · 교차일·차이·8일/15일)</span></h2><table>{strong}</table></div>
+    <div><h2>데드크로스 신규 진입 {len(new_dead)}개 <span class="sub">(최근 5거래일 · 교차일·차이·8일/15일)</span></h2><table>{weak}</table></div>
   </div>
 </div>
 </body></html>"""
