@@ -31,6 +31,7 @@ from datetime import datetime
 import openpyxl
 import pandas as pd
 
+from build_op_band import load_band_workbook
 from build_op_band import (
     MKTCAP_ITEM, TTM_ITEM, QUARTER_ITEM,
     HEADER_CODE_ROW, HEADER_NAME_ROW, HEADER_ITEM_ROW, HEADER_BASEDATE_ROW, DATA_START_ROW,
@@ -353,7 +354,7 @@ def main():
         print("data/manual/ 에 '기업 밴드' 워크북이 없습니다.")
         return
     print(f"워크북 로드 중: {wb_path}")
-    wb = openpyxl.load_workbook(wb_path, read_only=True, data_only=True)
+    wb = load_band_workbook()   # 본 파일 + 갱신용 파일 합친 것(2026-10-23)
 
     all_results = {}
     for sn in wb.sheetnames:
