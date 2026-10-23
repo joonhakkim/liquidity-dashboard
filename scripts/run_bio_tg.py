@@ -1,5 +1,5 @@
 """
-바이오 텔레그램 다이제스트 실행기 - 작업 스케줄러 'Bio-TG-Digest'가 평일 08:00~18:00 2시간마다 pythonw.exe로 실행(창 안 뜸).
+바이오 텔레그램 다이제스트 실행기 - 작업 스케줄러 'Bio-TG-Digest'가 평일 13:00 하루 한 번 pythonw.exe로 실행(창 안 뜸, 2026-10-23 사용자 "오후1시에만 한번만").
 2026-10-22 사용자 "2시간 단위로 해볼래". 수집 -> 다이제스트 -> @Troyinvestbot으로 보냄. 로그는 logs/YYYY-MM-DD-bio-tg.log.
 """
 import contextlib
