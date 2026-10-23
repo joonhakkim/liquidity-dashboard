@@ -1325,6 +1325,8 @@ def main_long_short(portfolio, other_portfolios):
 
     print(f"[{name}] 코스닥 지수 수집 중...")
     kosdaq = fetch_index_history("KOSDAQ")
+    print(f"[{name}] 코스피 지수 수집 중...")
+    kospi = fetch_index_history("KOSPI")   # 2026-10-23 사용자 "롱숏MP에 코스닥이랑 똑같이 코스피도 비교" - 참고 비교용(BM은 코스닥 그대로)
 
     nav_html = render_nav_html(portfolio, other_portfolios)
 
@@ -1358,6 +1360,10 @@ def main_long_short(portfolio, other_portfolios):
     holdings, total_eval = compute_holdings_table(trades, latest_prices, prev_prices, name_map, sector_map, show_cash_row=True, cash_mode="long_only")
     dates_out, mp_index, bm_kosdaq, net_exposure = compute_twr_index_ls(trades, prices_wide, kosdaq)
     long_index = compute_long_book_index(trades, prices_wide, dates_out)   # 롱 북만(숏·현금 제외, 2026-10-12)
+    _kp = kospi.sort_index().reindex(pd.DatetimeIndex(dates_out).union(kospi.index)).ffill().reindex(dates_out)
+    bm_kospi = [float(v) / float(_kp.iloc[0]) * BASE_INDEX for v in _kp] if len(_kp) and pd.notna(_kp.iloc[0]) else []
+    bm_kospi_json = json.dumps([round(v, 3) for v in bm_kospi])
+    bm_kospi_latest = bm_kospi[-1] if bm_kospi else float(BASE_INDEX)
 
     dates_json = json.dumps([d.strftime("%Y-%m-%d") for d in dates_out])
     mp_json = json.dumps([round(v, 3) for v in mp_index])
@@ -1399,6 +1405,12 @@ def main_long_short(portfolio, other_portfolios):
         "alpha_long_6m": fmt_alpha(compute_period_alpha(dates_out, long_index, bm_kosdaq, days_back=180)),
         "alpha_long_1y": fmt_alpha(compute_period_alpha(dates_out, long_index, bm_kosdaq, days_back=365)),
     }
+    for _k, _ser in (("kospi", mp_index), ("long_kospi", long_index)):   # 코스피 대비(MP 전체, 롱만)
+        _lat = _ser[-1] if _ser else float(BASE_INDEX)
+        alpha_periods[f"alpha_{_k}_total"] = fmt_alpha(pct_return(_lat) - pct_return(bm_kospi_latest))
+        alpha_periods[f"alpha_{_k}_1d"] = fmt_alpha(compute_period_alpha(dates_out, _ser, bm_kospi, prev_trading_day=True))
+        for _lbl, _d in (("1w", 7), ("1m", 30), ("6m", 180), ("1y", 365)):
+            alpha_periods[f"alpha_{_k}_{_lbl}"] = fmt_alpha(compute_period_alpha(dates_out, _ser, bm_kospi, days_back=_d))
     own_periods = {
         "own_total": fmt_return(pct_return(mp_latest)),
         "own_1d": fmt_return(compute_period_return(dates_out, mp_index, prev_trading_day=True)),
@@ -1464,6 +1476,13 @@ def main_long_short(portfolio, other_portfolios):
         "ret_pct": pct_return(bm_kosdaq_latest),
         "day_ret_pct": kosdaq_day_ret, "weight_pct": None,
     })
+    kospi_actual_latest = float(kospi.loc[ref_date]) if ref_date is not None and ref_date in kospi.index else None
+    holdings.append({
+        "code": "-", "name": "코스피 지수(참고)", "sector": "-", "shares": None, "avg_price": None,
+        "cost_basis": None, "cur_price": kospi_actual_latest, "eval_value": None,
+        "ret_pct": pct_return(bm_kospi_latest),
+        "day_ret_pct": (bm_kospi[-1] / bm_kospi[-2] - 1) * 100 if len(bm_kospi) >= 2 else None, "weight_pct": None,
+    })
     # 롱/숏 표 분류는 실제 매매 방향(shares 부호)이 아니라 "경제적 방향"(EXPOSURE_BETA 반영) 기준
     # - 인버스ETF는 매수(shares>0)해도 실질은 코스닥 하락 베팅(숏)이라 숏 표에 넣어달라는 요청
     # (2026-09-01). 매매/평가금액 자체는 그대로 BUY로 남아있고 표시 위치만 바뀐다.
@@ -1521,6 +1540,9 @@ def main_long_short(portfolio, other_portfolios):
         dates_json=dates_json,
         mp_json=mp_json,
         bm_kosdaq_json=bm_kosdaq_json,
+        bm_kospi_json=bm_kospi_json,
+        bm_kospi_latest=f"{bm_kospi_latest:,.2f}",
+        kospi_actual=f"{kospi_actual_latest:,.2f}" if kospi_actual_latest is not None else "N/A",
         long_json=long_json,
         long_latest=f"{long_latest:,.2f}",
         net_exposure_json=net_exposure_json,
@@ -1546,7 +1568,7 @@ def main_long_short(portfolio, other_portfolios):
     os.makedirs(DOCS_DIR, exist_ok=True)
     with open(out_path, "w", encoding="utf-8") as f:
         f.write(html)
-    print(f"[{name}] 저장 완료: {out_path} (롱 {len(long_rows) - 1}종목·현금 {long_cash / total_eval * 100:.1f}%/숏 {len(short_rows)}종목, MP지수 {mp_latest:.2f} vs 코스닥 {bm_kosdaq_latest:.2f}, NET EXPOSURE {net_exposure_latest:+.1f}%, MDD {mdd:.2f}%)")
+    print(f"[{name}] 저장 완료: {out_path} (롱 {len(long_rows) - 1}종목·현금 {long_cash / total_eval * 100:.1f}%/숏 {len(short_rows)}종목, MP지수 {mp_latest:.2f} vs 코스닥 {bm_kosdaq_latest:.2f} vs 코스피 {bm_kospi_latest:.2f}, NET EXPOSURE {net_exposure_latest:+.1f}%, MDD {mdd:.2f}%)")
 
 
 TEMPLATE_LS = """<!doctype html>
@@ -1619,6 +1641,7 @@ TEMPLATE_LS = """<!doctype html>
   <div class="badges">
     <div class="badge mp"><div class="label">{page_name} 지수</div><div class="value">{mp_latest}</div></div>
     <div class="badge bm"><div class="label">코스닥(BM) 지수</div><div class="value">{bm_kosdaq_latest}</div></div>
+    <div class="badge bm"><div class="label">코스피 지수(참고)</div><div class="value" style="color:#ffa94d">{bm_kospi_latest}</div></div>
     <div class="badge long"><div class="label">롱만(숏·현금 제외) 지수</div><div class="value">{long_latest}</div></div>
     <div class="badge exposure"><div class="label">NET EXPOSURE(롱비중+숏비중)</div><div class="value">{net_exposure_latest}</div></div>
     <div class="badge mdd"><div class="label">MDD(전체기간 최대낙폭)</div><div class="value">{mdd}</div></div>
@@ -1641,6 +1664,8 @@ TEMPLATE_LS = """<!doctype html>
       <tbody>
         <tr><td>vs 코스닥</td><td>{alpha_kosdaq_total}</td><td>{alpha_kosdaq_1d}</td><td>{alpha_kosdaq_1w}</td><td>{alpha_kosdaq_1m}</td><td>{alpha_kosdaq_6m}</td><td>{alpha_kosdaq_1y}</td></tr>
         <tr><td>롱만 vs 코스닥</td><td>{alpha_long_total}</td><td>{alpha_long_1d}</td><td>{alpha_long_1w}</td><td>{alpha_long_1m}</td><td>{alpha_long_6m}</td><td>{alpha_long_1y}</td></tr>
+        <tr><td>vs 코스피</td><td>{alpha_kospi_total}</td><td>{alpha_kospi_1d}</td><td>{alpha_kospi_1w}</td><td>{alpha_kospi_1m}</td><td>{alpha_kospi_6m}</td><td>{alpha_kospi_1y}</td></tr>
+        <tr><td>롱만 vs 코스피</td><td>{alpha_long_kospi_total}</td><td>{alpha_long_kospi_1d}</td><td>{alpha_long_kospi_1w}</td><td>{alpha_long_kospi_1m}</td><td>{alpha_long_kospi_6m}</td><td>{alpha_long_kospi_1y}</td></tr>
       </tbody>
     </table>
   </div>
@@ -1712,6 +1737,7 @@ TEMPLATE_LS = """<!doctype html>
 
   <div class="badges" style="margin-top:16px;">
     <div class="badge bm"><div class="label">코스닥 실제 지수({kosdaq_actual_date})</div><div class="value">{kosdaq_actual}</div></div>
+    <div class="badge bm"><div class="label">코스피 실제 지수({kosdaq_actual_date})</div><div class="value" style="color:#ffa94d">{kospi_actual}</div></div>
   </div>
   {sector_ow_uw_html}
   </div>
@@ -1720,6 +1746,7 @@ TEMPLATE_LS = """<!doctype html>
 const dates = {dates_json};
 const mpIndex = {mp_json};
 const bmKosdaqIndex = {bm_kosdaq_json};
+const bmKospiIndex = {bm_kospi_json};
 const longIndex = {long_json};
 
 // 기간별 차트 보기(2026-09-15 추가, 롱온리 템플릿과 동일 로직) - 시작이후가 아닌 구간을 고르면
@@ -1757,6 +1784,7 @@ function renderChart(range) {{
       datasets: [
         {{ label: '{page_name}', data: rebase(mpIndex, idx0, doRebase), borderColor: '#ff8787', backgroundColor: 'transparent', tension: 0.1, pointRadius: 0, borderWidth: 2, yAxisID: 'y' }},
         {{ label: '코스닥(BM)', data: rebase(bmKosdaqIndex, idx0, doRebase), borderColor: '#4dabf7', backgroundColor: 'transparent', tension: 0.1, pointRadius: 0, borderWidth: 2, borderDash: [5,3], yAxisID: 'y' }},
+        {{ label: '코스피(참고)', data: rebase(bmKospiIndex, idx0, doRebase), borderColor: '#ffa94d', backgroundColor: 'transparent', tension: 0.1, pointRadius: 0, borderWidth: 1.6, borderDash: [2,3], yAxisID: 'y' }},
         {{ label: '롱만(숏 제외)', data: rebase(longIndex, idx0, doRebase), borderColor: '#39ff14', backgroundColor: 'transparent', tension: 0.1, pointRadius: 0, borderWidth: 1.6, yAxisID: 'y' }},
       ]
     }},
