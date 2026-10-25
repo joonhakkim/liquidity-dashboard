@@ -10,6 +10,8 @@ op_band_summary.csv, sector_yoy_accel_summary_trimmed.csv, phase_warning_inputs.
 """
 import json
 import os
+import sys
+import re
 import subprocess
 from datetime import datetime
 from pathlib import Path
@@ -445,7 +447,7 @@ def main():
     ret_bot = "".join(rbar(r) for r in rrows[-6:][::-1])
     xrow = lambda r: tr([r[0], f"{r[5]}({r[1]}일)", f"<b class='{'up' if r[2] >= 0 else 'dn'}'>{sg(r[2], 0, '%p')}</b>", f"{r[3]:.0f}% / {r[4]:.0f}%"])
     none_row = "<tr><td colspan='4' class='sub'>최근 5거래일 새로 교차한 섹터 없음</td></tr>"
-    XN = 6   # 2장 3칸 표(넘치면 PDF 전체가 축소됨 - 2026-10-23 사용자 "원래 꽉 차있었는데 비어있다")
+    XN = int(os.environ.get("BRIEF_XN", "5"))   # 2장 3칸 표(6줄이면 3장으로 넘침 2026-10-26)(넘치면 PDF 전체가 축소됨 - 2026-10-23 사용자 "원래 꽉 차있었는데 비어있다")
     more = lambda L: f"<tr><td colspan='4' class='sub' style='white-space:normal'>그 외 {len(L) - XN}개: {', '.join(r[0] for r in L[XN:])}</td></tr>" if len(L) > XN else ""
     strong = ("".join(xrow(r) for r in new_gold[:XN]) + more(new_gold)) or none_row
     weak = ("".join(xrow(r) for r in new_dead[:XN]) + more(new_dead)) or none_row
@@ -541,6 +543,13 @@ def main():
         subprocess.run([exe, "--headless=new", "--disable-gpu", "--no-pdf-header-footer", f"--print-to-pdf={dst}", OUT_HTML.as_uri()],
                        check=True, timeout=120, capture_output=True, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
         print(f"PDF 저장 완료: {dst}")
+        # 3장으로 넘치면 교차 섹터 표 줄 수를 하나씩 줄여 다시 만든다(2026-10-26 사용자 "또 브리핑 3장이다")
+        n_pages = len(re.findall(rb"/Type\s*/Page[^s]", dst.read_bytes()))
+        if n_pages > 2 and XN > 2:
+            print(f"PDF {n_pages}장 - 교차 섹터 표 {XN}줄 -> {XN - 1}줄로 다시 생성")
+            OUT_HTML.unlink(missing_ok=True)
+            subprocess.run([sys.executable, __file__], env={**os.environ, "BRIEF_XN": str(XN - 1)}, check=False)
+            return
     except Exception as e:  # noqa: BLE001
         print(f"PDF 실패: {e}")
     finally:
