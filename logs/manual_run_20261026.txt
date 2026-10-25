@@ -599,3 +599,294 @@ Traceback (most recent call last):
     buffer.append(fh.read())
                   ^^^^^^^^^
 UnicodeDecodeError: 'cp949' codec can't decode byte 0xeb in position 17: illegal multibyte sequence
+Exception in thread Thread-101 (_readerthread):
+Traceback (most recent call last):
+  File "C:\Users\joonh\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 1075, in _bootstrap_inner
+    self.run()
+  File "C:\Users\joonh\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 1012, in run
+    self._target(*self._args, **self._kwargs)
+  File "C:\Users\joonh\AppData\Local\Programs\Python\Python312\Lib\subprocess.py", line 1599, in _readerthread
+    buffer.append(fh.read())
+                  ^^^^^^^^^
+UnicodeDecodeError: 'cp949' codec can't decode byte 0xeb in position 17: illegal multibyte sequence
+
+
+--- 홈페이지 빌드 (build_home.py) ---
+저장 완료: C:\클로드\scripts\..\docs\index.html
+
+
+--- GitHub 배포 (git commit + push): 데이터 자동 갱신 2026-10-26 ---
+git push 완료
+
+--- 코스피 선행 PER 트래커: 시총상위50 컨센서스 PER 집계(하루 1행 누적) (fetch_kospi_per_tracker.py) ---
+기준일: 20261026
+코스피 시총 상위 50종목 (실제 기준일 20261022)
+  10/50 종목 컨센서스 조회 완료
+  20/50 종목 컨센서스 조회 완료
+  30/50 종목 컨센서스 조회 완료
+  40/50 종목 컨센서스 조회 완료
+  50/50 종목 컨센서스 조회 완료
+후행 PER: 20.219311520370063 (46종목) / 당해선행(2026E): 5.1059555484796775 (47종목) / 차년선행(2027E): 3.927112076010029 (49종목)
+후행 PBR: 2.2210255780218398 (50종목) / 당해선행(2026E): 1.4879434287101188 (49종목) / 차년선행(2027E): 1.105790152962537 (49종목)
+저장 완료: C:\클로드\scripts\..\data\kospi_per_tracker.csv (누적 51행)
+
+
+--- 코스닥 선행 PER 트래커: 시총상위50 컨센서스 PER 집계(하루 1행 누적) (fetch_kosdaq_per_tracker.py) ---
+기준일: 20261026
+코스닥 시총 상위 50종목 (실제 기준일 20261022)
+  10/50 종목 컨센서스 조회 완료
+  20/50 종목 컨센서스 조회 완료
+  30/50 종목 컨센서스 조회 완료
+  40/50 종목 컨센서스 조회 완료
+  50/50 종목 컨센서스 조회 완료
+후행 PER: 50.239466456005424 (36종목) / 당해선행(2026E): 27.8539369976427 (33종목) / 차년선행(2027E): 23.52921347077916 (35종목)
+후행 PBR: 6.6274615142413955 (50종목) / 당해선행(2026E): 5.442476260626377 (37종목) / 차년선행(2027E): 4.413535506194699 (36종목)
+저장 완료: C:\클로드\scripts\..\data\kosdaq_per_tracker.csv (누적 51행)
+
+
+--- 코스피·코스닥 선행 PER 트래커 페이지 빌드 (build_per_tracker_page.py) ---
+저장 완료: C:\클로드\scripts\..\docs\per_tracker.html (지수 245일치, PER 수집 51일치)
+저장 완료: C:\클로드\scripts\..\docs\kosdaq_per_tracker.html (지수 245일치, PER 수집 51일치)
+
+[STDERR]
+C:\클로드\scripts\build_per_tracker_page.py:43: DeprecationWarning: The 'generic' unit for NumPy timedelta is deprecated, and will raise an error in the future. This includes implicit conversion of bare integers (e.g. `+ 1`).Please use a specific unit instead.
+  cutoff = idx["date"].max() - pd.Timedelta(days=CHART_WINDOW_DAYS)
+C:\클로드\scripts\build_per_tracker_page.py:43: DeprecationWarning: The 'generic' unit for NumPy timedelta is deprecated, and will raise an error in the future. This includes implicit conversion of bare integers (e.g. `+ 1`).Please use a specific unit instead.
+  cutoff = idx["date"].max() - pd.Timedelta(days=CHART_WINDOW_DAYS)
+
+
+--- OP밴드: 전종목 FnGuide 컨센서스 교차검증 수집(종목당 API 호출, 느림) (fetch_op_band_consensus.py) ---
+대상 종목: 2426개
+  진행 100/2426
+  진행 200/2426
+  진행 300/2426
+  진행 400/2426
+  진행 500/2426
+  진행 600/2426
+  진행 700/2426
+  진행 800/2426
+  진행 900/2426
+  진행 1000/2426
+  진행 1100/2426
+  진행 1200/2426
+  진행 1300/2426
+  진행 1400/2426
+  진행 1500/2426
+  진행 1600/2426
+  진행 1700/2426
+  진행 1800/2426
+  진행 1900/2426
+  진행 2000/2426
+  진행 2100/2426
+  진행 2200/2426
+  진행 2300/2426
+  진행 2400/2426
+
+저장 완료: C:\클로드\scripts\..\data\op_band_fnguide.csv (11485행, 2426종목)
+
+
+--- OP밴드 트래커 재빌드(FnGuide 교차검증 반영) (build_op_band_v2.py) ---
+워크북 로드 중: C:\클로드\scripts\..\data\manual\기업 밴드 찾기 2.xlsx
+밴드 데이터 마지막 날짜: 2026-10-23
+처리 중: 기업밴드 ...
+  2541개 종목(12개월 선행 보간)
+일별 시가총액 저장: C:\클로드\scripts\..\data\screening\cache\op_band_mktcap_daily.pkl (2555종목)
+FnGuide 보정 적용 중(현재 회계연도 FY2027, 2426종목 커버)...
+  (이미 실제 추정치가 살아있어 override 생략: 788종목, FnGuide로 새로 채움: 0종목)
+수동 지정값 적용 중(33종목, FnGuide보다 우선)...
+시계열 전체 구간: 2014-12-30 ~ 2026-10-23
+결과 2426종목 (최신 기준일 2026-10-23)
+저장 완료: C:\클로드\scripts\..\data\screening\op_band_summary.csv
+저장 완료: C:\클로드\scripts\..\docs\op_band.html
+
+
+--- 섹터별 이평선 위 종목 비율 재빌드(OP밴드 재빌드로 시총 캐시 갱신된 뒤) (build_sector_ma_breadth.py) ---
+섹터 42개, 종목 1036개(시총 1035, 종가 대체 1, 데이터 없음 0) | 기준일 2026-10-23
+섹터 정리 종목 중 코드 못 찾음 10개: 코오롱ENP, 카프로, 코오롱모빌리티그룹, HD현대미포, 동아쏘시오홀딩스, 동양생명, 비올, 더존비즈온, 현대홈쇼핑, 한일현대시멘트
+저장 완료: C:\클로드\scripts\..\docs\sector_ma_breadth.html
+저장 완료: C:\클로드\scripts\..\data\screening\sector_ma_breadth_summary.csv
+
+
+--- 수급 분석 재빌드(시총 캐시 갱신 반영) (build_flow_analysis.py) ---
+수급 2024-12-30 ~ 2026-10-22 (439일), 섹터 42개, 종목 1035개(수급·시총 둘 다 있는 섹터 정리 종목)
+저장 완료: C:\클로드\scripts\..\docs\flow_analysis.html (987KB)
+저장 완료: C:\클로드\scripts\..\data\screening\flow_sector_summary.csv
+
+
+--- 종목 수급 재빌드(시총 캐시 갱신 반영) (build_flow_stocks.py) ---
+종목 2545개, 2024-12-30 ~ 2026-10-22 | 저장 완료: C:\클로드\scripts\..\docs\flow_stocks.html (539KB), 상세 C:\클로드\scripts\..\docs\flow_stock_data
+
+
+--- 수급 국면·평균단가(실험) 재빌드(시총 캐시 갱신 반영) (build_flow_lab.py) ---
+섹터 42개, 종목 2545개 | 저장 완료: C:\클로드\scripts\..\docs\flow_lab.html (859KB)
+
+
+--- 아침 브리핑 재생성(섹터 재빌드 반영) (build_briefing.py) ---
+브리핑 생성(데이터 기준 2026-10-23, 국면 하락 60%)
+PDF 저장 완료: C:\Users\joonh\OneDrive\Desktop\클로드\브리핑\시장브리핑_20261026.pdf
+
+
+--- 홈페이지 빌드(PER 트래커 최신 링크 반영용으로 한 번 더) (build_home.py) ---
+저장 완료: C:\클로드\scripts\..\docs\index.html
+
+
+--- GitHub 배포 (git commit + push): 데이터 자동 갱신(스크리닝/PER) 2026-10-26 ---
+git push 완료
+
+--- [재시도] 코스피/코스닥 ADR (KRX 발표 지연 대비) (fetch_adr.py) ---
+수집 대상: 6개 영업일 (기존 775개는 건너뜀)
+새로 수집된 데이터가 없습니다.
+
+
+--- [재시도] 볼린저밴드 돌파종목수용 종가 (KRX 발표 지연 대비) (fetch_bollinger_prices.py) ---
+수집 대상: 28개 영업일 (기존 4136개는 건너뜀)
+  진행 20/28 (20211231)
+새로 수집된 데이터가 없습니다.
+
+
+--- [재시도] 코스피 시가총액·거래대금(KRX 종목별 합산 - 07:30엔 전일분이 아직 없을 때가 많음, 2026-10-13 추가) (fetch_krx.py) ---
+기존 데이터 발견: 살아있는 컬럼 중 가장 이른 마지막 유효일 2026-10-23 다음날부터 증분 수집
+코스피 지수(Open API kospi_dd_trd) 시도 중 (2026-10-24 ~ 2026-10-26)...
+  401 Unauthorized - kospi_dd_trd 활용신청이 아직 승인되지 않음. 네이버 금융으로 폴백합니다.
+코스피 지수(네이버 금융) 수집 중 (2026-10-24 ~ 2026-10-26)...
+  page 1: 이 소스가 더 이상 날짜 데이터를 안 줌(서비스 종료 추정) - 중단
+코스피 지수(Yahoo Finance) 수집 중 (2026-10-24 ~ 2026-10-26)...
+코스피 시가총액·거래대금(Open API stk_bydd_trd 합산) 수집 중 (2026-10-24 ~ 2026-10-26)...
+이번 실행에서 수집된 새 데이터가 없습니다.
+
+저장 완료: C:\클로드\scripts\..\data\krx_raw.csv
+행 수: 1670
+기간: 2020-01-02 00:00:00 ~ 2026-10-23 00:00:00
+      date  foreign_net_value  foreign_ownership_ratio  indiv_net_value  inst_net_value  kospi_close  kospi_market_cap  kospi_trading_value  other_corp_net_value
+2026-10-21                NaN                      NaN              NaN             NaN  5735.660156      4.734420e+15         1.844144e+07                   NaN
+2026-10-22                NaN                      NaN              NaN             NaN  5533.770020      4.569053e+15         1.491569e+07                   NaN
+2026-10-23                NaN                      NaN              NaN             NaN  5550.299805      4.582242e+15         1.737431e+07                   NaN
+Exception in thread Thread-135 (_readerthread):
+Traceback (most recent call last):
+  File "C:\Users\joonh\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 1075, in _bootstrap_inner
+    self.run()
+  File "C:\Users\joonh\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 1012, in run
+    self._target(*self._args, **self._kwargs)
+  File "C:\Users\joonh\AppData\Local\Programs\Python\Python312\Lib\subprocess.py", line 1599, in _readerthread
+    buffer.append(fh.read())
+                  ^^^^^^^^^
+UnicodeDecodeError: 'cp949' codec can't decode byte 0xeb in position 17: illegal multibyte sequence
+
+
+--- [재시도] 거래대금 신호 재빌드 (build_tv_signal.py) ---
+저장 완료: C:\클로드\scripts\..\docs\tv_signal.html (스윙고점 50개, 신호 8건)
+
+
+--- [재시도] 볼린저밴드 돌파 종목수 트래커 재빌드 (build_bollinger_breakout.py) ---
+코스피 계산 중...
+  1251종목, 최신(2026-10-23) 돌파 13개
+코스닥 계산 중...
+  2463종목, 최신(2026-10-23) 돌파 30개
+강세장/약세장 구간 분석 중...
+
+저장 완료: C:\클로드\scripts\..\docs\bollinger_breakout.html
+
+
+--- [재시도] 종목 상대강도 순위 페이지 재빌드 (build_relative_strength.py) ---
+기준일 20261023 | 종목 2557 (내 섹터 정리 1035, 네이버 1522, 미분류 0)
+섹터 정리.xlsx 종목 중 가격 데이터와 매칭 안 된 종목 11개: 삼성전자우, 코오롱ENP, 카프로, 코오롱모빌리티그룹, HD현대미포, 동아쏘시오홀딩스, 동양생명, 비올, 더존비즈온, 현대홈쇼핑, 한일현대시멘트
+  1주: 코스피 -2.08% | 이긴 종목 983/2554
+  2주: 코스피 -16.23% | 이긴 종목 2022/2552
+  1달: 코스피 -20.80% | 이긴 종목 2245/2547
+  2달: 코스피 -17.12% | 이긴 종목 2096/2543
+  3달: 코스피 -17.04% | 이긴 종목 2115/2537
+  6달: 코스피 -14.29% | 이긴 종목 615/2524
+저장 완료: C:\클로드\scripts\..\data\screening\relative_strength_summary.csv
+저장 완료: C:\클로드\scripts\..\data\screening\sector_relative_strength_summary.csv
+저장 완료: C:\클로드\scripts\..\docs\relative_strength.html
+
+
+--- [재시도] 시장 국면 점수 페이지 재빌드 (build_market_phase.py) ---
+
+[STDERR]
+Traceback (most recent call last):
+  File "C:\클로드\scripts\build_market_phase.py", line 1182, in <module>
+    main()
+  File "C:\클로드\scripts\build_market_phase.py", line 509, in main
+    asof, out, agg_list, def_list, c_n, peaksK, pivS, P, warn = compute()
+                                                                ^^^^^^^^^
+  File "C:\클로드\scripts\build_market_phase.py", line 367, in compute
+    Cw, Cn, caps = op_band_weekly(grid)
+                   ^^^^^^^^^^^^^^^^^^^^
+  File "C:\클로드\scripts\build_market_phase.py", line 246, in op_band_weekly
+    j = json.load(fh)
+        ^^^^^^^^^^^^^
+  File "C:\Users\joonh\AppData\Local\Programs\Python\Python312\Lib\json\__init__.py", line 293, in load
+    return loads(fp.read(),
+           ^^^^^^^^^^^^^^^^
+  File "C:\Users\joonh\AppData\Local\Programs\Python\Python312\Lib\json\__init__.py", line 346, in loads
+    return _default_decoder.decode(s)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\joonh\AppData\Local\Programs\Python\Python312\Lib\json\decoder.py", line 338, in decode
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\joonh\AppData\Local\Programs\Python\Python312\Lib\json\decoder.py", line 356, in raw_decode
+    raise JSONDecodeError("Expecting value", s, err.value) from None
+json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)
+
+경고: build_market_phase.py 실패, 다음 단계는 계속 진행합니다.
+
+--- [재시도] 코스피 선행 PER(07:30엔 KRX 전일분이 없어 전전일로 덮어쓰고 전일 행이 빠지던 문제 - 2026-10-21 사용자 "지수 내렸는데 PER 올랐다") (fetch_kospi_per_tracker.py) ---
+기준일: 20261026
+코스피 시총 상위 50종목 (실제 기준일 20261023)
+  10/50 종목 컨센서스 조회 완료
+  20/50 종목 컨센서스 조회 완료
+  30/50 종목 컨센서스 조회 완료
+  40/50 종목 컨센서스 조회 완료
+  50/50 종목 컨센서스 조회 완료
+후행 PER: 20.3992735877397 (46종목) / 당해선행(2026E): 5.147416947627203 (47종목) / 차년선행(2027E): 3.9555829001791936 (49종목)
+후행 PBR: 2.237035304276344 (50종목) / 당해선행(2026E): 1.4987307388027582 (49종목) / 차년선행(2027E): 1.113806923659078 (49종목)
+저장 완료: C:\클로드\scripts\..\data\kospi_per_tracker.csv (누적 51행)
+
+
+--- [재시도] 코스닥 선행 PER (fetch_kosdaq_per_tracker.py) ---
+기준일: 20261026
+코스닥 시총 상위 50종목 (실제 기준일 20261023)
+  10/50 종목 컨센서스 조회 완료
+  20/50 종목 컨센서스 조회 완료
+  30/50 종목 컨센서스 조회 완료
+  40/50 종목 컨센서스 조회 완료
+  50/50 종목 컨센서스 조회 완료
+후행 PER: 49.07299309463138 (36종목) / 당해선행(2026E): 27.195134300806867 (33종목) / 차년선행(2027E): 22.969323604931994 (35종목)
+후행 PBR: 6.478198839324694 (50종목) / 당해선행(2026E): 5.316093160878276 (37종목) / 차년선행(2027E): 4.309077902516677 (36종목)
+저장 완료: C:\클로드\scripts\..\data\kosdaq_per_tracker.csv (누적 51행)
+
+
+--- [재시도] PER 트래커 페이지 재빌드 (build_per_tracker_page.py) ---
+저장 완료: C:\클로드\scripts\..\docs\per_tracker.html (지수 245일치, PER 수집 51일치)
+저장 완료: C:\클로드\scripts\..\docs\kosdaq_per_tracker.html (지수 245일치, PER 수집 51일치)
+
+[STDERR]
+C:\클로드\scripts\build_per_tracker_page.py:43: DeprecationWarning: The 'generic' unit for NumPy timedelta is deprecated, and will raise an error in the future. This includes implicit conversion of bare integers (e.g. `+ 1`).Please use a specific unit instead.
+  cutoff = idx["date"].max() - pd.Timedelta(days=CHART_WINDOW_DAYS)
+C:\클로드\scripts\build_per_tracker_page.py:43: DeprecationWarning: The 'generic' unit for NumPy timedelta is deprecated, and will raise an error in the future. This includes implicit conversion of bare integers (e.g. `+ 1`).Please use a specific unit instead.
+  cutoff = idx["date"].max() - pd.Timedelta(days=CHART_WINDOW_DAYS)
+
+
+--- [재시도] 아침 브리핑 재생성(국면 재빌드 반영) (build_briefing.py) ---
+브리핑 생성(데이터 기준 2026-10-23, 국면 하락 60%)
+PDF 저장 완료: C:\Users\joonh\OneDrive\Desktop\클로드\브리핑\시장브리핑_20261026.pdf
+
+
+--- [재시도] 유동성 대시보드 재빌드(ADR 반영) (build_dashboard.py) ---
+병합 완료: C:\클로드\scripts\..\data\merged.csv (9795행, 2000-01-01 ~ 2026-10-25)
+대시보드 생성 완료: C:\클로드\scripts\..\docs\liquidity.html
+
+
+--- [재시도] 조정 경고 신호 재빌드 (build_risk_signals.py) ---
+저장 완료: C:\클로드\scripts\..\docs\risk_signals.html (6/15개 발동 중)
+
+
+--- [재시도] 홈페이지 재빌드 (build_home.py) ---
+저장 완료: C:\클로드\scripts\..\docs\index.html
+
+
+--- GitHub 배포 (git commit + push): 데이터 자동 갱신(KRX 재시도) 2026-10-26 ---
+git push 완료
+
+===== 파이프라인 실행 종료: 2026-10-26T08:11:54.869412 (성공=False) =====
