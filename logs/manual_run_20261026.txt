@@ -1,0 +1,329 @@
+
+===== 파이프라인 실행 시작: 2026-10-26T07:40:24.321723 =====
+
+--- ECOS 수집 (fetch_ecos.py) ---
+사용 중인 ECOS 통계표 코드:
+  [bok_total_assets] STAT_CODE=103Y002 ITEM_CODE=BCAA1 CYCLE=M - 한국은행 주요계정(말잔) - 자산합계(총자산)
+  [msb_balance] STAT_CODE=103Y002 ITEM_CODE=BCAA215 CYCLE=M - 한국은행 주요계정(말잔) - 통화안정증권발행
+  [rp_sale_balance] STAT_CODE=103Y002 ITEM_CODE=BCAA216 CYCLE=M - 한국은행 주요계정(말잔) - 환매조건부채권매각(RP매각)
+  [m2] STAT_CODE=161Y008 ITEM_CODE=BBGA00 CYCLE=M - M2(말잔, 원계열) [신지표, 2003.10~]
+  [mmf] STAT_CODE=161Y008 ITEM_CODE=BBGA04 CYCLE=M - M2 구성항목 중 MMF(말잔, 원계열)
+  [leading_index] STAT_CODE=901Y067 ITEM_CODE=I16A CYCLE=M - 선행종합지수 원지수(경기종합지수, 국가데이터처) - YoY 계산용 (순환변동치 I16E는 이미 추세 제거된 값이라 YoY가 의미 없음)
+  [coincident_index] STAT_CODE=901Y067 ITEM_CODE=I16B CYCLE=M - 동행종합지수 원지수(경기종합지수, 국가데이터처) - 선행지수와 비교용
+  [export_amount] STAT_CODE=901Y118 ITEM_CODE=T002 CYCLE=M - 수출금액(통관기준, 월간 합계, 관세청)
+  [ccsi] STAT_CODE=511Y002 ITEM_CODE=FME CYCLE=M - 소비자심리지수(CCSI, 소비자동향조사) - 100=중립
+  [esi] STAT_CODE=513Y001 ITEM_CODE=E1000 CYCLE=M - 경제심리지수(ESI, 원계열) - 기업+소비자 심리 종합, 100=중립
+  [bsi_all_industry] STAT_CODE=512Y013 ITEM_CODE=99988/AA CYCLE=M - 전산업 업황실적BSI(기업경기조사-실적) - 100=중립
+  [credit_card_loan_demand] STAT_CODE=514Y003 ITEM_CODE=PP CYCLE=Q - 대출행태서베이(대출수요) - 신용카드회사
+  [government_deposit] 미포함 (ECOS에 해당 월별 시계열 없음, --discover 로 검색 내역 확인 가능)
+
+수집 중: bok_total_assets (103Y002/BCAA1)
+수집 중: msb_balance (103Y002/BCAA215)
+수집 중: rp_sale_balance (103Y002/BCAA216)
+수집 중: m2 (161Y008/BBGA00)
+수집 중: mmf (161Y008/BBGA04)
+수집 중: leading_index (901Y067/I16A)
+수집 중: coincident_index (901Y067/I16B)
+수집 중: export_amount (901Y118/T002)
+수집 중: ccsi (511Y002/FME)
+수집 중: esi (513Y001/E1000)
+수집 중: bsi_all_industry (512Y013/99988/AA)
+수집 중: credit_card_loan_demand (514Y003/PP, 분기)
+
+저장 완료: C:\클로드\scripts\..\data\ecos_raw.csv
+행 수: 321, 기간: 2000-01-01 ~ 2026-09-01
+      date  bok_total_assets  msb_balance  rp_sale_balance        m2      mmf  leading_index  coincident_index  export_amount  ccsi  esi  bsi_all_industry  credit_card_loan_demand government_deposit  export_amount_daily_avg  export_amount_daily_avg_yoy  leading_index_yoy  coincident_index_yoy  net_liquidity  net_liquidity_yoy
+2026-07-01          635678.1      96373.9           2000.0 4242043.0 195347.7          131.3             118.1     99190335.0 106.8 97.9              77.0                     -7.0               <NA>             4.132931e+06                    70.151370           9.325562              3.324584       537304.2          18.116482
+2026-08-01          661504.8      97330.1            500.0 4234915.2 203076.7          131.7             118.8     98282430.0 104.5 99.4              77.0                      NaN               <NA>             4.467383e+06                    72.532225           8.933002              3.574542       563674.7          23.198671
+2026-09-01               NaN          NaN              NaN       NaN      NaN            NaN               NaN            NaN 106.6 99.9              76.0                      NaN               <NA>                      NaN                          NaN                NaN                   NaN            NaN                NaN
+
+
+--- KRX/네이버 수집 (fetch_krx.py) ---
+기존 데이터 발견: 살아있는 컬럼 중 가장 이른 마지막 유효일 2026-10-23 다음날부터 증분 수집
+코스피 지수(Open API kospi_dd_trd) 시도 중 (2026-10-24 ~ 2026-10-26)...
+  401 Unauthorized - kospi_dd_trd 활용신청이 아직 승인되지 않음. 네이버 금융으로 폴백합니다.
+코스피 지수(네이버 금융) 수집 중 (2026-10-24 ~ 2026-10-26)...
+  page 1: 이 소스가 더 이상 날짜 데이터를 안 줌(서비스 종료 추정) - 중단
+코스피 지수(Yahoo Finance) 수집 중 (2026-10-24 ~ 2026-10-26)...
+코스피 시가총액·거래대금(Open API stk_bydd_trd 합산) 수집 중 (2026-10-24 ~ 2026-10-26)...
+이번 실행에서 수집된 새 데이터가 없습니다.
+
+저장 완료: C:\클로드\scripts\..\data\krx_raw.csv
+행 수: 1670
+기간: 2020-01-02 00:00:00 ~ 2026-10-23 00:00:00
+      date  foreign_net_value  foreign_ownership_ratio  indiv_net_value  inst_net_value  kospi_close  kospi_market_cap  kospi_trading_value  other_corp_net_value
+2026-10-21                NaN                      NaN              NaN             NaN  5735.660156      4.734420e+15         1.844144e+07                   NaN
+2026-10-22                NaN                      NaN              NaN             NaN  5533.770020      4.569053e+15         1.491569e+07                   NaN
+2026-10-23                NaN                      NaN              NaN             NaN  5550.299805      4.582242e+15         1.737431e+07                   NaN
+
+
+--- KOFIA 수집(수동 파일 병합) (fetch_kofia.py) ---
+기존 데이터 발견: 2026-10-16 부근부터 다시 수집(최근 수정치 반영)
+수집 중: STATSCU0100000060BO (investor_deposit, deriv_deposit, broker_rp_balance...) [20261013 ~ 20261026]
+  경고: STATSCU0100000060BO 요청 실패 (HTTPSConnectionPool(host='freesis.kofia.or.kr', port=443): Read timed out. (read timeout=30)), 스킵
+수집 중: STATSCU0100000070BO (credit_loan_total, credit_loan_kospi, credit_loan_kosdaq...) [20261013 ~ 20261026]
+  경고: STATSCU0100000070BO 요청 실패 (HTTPSConnectionPool(host='freesis.kofia.or.kr', port=443): Max retries exceeded with url: /meta/getMetaDataList.do (Caused by ConnectTimeoutError(<HTTPSConnection(host='freesis.kofia.or.kr', port=443) at 0x27fba241550>, 'Connection to freesis.kofia.or.kr timed out. (connect timeout=30)'))), 스킵
+수집 중: STATSCU0100000110BO (cma_rp, cma_mmf, cma_jonggeum...) [20261013 ~ 20261026]
+  경고: STATSCU0100000110BO 요청 실패 (HTTPSConnectionPool(host='freesis.kofia.or.kr', port=443): Max retries exceeded with url: /meta/getMetaDataList.do (Caused by ConnectTimeoutError(<HTTPSConnection(host='freesis.kofia.or.kr', port=443) at 0x27fba241c70>, 'Connection to freesis.kofia.or.kr timed out. (connect timeout=30)'))), 스킵
+수집 중: STATFND0400000051BO (mmf_total, mmf_indiv, mmf_corp...) [20261013 ~ 20261026]
+  경고: STATFND0400000051BO 요청 실패 (HTTPSConnectionPool(host='freesis.kofia.or.kr', port=443): Max retries exceeded with url: /meta/getMetaDataList.do (Caused by ConnectTimeoutError(<HTTPSConnection(host='freesis.kofia.or.kr', port=443) at 0x27fba242390>, 'Connection to freesis.kofia.or.kr timed out. (connect timeout=30)'))), 스킵
+수집된 데이터가 없습니다.
+
+
+--- FRED(미국 M2/실질금리/기준금리/PCE/실업률) 수집 (fetch_fred.py) ---
+수집 중: us_m2 (FRED M2SL)...
+  320행
+수집 중: us_real_rate_10y (FRED DFII10)...
+  5956행
+수집 중: fed_total_assets (FRED WALCL)...
+  1243행
+수집 중: us_treasury_tga (FRED WTREGEN)...
+  1243행
+수집 중: us_reverse_repo (FRED RRPONTSYD)...
+  3353행
+수집 중: us_treasury_10y (FRED DGS10)...
+  6705행
+수집 중: japan_ust_holdings (FRED FORTREASPOS42609)...
+  283행
+수집 중: us_mmf_total (FRED MMMFFAQ027S)...
+  106행
+수집 중: us_fed_funds_rate (FRED FEDFUNDS)...
+  321행
+수집 중: us_core_pce_index (FRED PCEPILFE)...
+  320행
+수집 중: us_unemployment_rate (FRED UNRATE)...
+  320행
+수집 중: us_natural_unemployment_rate (FRED NROU)...
+  148행
+수집 중: us_cpi_index (FRED CPIAUCSL)...
+  320행
+수집 중: us_core_cpi_index (FRED CPILFESL)...
+  320행
+수집 중: us_pce_index (FRED PCEPI)...
+  320행
+
+저장 완료: C:\클로드\scripts\..\data\fred_raw.csv
+행 수: 6873, 기간: 2000-01-01 ~ 2036-10-01
+      date  us_m2  us_real_rate_10y  fed_total_assets  us_treasury_tga  us_reverse_repo  us_treasury_10y  japan_ust_holdings  us_mmf_total  us_fed_funds_rate  us_core_pce_index  us_unemployment_rate  us_natural_unemployment_rate  us_cpi_index  us_core_cpi_index  us_pce_index
+2035-10-01    NaN               NaN               NaN              NaN              NaN              NaN                 NaN           NaN                NaN                NaN                   NaN                      4.184868           NaN                NaN           NaN
+2036-01-01    NaN               NaN               NaN              NaN              NaN              NaN                 NaN           NaN                NaN                NaN                   NaN                      4.179535           NaN                NaN           NaN
+2036-04-01    NaN               NaN               NaN              NaN              NaN              NaN                 NaN           NaN                NaN                NaN                   NaN                      4.174267           NaN                NaN           NaN
+2036-07-01    NaN               NaN               NaN              NaN              NaN              NaN                 NaN           NaN                NaN                NaN                   NaN                      4.169060           NaN                NaN           NaN
+2036-10-01    NaN               NaN               NaN              NaN              NaN              NaN                 NaN           NaN                NaN                NaN                   NaN                      4.163895           NaN                NaN           NaN
+
+
+--- CoinGecko(비트코인 시가총액) 수집 (fetch_bitcoin.py) ---
+비트코인 시가총액(CoinGecko) 수집 중...
+저장 완료: C:\클로드\scripts\..\data\bitcoin_raw.csv
+행 수: 365, 기간: 2025-10-26 ~ 2026-10-25
+ btc_market_cap_usd       date
+       1.634863e+12 2026-10-23
+       1.630358e+12 2026-10-24
+       1.617305e+12 2026-10-25
+
+
+--- 네이버 금융(원/달러 환율, 금, 은, 엔/달러) 수집 (fetch_markets.py) ---
+기존 데이터 발견: 2026-10-23 부근부터 다시 수집
+수집 중: usd_krw (KRW=X) ...
+  8행
+수집 중: gold_usd (GC=F) ...
+  8행
+수집 중: silver_usd (SI=F) ...
+  8행
+수집 중: usd_jpy (JPY=X) ...
+  8행
+수집 중: copper_usd (HG=F) ...
+  8행
+
+저장 완료: C:\클로드\scripts\..\data\markets_raw.csv
+행 수: 2256, 기간: 2019-08-09 ~ 2026-10-25
+      date     usd_krw    gold_usd  silver_usd    usd_jpy  copper_usd
+2026-10-22 1325.989990 4060.399902   54.764000 156.494003      6.3625
+2026-10-23         NaN 4007.899902   53.710999        NaN      6.4760
+2026-10-25 1323.339966 4013.500000   54.119999 156.871994      6.5045
+
+
+--- 코스피/코스닥 등락비율(ADR) 계산용 상승/하락 종목수 수집(KRX Open API) (fetch_adr.py) ---
+수집 대상: 6개 영업일 (기존 775개는 건너뜀)
+새로 수집된 데이터가 없습니다.
+
+
+--- 볼린저밴드 돌파종목수용 전종목 종가 수집(KRX Open API, 최초 1회만 오래 걸림) (fetch_bollinger_prices.py) ---
+수집 대상: 28개 영업일 (기존 4136개는 건너뜀)
+  진행 20/28 (20211231)
+새로 수집된 데이터가 없습니다.
+
+
+--- 볼린저밴드 상단 돌파 종목수 트래커 페이지 빌드 (build_bollinger_breakout.py) ---
+코스피 계산 중...
+  1251종목, 최신(2026-10-23) 돌파 13개
+코스닥 계산 중...
+  2463종목, 최신(2026-10-23) 돌파 30개
+강세장/약세장 구간 분석 중...
+
+저장 완료: C:\클로드\scripts\..\docs\bollinger_breakout.html
+
+
+--- 금광기업 ETF(GDX) 수집(Yahoo Finance, 유동성 선행성 검증됨) (fetch_gdx.py) ---
+저장 완료: C:\클로드\scripts\..\data\gdx_raw.csv
+행 수: 5139, 기간: 2006-05-22 ~ 2026-10-23
+      date  gdx_close
+2026-10-21  86.720001
+2026-10-22  81.690002
+2026-10-23  80.199997
+
+
+--- 정유화학 정제마진(3:2:1 크랙 스프레드) 수집(EIA API) (fetch_crack_spread.py) ---
+기존 데이터 발견: 2026-10-20 부근부터 다시 수집
+수집 중: wti_usd_per_bbl (EIA RWTC)...
+  4행
+수집 중: gasoline_usd_per_gal (EIA EER_EPMRU_PF4_Y35NY_DPG)...
+  4행
+수집 중: diesel_usd_per_gal (EIA EER_EPD2DXL0_PF4_Y35NY_DPG)...
+  4행
+
+저장 완료: C:\클로드\scripts\..\data\crack_spread_raw.csv
+행 수: 5062, 기간: 2006-08-18 ~ 2026-10-20
+      date  wti_usd_per_bbl  gasoline_usd_per_gal  diesel_usd_per_gal  gasoline_usd_per_bbl  diesel_usd_per_bbl  crack_spread_321_usd_per_bbl
+2026-10-16           108.21                 2.968               5.102               124.656             214.284                        46.322
+2026-10-19           110.01                 2.915               5.173               122.430             217.266                        44.032
+2026-10-20           107.89                 2.897               5.265               121.674             221.130                        46.936
+
+
+--- 정유화학 정제마진 트래커 페이지 + 엑셀 다운로드 빌드 (build_crack_spread_page.py) ---
+저장 완료: C:\클로드\scripts\..\docs\crack_spread.html, C:\클로드\scripts\..\docs\downloads\crack_spread.xlsx
+
+
+--- 테일러 준칙 적정금리 트래커 빌드(FRED 근원PCE/실업률/기준금리/10년물 기반) (build_taylor_rule.py) ---
+저장 완료: C:\클로드\scripts\..\docs\taylor_rule.html, C:\클로드\scripts\..\docs\downloads\taylor_rule.xlsx
+최신 테일러 적정금리: 5.80% (2026-08-01 기준 데이터) vs 기준금리 3.75% vs 10년물 4.96%
+
+
+--- 클리블랜드 연은 인플레이션 나우캐스트(CPI/PCE 등) 스크래핑 (fetch_inflation_nowcast.py) ---
+저장 완료: C:\클로드\scripts\..\data\inflation_nowcast_raw.csv (총 77행)
+fetch_date   target_month  cpi_mom  cpi_yoy  core_cpi_mom  core_cpi_yoy  pce_mom  pce_yoy  core_pce_mom  core_pce_yoy source_updated
+2026-10-26   October 2026     0.25     3.75          0.21          2.48     0.27     3.72          0.25          3.13          10/23
+2026-10-26 September 2026      NaN      NaN           NaN           NaN     0.47     3.60          0.28          3.05          10/23
+
+
+--- 인플레이션 나우캐스트 트래커 페이지 빌드 (build_inflation_nowcast.py) ---
+저장 완료: C:\클로드\scripts\..\docs\inflation_nowcast.html, C:\클로드\scripts\..\docs\downloads\inflation_nowcast.xlsx
+
+
+--- 한국은행 신뉴스심리지수(ECOS 523Y001, 일별, 2026-09-01 산출체계 개편) 수집 (fetch_news_sentiment.py) ---
+수집 중: 뉴스심리지수 (523Y001/A001, 일별) [20050101 ~ 20261026]
+저장 완료: C:\클로드\scripts\..\data\news_sentiment_raw.csv
+행 수: 7961, 기간: 2005-01-01 ~ 2026-10-18
+      date  news_sentiment_index
+2026-10-14                 93.60
+2026-10-15                 88.34
+2026-10-16                 87.63
+2026-10-17                 86.86
+2026-10-18                 84.95
+
+
+--- 통합차트 백분위 지표 최적 기간 재탐색(데이터 누적에 따라 자동 조정) (optimize_percentile_window.py) ---
+감지된 -15%+ 급락 구간: 7개
+  고점 2020-01-22 -> 저점 2020-03-19  낙폭 -35.7%
+  고점 2021-07-06 -> 저점 2022-07-06  낙폭 -30.7%
+  고점 2024-07-11 -> 저점 2024-08-05  낙폭 -15.6%
+  고점 2024-08-22 -> 저점 2025-04-09  낙폭 -15.3%
+  고점 2026-02-26 -> 저점 2026-03-04  낙폭 -19.2%
+  고점 2026-06-22 -> 저점 2026-07-30  낙폭 -38.6%
+  고점 2026-09-27 -> 저점 2026-10-22  낙폭 -21.8%
+credit_loan_total: 최적 윈도우 1512일(~6.0년), corr=-0.655
+deposit_minus_rp: 최적 윈도우 전체기간(확장), corr=-0.623
+dry_powder: 최적 윈도우 126일(~0.5년), corr=0.125
+investor_deposit: 최적 윈도우 1512일(~6.0년), corr=-0.421
+
+저장 완료: C:\클로드\scripts\..\data\percentile_windows.json
+
+
+--- 유동성 대시보드 빌드 (build_dashboard.py) ---
+병합 완료: C:\클로드\scripts\..\data\merged.csv (9795행, 2000-01-01 ~ 2026-10-25)
+대시보드 생성 완료: C:\클로드\scripts\..\docs\liquidity.html
+
+
+--- 네이버 업종분류 수집(OP밴드/이익추정치 상향 트래커 섹터 필터용, 종목코드 기준 전종목) (fetch_naver_sector.py) ---
+업종 79개 발견
+  제약: 174종목
+  건설: 78종목
+  도로와철도운송: 8종목
+  반도체와반도체장비: 173종목
+  레저용장비와제품: 13종목
+  카드: 1종목
+  사무용전자제품: 1종목
+  부동산: 30종목
+  디스플레이장비및부품: 71종목
+  생명보험: 3종목
+  문구류: 1종목
+  건강관리기술: 13종목
+  기타: 1555종목
+  운송인프라: 8종목
+  핸드셋: 57종목
+  다각화된소비자서비스: 1종목
+  판매업체: 13종목
+  가정용기기와용품: 20종목
+  전문소매: 5종목
+  출판: 7종목
+  식품: 92종목
+  음료: 16종목
+  IT서비스: 120종목
+  교육서비스: 24종목
+  해운사: 11종목
+  복합유틸리티: 1종목
+  통신장비: 55종목
+  포장재: 27종목
+  생명과학도구및서비스: 41종목
+  손해보험: 12종목
+  전기유틸리티: 5종목
+  상업서비스와공급품: 31종목
+  가구: 11종목
+  기타금융: 6종목
+  방송과엔터테인먼트: 58종목
+  광고: 19종목
+  호텔,레스토랑,레저: 19종목
+  건강관리장비와용품: 105종목
+  디스플레이패널: 6종목
+  건축제품: 11종목
+  다각화된통신서비스: 3종목
+  생물공학: 59종목
+  항공사: 9종목
+  건축자재: 51종목
+  증권: 39종목
+  양방향미디어와서비스: 16종목
+  게임엔터테인먼트: 34종목
+  종이와목재: 14종목
+  가스유틸리티: 12종목
+  에너지장비및서비스: 35종목
+  섬유,의류,신발,호화품: 81종목
+  자동차부품: 153종목
+  항공화물운송과물류: 13종목
+  담배: 1종목
+  식품과기본식료품소매: 7종목
+  복합기업: 24종목
+  무선통신서비스: 4종목
+  가정용품: 12종목
+  컴퓨터와주변기기: 21종목
+  석유와가스: 19종목
+  자동차: 12종목
+  화장품: 64종목
+  창업투자: 87종목
+  조선: 30종목
+  전자제품: 15종목
+  은행: 11종목
+  무역회사와판매업체: 8종목
+  백화점과일반상점: 14종목
+  인터넷과카탈로그소매: 6종목
+  철강: 55종목
+  전자장비와기기: 105종목
+  전기제품: 68종목
+  건강관리업체및서비스: 30종목
+  기계: 105종목
+  소프트웨어: 74종목
+  화학: 122종목
+  비철금속: 40종목
+  전기장비: 35종목
+  우주항공과국방: 35종목
+
+저장 완료: C:\클로드\scripts\..\data\sector_map.csv (4425종목, 업종 79개)
