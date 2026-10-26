@@ -364,12 +364,12 @@
 2026-10-23,kosdaq_long_short_index,exit,인터로조,119610,,,2026-10-26T09:06:49.907547
 2026-10-23,kosdaq_long_short_index,reduce_pct,신성에스티,416180,1.0,,2026-10-26T09:06:49.907547
 2026-10-23,kosdaq_long_short_index,target_pct,KODEX 코스닥150선물인버스,251340,50.0,숏 비중 70에서 50(20% 축소),2026-10-26T09:06:49.907547
-2026-10-26,my_mp,swap,HD현대에너지솔루션,322000,,나노엔텍|039860,
-2026-10-26,mingu_mp,reduce_pct,비나텍,126340,3.0,,
-2026-10-26,mingu_mp,increase_pct,RF머트리얼즈,327260,3.0,,
-2026-10-26,mingu_mp,new_entry_pct,프로티나,468530,3.0,,
-2026-10-26,kosdaq_long_short_index,increase_pct,큐리옥스바이오시스템즈,445680,1.0,,
-2026-10-26,kosdaq_long_short_index,increase_pct,코세스,089890,1.0,,
-2026-10-26,kosdaq_long_short_index,increase_pct,파인엠텍,441270,1.0,,
-2026-10-26,troy_mp,increase_pct,삼성전자,005930,2.0,,
-2026-10-26,troy_mp,increase_pct,SK하이닉스,000660,2.0,,
+2026-10-26,my_mp,swap,HD현대에너지솔루션,322000,,나노엔텍|039860,2026-10-26T20:06:23.978942
+2026-10-26,mingu_mp,reduce_pct,비나텍,126340,3.0,,2026-10-26T20:06:23.924439
+2026-10-26,mingu_mp,increase_pct,RF머트리얼즈,327260,3.0,,2026-10-26T20:06:23.924439
+2026-10-26,mingu_mp,new_entry_pct,프로티나,468530,3.0,,2026-10-26T20:06:23.924439
+2026-10-26,kosdaq_long_short_index,increase_pct,큐리옥스바이오시스템즈,445680,1.0,,2026-10-26T20:06:23.888562
+2026-10-26,kosdaq_long_short_index,increase_pct,코세스,089890,1.0,,2026-10-26T20:06:23.888562
+2026-10-26,kosdaq_long_short_index,increase_pct,파인엠텍,441270,1.0,,2026-10-26T20:06:23.888562
+2026-10-26,troy_mp,increase_pct,삼성전자,005930,2.0,,2026-10-26T20:06:24.109546
+2026-10-26,troy_mp,increase_pct,SK하이닉스,000660,2.0,,2026-10-26T20:06:24.109546
