@@ -33,6 +33,7 @@ import build_sector_ma_breadth as bsm  # noqa: E402
 
 BASE_DIR = os.path.join(os.path.dirname(__file__), "..")
 FLOW_XLSX = os.path.join(BASE_DIR, "data", "manual", "수급.xlsx")
+FLOW_UPD_XLSX = os.path.join(BASE_DIR, "data", "manual", "수급 - 갱신용.xlsx")
 CACHE_PATH = os.path.join(BASE_DIR, "data", "screening", "cache", "flow_daily.pkl")
 OUT_PATH = os.path.join(BASE_DIR, "docs", "flow_analysis.html")
 SUMMARY_PATH = os.path.join(BASE_DIR, "data", "screening", "flow_sector_summary.csv")
@@ -41,14 +42,9 @@ MIN_MEMBERS = 3
 WHO = ["합산", "외국인", "기관"]
 
 
-def load_flows():
-    """수급.xlsx -> (외국인, 기관) 일별 DataFrame(백만원, 열 = 6자리 종목코드). 파일 수정시각이 같으면 캐시."""
-    mtime = os.path.getmtime(FLOW_XLSX)
-    if os.path.exists(CACHE_PATH):
-        c = pd.read_pickle(CACHE_PATH)
-        if c.get("mtime") == mtime:
-            return c["F"], c["I"], c["names"]
-    ws = openpyxl.load_workbook(FLOW_XLSX, read_only=True, data_only=True).worksheets[0]
+def _parse_flow_xlsx(path):
+    """DataGuide 수급 엑셀 -> (외국인, 기관, 이름) - 값이 아직 없는 날(당일)은 뺌."""
+    ws = openpyxl.load_workbook(path, read_only=True, data_only=True).worksheets[0]
     rows = list(ws.iter_rows(values_only=True))
     hdr = next(i for i, r in enumerate(rows) if r[0] == "D A T E")
     codes, names, items = rows[7], rows[8], rows[hdr]
@@ -57,12 +53,33 @@ def load_flows():
     arr = np.array([[np.nan if v is None else v for v in r[1:]] for r in data], dtype=float)
     cols = pd.MultiIndex.from_tuples([(str(codes[j + 1])[-6:], "외국인" if "외국인" in str(items[j + 1]) else "기관") for j in range(arr.shape[1])])
     df = pd.DataFrame(arr, index=dates, columns=cols)
-    df = df[df.notna().any(axis=1)]                 # 값이 아직 없는 날(당일) 제외
+    df = df[df.notna().any(axis=1)]
     F, I = df.xs("외국인", level=1, axis=1), df.xs("기관", level=1, axis=1)
     F = F.loc[:, ~F.columns.duplicated()]; I = I.loc[:, ~I.columns.duplicated()]
-    nm = {str(codes[j + 1])[-6:]: names[j + 1] for j in range(arr.shape[1])}
+    nm = {str(codes[j + 1])[-6:]: names[j + 1] for j in range(arr.shape[1]) if codes[j + 1]}
+    return F, I, nm
+
+
+def _overlay(base, upd):
+    """갱신용 값으로 덮어쓰기·추가(갱신용 빈칸은 기존 값 유지)."""
+    out = upd.combine_first(base)
+    return out.loc[:, ~out.columns.duplicated()].sort_index()
+
+
+def load_flows():
+    """수급.xlsx(쌓인 본 파일) + 수급 - 갱신용.xlsx(최근 며칠) -> (외국인, 기관) 일별 DataFrame(백만원, 열 = 6자리 종목코드).
+    두 파일 수정시각이 같으면 캐시(2026-10-27 갱신용 파일 추가 - 밴드 파일과 같은 방식)."""
+    key = (os.path.getmtime(FLOW_XLSX), os.path.getmtime(FLOW_UPD_XLSX) if os.path.exists(FLOW_UPD_XLSX) else None)
+    if os.path.exists(CACHE_PATH):
+        c = pd.read_pickle(CACHE_PATH)
+        if c.get("mtime") == key:
+            return c["F"], c["I"], c["names"]
+    F, I, nm = _parse_flow_xlsx(FLOW_XLSX)
+    if key[1] is not None:
+        uF, uI, unm = _parse_flow_xlsx(FLOW_UPD_XLSX)
+        F, I, nm = _overlay(F, uF), _overlay(I, uI), {**nm, **unm}
     os.makedirs(os.path.dirname(CACHE_PATH), exist_ok=True)
-    pd.to_pickle({"mtime": mtime, "F": F, "I": I, "names": nm}, CACHE_PATH)
+    pd.to_pickle({"mtime": key, "F": F, "I": I, "names": nm}, CACHE_PATH)
     return F, I, nm
 
 
