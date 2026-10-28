@@ -381,7 +381,7 @@
 2026-10-27,mingu_mp,increase_pct,사피엔반도체,452430,3.0,,2026-10-27T20:06:26.009376
 2026-10-27,mingu_mp,increase_pct,프로티나,468530,3.0,,2026-10-27T20:06:26.009376
 2026-10-27,mingu_mp,new_entry_pct,드림텍,192650,5.0,,2026-10-27T20:06:26.009376
-2026-10-27,kosdaq_long_short_index,reduce_pct,엘앤씨바이오,290650,1.0,,
-2026-10-27,kosdaq_long_short_index,exit,지투지바이오,456160,,,
-2026-10-27,kosdaq_long_short_index,exit,RF머트리얼즈,327260,,,
-2026-10-27,kosdaq_long_short_index,reduce_pct,씨에스베어링,297090,2.0,,
+2026-10-27,kosdaq_long_short_index,reduce_pct,엘앤씨바이오,290650,1.0,,2026-10-28T09:01:19.729838
+2026-10-27,kosdaq_long_short_index,exit,지투지바이오,456160,,,2026-10-28T09:01:19.729838
+2026-10-27,kosdaq_long_short_index,exit,RF머트리얼즈,327260,,,2026-10-28T09:01:19.729838
+2026-10-27,kosdaq_long_short_index,reduce_pct,씨에스베어링,297090,2.0,,2026-10-28T09:01:19.729838
