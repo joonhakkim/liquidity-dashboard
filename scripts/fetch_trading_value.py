@@ -99,7 +99,8 @@ def main():
             if s is None:
                 print(f"  {d} 못 받음(다음에 재시도)")
             elif len(s) == 0:
-                empty.add(d)
+                if (today - d).days >= 4:    # 최근 며칠은 아직 안 올라온 것일 수 있어 휴장으로 기억하지 않음
+                    empty.add(d)
             else:
                 rows[pd.Timestamp(d)] = s[~s.index.duplicated()]
     if rows:
