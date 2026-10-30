@@ -94,10 +94,65 @@ def load_op_band_asof():
 
 def find_workbook():
     candidates = glob.glob(os.path.join(MANUAL_DIR, "*QoQ*.xls*"))
-    candidates = [c for c in candidates if not os.path.basename(c).startswith("~$")]
+    candidates = [c for c in candidates if not os.path.basename(c).startswith("~$") and "갱신" not in os.path.basename(c)]
     if not candidates:
         return None
     return max(candidates, key=os.path.getmtime)
+
+
+def find_update_workbook():
+    """'QoQ 계산 - 갱신용.xlsx'(최근 하루치만 담은 파일, 2026-10-30)가 본 파일보다 새로우면 그 값을 덮어쓴다."""
+    base = find_workbook()
+    c = [x for x in glob.glob(os.path.join(MANUAL_DIR, "*QoQ*갱신*.xls*")) if not os.path.basename(x).startswith("~$")]
+    if not base or not c:
+        return None
+    u = max(c, key=os.path.getmtime)
+    return u if os.path.getmtime(u) > os.path.getmtime(base) else None
+
+
+def load_all_results(verbose=False):
+    """본 파일 결과 + 갱신용 파일 결과를 합쳐 (all_results, data_as_of)로 돌려준다.
+    갱신용은 같은 기간(period) 분기값·최신 시총을 덮어쓰고, 월별 시총은 그 달 값만 갱신한다."""
+    def run(path):
+        print(f"워크북 로드 중: {path}")
+        wb = openpyxl.load_workbook(path, read_only=True, data_only=True)
+        out, asof = {}, None
+        for sn in wb.sheetnames:
+            if verbose:
+                print(f"처리 중: {sn} ...")
+            res, latest = process_sheet(wb[sn])
+            for code, data in res.items():
+                out.setdefault(code, data)
+            if latest is not None and (asof is None or latest > asof):
+                asof = latest
+            if verbose:
+                print(f"  {len(res)}개 종목(컨센서스 보유, 5분기 이상)")
+        return out, asof
+
+    wb_path = find_workbook()
+    if not wb_path:
+        return None, None
+    all_results, data_as_of = run(wb_path)
+    upd = find_update_workbook()
+    if upd:
+        new, new_asof = run(upd)
+        n = 0
+        for code, nd in new.items():
+            od = all_results.get(code)
+            if od is None:
+                continue
+            by_p = {q["period"]: q for q in od["quarters"]}
+            for q in nd["quarters"]:
+                by_p[q["period"]] = q
+            od["quarters"] = [by_p[k] for k in sorted(by_p)]
+            if nd["latest_mktcap"] is not None:
+                od["latest_mktcap"] = nd["latest_mktcap"]
+            od["mc_by_month"].update(nd["mc_by_month"])
+            n += 1
+        print(f"갱신용 파일 반영: {n}종목 ({new_asof})")
+        if new_asof is not None and (data_as_of is None or new_asof > data_as_of):
+            data_as_of = new_asof
+    return all_results, data_as_of
 
 
 def load_custom_sector_map():
@@ -339,23 +394,10 @@ def build_row_and_detail(code, data, custom_sector_map):
 
 
 def main():
-    wb_path = find_workbook()
-    if not wb_path:
+    all_results, data_as_of = load_all_results(verbose=True)
+    if all_results is None:
         print("data/manual/ 에 'QoQ 계산' 워크북이 없습니다.")
         return
-    print(f"워크북 로드 중: {wb_path}")
-    wb = openpyxl.load_workbook(wb_path, read_only=True, data_only=True)
-
-    all_results = {}
-    data_as_of = None
-    for sn in wb.sheetnames:
-        print(f"처리 중: {sn} ...")
-        res, sheet_latest = process_sheet(wb[sn])
-        for code, data in res.items():
-            all_results.setdefault(code, data)
-        if sheet_latest is not None and (data_as_of is None or sheet_latest > data_as_of):
-            data_as_of = sheet_latest
-        print(f"  {len(res)}개 종목(컨센서스 보유, 5분기 이상)")
 
     custom_sector_map = load_custom_sector_map()
     print(f"섹터 정리.xlsx 종목 {len(custom_sector_map)}개 로드")

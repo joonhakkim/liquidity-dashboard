@@ -44,7 +44,7 @@ import openpyxl
 import pandas as pd
 
 from build_yoy_accel_tracker import (
-    MKTCAP_CHART_START, add_month, compute_yoy, find_workbook, load_custom_sector_map,
+    MKTCAP_CHART_START, add_month, compute_yoy, find_workbook, load_all_results, load_custom_sector_map,
     load_op_band_asof, load_op_band_gaps, month_end, process_sheet,
 )
 
@@ -304,21 +304,10 @@ def build_sector(sector, members, gap_map):
 
 
 def main():
-    wb_path = find_workbook()
-    if not wb_path:
+    all_results, data_as_of = load_all_results(verbose=False)
+    if all_results is None:
         print("data/manual/ 에 'QoQ 계산' 워크북이 없습니다.")
         return
-    print(f"워크북 로드 중: {wb_path}")
-    wb = openpyxl.load_workbook(wb_path, read_only=True, data_only=True)
-
-    all_results = {}
-    data_as_of = None
-    for sn in wb.sheetnames:
-        res, sheet_latest = process_sheet(wb[sn])
-        for code, data in res.items():
-            all_results.setdefault(code, data)
-        if sheet_latest is not None and (data_as_of is None or sheet_latest > data_as_of):
-            data_as_of = sheet_latest
 
     custom_sector_map = load_custom_sector_map()
     gap_map = load_op_band_gaps()
