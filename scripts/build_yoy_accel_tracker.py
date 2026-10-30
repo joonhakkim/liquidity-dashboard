@@ -113,14 +113,14 @@ def find_update_workbook():
 def load_all_results(verbose=False):
     """본 파일 결과 + 갱신용 파일 결과를 합쳐 (all_results, data_as_of)로 돌려준다.
     갱신용은 같은 기간(period) 분기값·최신 시총을 덮어쓰고, 월별 시총은 그 달 값만 갱신한다."""
-    def run(path):
+    def run(path, lenient=False):
         print(f"워크북 로드 중: {path}")
         wb = openpyxl.load_workbook(path, read_only=True, data_only=True)
         out, asof = {}, None
         for sn in wb.sheetnames:
             if verbose:
                 print(f"처리 중: {sn} ...")
-            res, latest = process_sheet(wb[sn])
+            res, latest = process_sheet(wb[sn], lenient)
             for code, data in res.items():
                 out.setdefault(code, data)
             if latest is not None and (asof is None or latest > asof):
@@ -135,7 +135,7 @@ def load_all_results(verbose=False):
     all_results, data_as_of = run(wb_path)
     upd = find_update_workbook()
     if upd:
-        new, new_asof = run(upd)
+        new, new_asof = run(upd, lenient=True)
         n = 0
         for code, nd in new.items():
             od = all_results.get(code)
@@ -181,7 +181,7 @@ def load_custom_sector_map():
     return name_to_sector
 
 
-def process_sheet(ws):
+def process_sheet(ws, lenient=False):
     max_col = ws.max_column
     max_row = ws.max_row
 
@@ -245,10 +245,13 @@ def process_sheet(ws):
             if val is not None:
                 quarters.append({"period": period, "is_estimate": is_est, "op_won": round(val * 1000, 0)})
 
-        if len(quarters) < MIN_QUARTERS_FOR_YOY:
-            continue
-        has_consensus = any(q["is_estimate"] for q in quarters)
-        if not has_consensus:
+        if not lenient:    # 갱신용(하루치) 파일은 값이 있는 분기만 덮어쓰므로 필터 생략
+            if len(quarters) < MIN_QUARTERS_FOR_YOY:
+                continue
+            has_consensus = any(q["is_estimate"] for q in quarters)
+            if not has_consensus:
+                continue
+        elif not quarters and latest_mktcap is None:
             continue
 
         results[code] = {
