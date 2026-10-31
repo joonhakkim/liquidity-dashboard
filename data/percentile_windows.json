@@ -6,7 +6,7 @@
   },
   "deposit_minus_rp": {
     "window_days": "expanding",
-    "corr": -0.634,
+    "corr": -0.635,
     "n": 1993
   },
   "dry_powder": {
@@ -16,11 +16,11 @@
   },
   "investor_deposit": {
     "window_days": 1512,
-    "corr": -0.435,
+    "corr": -0.436,
     "n": 1993
   },
   "_meta": {
-    "generated_at": "2026-10-31T07:33:34.445361",
+    "generated_at": "2026-11-01T07:33:44.615856",
     "n_crash_events": 7,
     "future_window_days": 126
   }
