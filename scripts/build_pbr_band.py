@@ -9,7 +9,7 @@ PBR 밴드 + ROE 페이지(docs/pbr_band.html) - 2026-11-01 사용자 요청
 - ROE(최근 4분기) = 최근 4분기 당기순이익 ÷ 평균 자본(지금과 1년 전). 자본총계·순이익 모두 비지배지분 포함.
 - 블로그 공식: PBR = (ROE - g) / (r - g)  ->  요구 ROE = PBR x (r - g) + g,  적정 PBR = (ROE - g) / (r - g). 기본 r=10%, g=2.5%(페이지에서 조절).
 - 섹터 PBR = 소속 종목 시총 합 ÷ 자본 합(그날 자본이 있는 종목만), 섹터 ROE = 순이익 합 ÷ 평균자본 합.
-- 밴드 = 그 종목(섹터) 자신의 전체 이력 5/10/50/90% 분위. 이력 연수가 짧은 종목은 밴드를 믿기 어렵다.
+- 밴드 = 선택한 기간 안에서 그 종목(섹터) 자신의 10/50/90% 분위. 이력 연수가 짧은 종목은 밴드를 믿기 어렵다.
 """
 import json
 import os
@@ -276,7 +276,7 @@ HTML = r"""<!doctype html>
 
   <div class="box">
     <h2 id="cTitle">PBR 밴드</h2>
-    <div class="desc">실선 = PBR(왼쪽 축), 점선 = ROE 최근 4분기(오른쪽 축). 가는 선은 선택한 기간(위 '밴드 기간') 안에서 이 종목 자신의 5%/10%/50%/90% 분위입니다.</div>
+    <div class="desc">실선 = PBR(왼쪽 축), 점선 = ROE 최근 4분기(오른쪽 축). 가는 선은 선택한 기간(위 '밴드 기간') 안에서 이 종목 자신의 하위 10% / 중앙값 / 상위 10% 선입니다.</div>
     <div class="chart-wrap"><canvas id="ch"></canvas></div>
   </div>
 
@@ -290,7 +290,7 @@ HTML = r"""<!doctype html>
     <b>PBR</b> = 그날 시가총액 &divide; 가장 최근 공시된 자본총계(연결 우선, 비지배지분 포함). 공시 전에는 직전 분기 자본을 씁니다(1Q 5/16, 반기 8/15, 3Q 11/15, 사업 3/31 이후 반영).<br>
     <b>ROE</b> = 최근 4분기 당기순이익 &divide; 평균 자본(지금과 1년 전). <b>적정 PBR</b> = (ROE - g) &divide; (r - g), <b>요구 ROE</b> = PBR &times; (r - g) + g. 지금 PBR을 정당화하려면 앞으로 이만큼의 ROE가 유지돼야 한다는 뜻입니다.<br>
     <b>괴리</b> = 현재 PBR &divide; 적정 PBR - 1. 플러스면 지금 ROE 대비 비싸게 거래, 마이너스면 싸게 거래. 성장 초기라 자본이 빠르게 쌓이는 기업, 무형자산 비중이 큰 기업, 적자·ROE가 g 이하인 기업에는 맞지 않습니다(블로그도 맹신 금지).<br>
-    <b>섹터</b> = 소속 종목 시총 합 &divide; 자본 합. 밴드는 각자의 전체 이력 분위이며, 이력이 짧으면 믿기 어렵습니다. 2015년 이전은 데이터가 없습니다.
+    <b>섹터</b> = 소속 종목 시총 합 &divide; 자본 합. 밴드는 선택한 기간(3·5·7·10년·전체) 안의 각자 분위이며, 이력이 짧으면 믿기 어렵습니다. 2015년 이전은 데이터가 없습니다.
   </div>
 
 <script>
@@ -348,13 +348,13 @@ async function show() {
   $('cards').innerHTML = [
     ['현재 PBR', f2(item.pbr), '이력 ' + f1(item.yrs) + '년'],
     ['현재 위치', item.pct == null ? '-' : item.pct + '%', (win === '0' ? '전체' : win + '년') + ' 이력 아래에서부터'],
-    ['5% / 중앙 / 90%', item.q ? item.q[0] + ' / ' + item.q[2] + ' / ' + item.q[3] : '-', '최저 ' + (item.q ? item.q[4] : '-') + ' · 최고 ' + (item.q ? item.q[5] : '-')],
+    ['10% / 중앙 / 90%', item.q ? item.q[1] + ' / ' + item.q[2] + ' / ' + item.q[3] : '-', '최저 ' + (item.q ? item.q[4] : '-') + ' · 최고 ' + (item.q ? item.q[5] : '-')],
     ['ROE (4분기)', f1(item.roe) + '%', '적정 PBR ' + f2(e.fair)],
     ['요구 ROE', f1(e.req) + '%', '지금 PBR을 정당화하는 ROE'],
     ['괴리', e.gap == null ? '-' : f1(e.gap) + '%', '+ 비쌈 / - 쌈'],
   ].map(([a, b, c]) => `<div class="card">${a}<div class="val">${b}</div>${c}</div>`).join('');
   const ds = [{label: 'PBR', data: ps, borderColor: '#4dabf7', backgroundColor: '#4dabf7', borderWidth: 2, pointRadius: 0, yAxisID: 'y', spanGaps: true}];
-  if (item.q) [[0, '5%', '#2f9e44'], [1, '10%', '#51cf66'], [2, '중앙', '#adb5bd'], [3, '90%', '#ff8787']].forEach(([i, l, c]) =>
+  if (item.q) [[1, '하위 10%', '#51cf66'], [2, '중앙값', '#adb5bd'], [3, '상위 10%(90%)', '#ff8787']].forEach(([i, l, c]) =>
     ds.push({label: l, data: d.map(() => item.q[i]), borderColor: c, borderWidth: 1, borderDash: [4, 4], pointRadius: 0, yAxisID: 'y'}));
   ds.push({label: 'ROE %', data: rsr, borderColor: '#ffa94d', borderWidth: 1.5, borderDash: [2, 3], pointRadius: 0, yAxisID: 'y2', spanGaps: true});
   if (chart) chart.destroy();
