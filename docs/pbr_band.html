@@ -36,7 +36,7 @@
 <body>
   <a class="back" href="index.html">&larr; 홈</a>
   <h1>PBR 밴드<span class="sub">시총 &divide; 자본총계(DART 분기, 2015~) + ROE &middot; 블로그의 PBR-ROE 공식</span></h1>
-  <div class="updated">최종 갱신: 2026-11-01 18:33 &middot; 시총 기준일: 2026-10-29</div>
+  <div class="updated">최종 갱신: 2026-11-01 18:36 &middot; 시총 기준일: 2026-10-29</div>
 
   <div class="ctl">
     <span class="seg" id="segM"><button data-m="stock" class="active">종목</button><button data-m="sector">섹터</button></span>
@@ -115,11 +115,13 @@ function table() {
   if (!sel && rs.length) { sel = rs[0].key; show(); }
 }
 async function show() {
+  const mine = sel;    // 응답이 늦게 와도 선택이 바뀌었으면 버린다(검색 중 연속 입력 대비)
   let item, d, ps, rsr, mcv;
   if (mode === 'sector') { item = D.sectors.find(s => s.name === sel); if (!item) return; d = item.d; ps = item.ps; rsr = item.rs; mcv = item.mcs; }
   else {
     item = D.stocks.find(s => s.c === sel); if (!item) return;
     try { const j = await (await fetch('pbr_band_data/' + sel + '.json')).json(); d = j.d; ps = j.pbr; rsr = j.roe; mcv = j.mc; } catch (e) { return; }
+    if (mine !== sel) return;
   }
   withWin(item);
   const e = enrich({pbr: item.pbr, roe: item.roe, q: item.q});

@@ -342,11 +342,13 @@ function table() {
   if (!sel && rs.length) { sel = rs[0].key; show(); }
 }
 async function show() {
+  const mine = sel;    // 응답이 늦게 와도 선택이 바뀌었으면 버린다(검색 중 연속 입력 대비)
   let item, d, ps, rsr, mcv;
   if (mode === 'sector') { item = D.sectors.find(s => s.name === sel); if (!item) return; d = item.d; ps = item.ps; rsr = item.rs; mcv = item.mcs; }
   else {
     item = D.stocks.find(s => s.c === sel); if (!item) return;
     try { const j = await (await fetch('pbr_band_data/' + sel + '.json')).json(); d = j.d; ps = j.pbr; rsr = j.roe; mcv = j.mc; } catch (e) { return; }
+    if (mine !== sel) return;
   }
   withWin(item);
   const e = enrich({pbr: item.pbr, roe: item.roe, q: item.q});
