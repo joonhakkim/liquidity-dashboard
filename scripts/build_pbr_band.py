@@ -268,7 +268,7 @@ HTML = r"""<!doctype html>
     <span>밴드 기간 <select id="win"><option value="3">3년</option><option value="5">5년</option><option value="7">7년</option><option value="10" selected>10년</option><option value="0">전체</option></select></span>
     <span>할인율 r <input class="num" id="rIn" type="number" value="10" step="0.5">%</span>
     <span>영구성장률 g <input class="num" id="gIn" type="number" value="2.5" step="0.5">%</span>
-    <span id="fltStock">이력 <select id="yrs"><option value="0">전체</option><option value="5">5년 이상</option><option value="8">8년 이상</option><option value="10" selected>10년 이상</option></select>
+    <span id="fltStock">이력 <select id="yrs"><option value="0">전체</option><option value="5" selected>5년 이상</option><option value="8">8년 이상</option><option value="10">10년 이상</option></select>
       섹터 <select id="secSel"></select> 검색 <input id="q" placeholder="종목명"></span>
   </div>
 
