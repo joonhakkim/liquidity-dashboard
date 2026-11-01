@@ -64,6 +64,8 @@ CORE_STEPS = [
     ("build_sector_ma_breadth.py", "섹터별 이평선 위 종목 비율 페이지 빌드(섹터 정리 기준, 기업밴드찾기2 일별 시총 - OP밴드 빌드가 저장한 캐시를 쓰므로 그 다음, 2026-10-14 추가)"),
     ("fetch_trading_value.py", "종목별 일별 거래대금 저장소 이어받기(KRX 일별 전종목 ACC_TRDVAL, 2026-10-29 추가)"),
     ("build_sector_trading_value.py", "섹터별 거래대금 페이지 빌드(일별 막대 + 20일 평균선, 섹터 정리 기준, 2026-10-29 추가)"),
+    ("fetch_equity_dart.py", "상장사 분기 자본총계·당기순이익 이어받기(DART fnlttMultiAcnt, PBR 밴드용 - 새 보고서만, 올해 것은 월요일마다 재수집, 2026-11-01 추가)"),
+    ("build_pbr_band.py", "PBR 밴드 + ROE 페이지 빌드(시총 / 자본총계 2015~, 블로그 PBR-ROE 요구 ROE·적정 PBR, 종목·섹터, 2026-11-01 추가)"),
     ("build_flow_analysis.py", "수급 분석 페이지 빌드(data/manual/수급.xlsx 외국인·기관 순매수 / 시총, 섹터 정리 섹터별 8·15일 평균·교차·순위 - 시총 캐시 쓰므로 섹터 이평선 다음, 2026-10-19 추가)"),
     ("build_flow_stocks.py", "종목 수급 페이지 빌드(수급.xlsx 전 종목 수급 비율·8/15·볼린저 + 종목별 차트 json - 수급 분석 다음, 2026-10-19 추가)"),
     ("build_flow_lab.py", "수급 국면·평균단가(실험) 페이지 빌드(종목 수급이 만든 flow_stock_data 차트 재사용 - 종목 수급 다음, 2026-10-19 추가)"),
