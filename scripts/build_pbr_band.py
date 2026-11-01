@@ -282,7 +282,7 @@ HTML = r"""<!doctype html>
 
   <div class="box">
     <h2 id="tTitle">목록</h2>
-    <div class="desc">행을 누르면 위 차트가 바뀌고, 머리글을 누르면 정렬됩니다. '현재 위치'는 자기 이력 안에서 지금 PBR이 아래에서 몇 %인지(낮을수록 싼 쪽)입니다.</div>
+    <div class="desc">행을 누르면 위 차트가 바뀌고, 머리글을 누르면 정렬됩니다(종목은 기본 시총순). '현재 위치'는 자기 이력 안에서 지금 PBR이 아래에서 몇 %인지(낮을수록 싼 쪽)입니다.</div>
     <div class="tblwrap"><table id="tbl"></table></div>
   </div>
 
@@ -295,7 +295,7 @@ HTML = r"""<!doctype html>
 
 <script>
 const D = __DATA__;
-let mode = 'stock', win = '10', sel = null, chart = null, sortKey = 'pct', sortDir = 1;
+let mode = 'stock', win = '10', sel = null, chart = null, sortKey = 'mc', sortDir = -1;
 const $ = id => document.getElementById(id);
 const r = () => +$('rIn').value / 100, g = () => +$('gIn').value / 100;
 const fair = roe => (roe == null) ? null : (roe / 100 - g()) / (r() - g());
@@ -365,7 +365,7 @@ async function show() {
 }
 document.querySelectorAll('#segM button').forEach(b => b.onclick = () => {
   document.querySelectorAll('#segM button').forEach(x => x.classList.toggle('active', x === b));
-  mode = b.dataset.m; sel = null; sortKey = 'pct'; sortDir = 1; $('fltStock').style.display = mode === 'stock' ? '' : 'none'; table();
+  mode = b.dataset.m; sel = null; sortKey = mode === 'stock' ? 'mc' : 'pct'; sortDir = mode === 'stock' ? -1 : 1; $('fltStock').style.display = mode === 'stock' ? '' : 'none'; table();
 });
 ['rIn', 'gIn'].forEach(id => $(id).oninput = () => { table(); show(); });
 $('win').oninput = () => { win = $('win').value; table(); show(); };
