@@ -142,12 +142,28 @@ def main():
     last = dates[-1]
     os.makedirs(DETAIL_DIR, exist_ok=True)
 
+    WINDOWS = (3, 5, 7, 10, 0)    # 밴드 계산 기간(년), 0=전체
+
     def q(s):
         v = s.dropna()
         v = v[v > 0]
         if len(v) < 250:
             return None
         return [round(float(np.percentile(v, p)), 2) for p in (5, 10, 50, 90)] + [round(float(v.min()), 2), round(float(v.max()), 2)]
+
+    def wins(s):
+        """기간별 {분위 6개, 현재 위치%}. 이력이 기간보다 짧으면 있는 만큼으로 계산(None 아님)."""
+        v = s.dropna()
+        v = v[v > 0]
+        out = {}
+        for w in WINDOWS:
+            vw = v if w == 0 else v[v.index >= v.index[-1] - pd.DateOffset(years=w)]
+            qq = q(vw)
+            if qq is None:
+                out[str(w)] = None
+                continue
+            out[str(w)] = {"q": qq, "pct": round(float((vw <= vw.iloc[-1]).mean() * 100))}
+        return out
 
     rows = []
     for code in PBR.columns:
@@ -156,15 +172,13 @@ def main():
         if v.empty or v.index[-1] != last:
             continue
         hist_years = (v.index[-1] - v.index[0]).days / 365.25
-        qq = q(s)
         cur = float(v.iloc[-1])
-        pct = round(float((v <= cur).mean() * 100)) if len(v) >= 250 else None
         roe = ROE[code].dropna()
         roe_now = float(roe.iloc[-1]) if len(roe) and roe.index[-1] == last else None
         rows.append({"c": code, "n": meta["name"].get(code, code), "s": sec_of.get(code, "-"),
                      "mc": round(float(mcs[code].iloc[-1]) / 1e8), "pbr": round(cur, 2),
                      "roe": round(roe_now, 1) if roe_now is not None and np.isfinite(roe_now) else None,
-                     "yrs": round(hist_years, 1), "q": qq, "pct": pct})
+                     "yrs": round(hist_years, 1), "w": wins(s)})
         if hist_years >= 1:
             detail = {"d": mdates, "pbr": [None if np.isnan(x) else round(float(x), 2) for x in s.values[me]],
                       "roe": [None if (np.isnan(x) or not np.isfinite(x)) else round(float(x), 1) for x in ROE[code].values[me]]}
@@ -195,7 +209,7 @@ def main():
             continue
         sec_out.append({"name": sec, "n": len(cs), "yrs": round((v.index[-1] - v.index[0]).days / 365.25, 1),
                         "pbr": round(float(v.iloc[-1]), 2), "roe": None if pd.isna(roe_s.iloc[-1]) else round(float(roe_s.iloc[-1]), 1),
-                        "q": q(pbr_s), "pct": round(float((v <= v.iloc[-1]).mean() * 100)) if len(v) >= 250 else None,
+                        "w": wins(pbr_s),
                         "d": mdates,
                         "ps": [None if np.isnan(x) else round(float(x), 2) for x in pbr_s.values[me]],
                         "rs": [None if np.isnan(x) else round(float(x), 1) for x in roe_s.values[me]]})
@@ -251,6 +265,7 @@ HTML = r"""<!doctype html>
 
   <div class="ctl">
     <span class="seg" id="segM"><button data-m="stock" class="active">종목</button><button data-m="sector">섹터</button></span>
+    <span>밴드 기간 <select id="win"><option value="3">3년</option><option value="5">5년</option><option value="7">7년</option><option value="10" selected>10년</option><option value="0">전체</option></select></span>
     <span>할인율 r <input class="num" id="rIn" type="number" value="10" step="0.5">%</span>
     <span>영구성장률 g <input class="num" id="gIn" type="number" value="2.5" step="0.5">%</span>
     <span id="fltStock">이력 <select id="yrs"><option value="0">전체</option><option value="5">5년 이상</option><option value="8">8년 이상</option><option value="10" selected>10년 이상</option></select>
@@ -261,7 +276,7 @@ HTML = r"""<!doctype html>
 
   <div class="box">
     <h2 id="cTitle">PBR 밴드</h2>
-    <div class="desc">실선 = PBR(왼쪽 축), 점선 = ROE 최근 4분기(오른쪽 축). 가는 선은 이 종목 자신의 5%/10%/50%/90% 분위입니다.</div>
+    <div class="desc">실선 = PBR(왼쪽 축), 점선 = ROE 최근 4분기(오른쪽 축). 가는 선은 선택한 기간(위 '밴드 기간') 안에서 이 종목 자신의 5%/10%/50%/90% 분위입니다.</div>
     <div class="chart-wrap"><canvas id="ch"></canvas></div>
   </div>
 
@@ -280,7 +295,7 @@ HTML = r"""<!doctype html>
 
 <script>
 const D = __DATA__;
-let mode = 'stock', sel = null, chart = null, sortKey = 'pct', sortDir = 1;
+let mode = 'stock', win = '10', sel = null, chart = null, sortKey = 'pct', sortDir = 1;
 const $ = id => document.getElementById(id);
 const r = () => +$('rIn').value / 100, g = () => +$('gIn').value / 100;
 const fair = roe => (roe == null) ? null : (roe / 100 - g()) / (r() - g());
@@ -291,11 +306,12 @@ const cls = x => x == null ? '' : (x > 0 ? 'pos' : 'neg');
 const secs = [...new Set(D.stocks.map(s => s.s))].sort();
 $('secSel').innerHTML = '<option value="">전체 섹터</option>' + secs.map(s => `<option>${s}</option>`).join('');
 
+function withWin(o) { const w = o.w && o.w[win]; o.q = w ? w.q : null; o.pct = w ? w.pct : null; return o; }
 function rows() {
-  if (mode === 'sector') return D.sectors.map(s => ({key: s.name, n: s.name, s: s.n + '종목', mc: null, pbr: s.pbr, roe: s.roe, yrs: s.yrs, q: s.q, pct: s.pct, sec: s}));
+  if (mode === 'sector') return D.sectors.map(s => withWin({key: s.name, n: s.name, s: s.n + '종목', mc: null, pbr: s.pbr, roe: s.roe, yrs: s.yrs, w: s.w}));
   const y = +$('yrs').value, sc = $('secSel').value, qq = $('q').value.trim();
-  return D.stocks.filter(s => s.yrs >= y && s.q && (!sc || s.s === sc) && (!qq || s.n.includes(qq)))
-    .map(s => ({key: s.c, n: s.n, s: s.s, mc: s.mc, pbr: s.pbr, roe: s.roe, yrs: s.yrs, q: s.q, pct: s.pct}));
+  return D.stocks.filter(s => s.yrs >= y && s.w[win] && (!sc || s.s === sc) && (!qq || s.n.includes(qq)))
+    .map(s => withWin({key: s.c, n: s.n, s: s.s, mc: s.mc, pbr: s.pbr, roe: s.roe, yrs: s.yrs, w: s.w}));
 }
 function enrich(x) {
   const fp = fair(x.roe);
@@ -323,12 +339,15 @@ async function show() {
     item = D.stocks.find(s => s.c === sel); if (!item) return;
     try { const j = await (await fetch('pbr_band_data/' + sel + '.json')).json(); d = j.d; ps = j.pbr; rsr = j.roe; } catch (e) { return; }
   }
+  withWin(item);
   const e = enrich({pbr: item.pbr, roe: item.roe, q: item.q});
+  const nW = win === '0' ? d.length : Math.min(d.length, +win * 12);
+  d = d.slice(-nW); ps = ps.slice(-nW); rsr = rsr.slice(-nW);
   const nm = mode === 'sector' ? item.name : item.n;
   $('cTitle').textContent = nm + ' - PBR 밴드';
   $('cards').innerHTML = [
     ['현재 PBR', f2(item.pbr), '이력 ' + f1(item.yrs) + '년'],
-    ['현재 위치', item.pct == null ? '-' : item.pct + '%', '자기 이력 아래에서부터'],
+    ['현재 위치', item.pct == null ? '-' : item.pct + '%', (win === '0' ? '전체' : win + '년') + ' 이력 아래에서부터'],
     ['5% / 중앙 / 90%', item.q ? item.q[0] + ' / ' + item.q[2] + ' / ' + item.q[3] : '-', '최저 ' + (item.q ? item.q[4] : '-') + ' · 최고 ' + (item.q ? item.q[5] : '-')],
     ['ROE (4분기)', f1(item.roe) + '%', '적정 PBR ' + f2(e.fair)],
     ['요구 ROE', f1(e.req) + '%', '지금 PBR을 정당화하는 ROE'],
@@ -349,6 +368,7 @@ document.querySelectorAll('#segM button').forEach(b => b.onclick = () => {
   mode = b.dataset.m; sel = null; sortKey = 'pct'; sortDir = 1; $('fltStock').style.display = mode === 'stock' ? '' : 'none'; table();
 });
 ['rIn', 'gIn'].forEach(id => $(id).oninput = () => { table(); show(); });
+$('win').oninput = () => { win = $('win').value; table(); show(); };
 ['yrs', 'secSel', 'q'].forEach(id => $(id).oninput = () => { sel = null; table(); });
 table();
 </script>
