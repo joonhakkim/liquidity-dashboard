@@ -181,7 +181,9 @@ def main():
                      "yrs": round(hist_years, 1), "w": wins(s)})
         if hist_years >= 1:
             detail = {"d": mdates, "pbr": [None if np.isnan(x) else round(float(x), 2) for x in s.values[me]],
-                      "roe": [None if (np.isnan(x) or not np.isfinite(x)) else round(float(x), 1) for x in ROE[code].values[me]]}
+                      "roe": [None if (np.isnan(x) or not np.isfinite(x)) else round(float(x), 1) for x in ROE[code].values[me]],
+                      "mc": [None if np.isnan(x) else round(float(x) / 1e8) for x in mcs[code].values[me]],
+                      "eq": [None if np.isnan(x) else round(float(x) / 1e8) for x in E[code].where(E[code] > 0).values[me]]}
             with open(os.path.join(DETAIL_DIR, f"{code}.json"), "w", encoding="utf-8") as fh:
                 json.dump(detail, fh, ensure_ascii=False, separators=(",", ":"))
     print(f"종목 {len(rows)}개")
@@ -212,7 +214,9 @@ def main():
                         "w": wins(pbr_s),
                         "d": mdates,
                         "ps": [None if np.isnan(x) else round(float(x), 2) for x in pbr_s.values[me]],
-                        "rs": [None if np.isnan(x) else round(float(x), 1) for x in roe_s.values[me]]})
+                        "rs": [None if np.isnan(x) else round(float(x), 1) for x in roe_s.values[me]],
+                        "mcs": [None if np.isnan(x) else round(float(x) / 1e8) for x in cap.values[me]],
+                        "es": [None if np.isnan(x) else round(float(x) / 1e8) for x in eqs.values[me]]})
     print(f"섹터 {len(sec_out)}개")
 
     data = {"asof": last.strftime("%Y-%m-%d"), "stocks": rows, "sectors": sec_out}
@@ -281,6 +285,12 @@ HTML = r"""<!doctype html>
   </div>
 
   <div class="box">
+    <h2 id="c2Title">시가총액 · 자본총계</h2>
+    <div class="desc">시가총액(파랑)과 자본총계(주황)의 추이(억원, 월말). 두 선의 간격이 PBR이고, 시총이 자본보다 멀리 올라가 있을수록 PBR이 높습니다. 자본이 늘어 PBR이 내려간 구간과 주가가 빠져 내려간 구간을 구분해서 보세요.</div>
+    <div class="chart-wrap" style="height:260px"><canvas id="ch2"></canvas></div>
+  </div>
+
+  <div class="box">
     <h2 id="tTitle">목록</h2>
     <div class="desc">행을 누르면 위 차트가 바뀌고, 머리글을 누르면 정렬됩니다(종목은 기본 시총순). '현재 위치'는 자기 이력 안에서 지금 PBR이 아래에서 몇 %인지(낮을수록 싼 쪽)입니다.</div>
     <div class="tblwrap"><table id="tbl"></table></div>
@@ -295,11 +305,12 @@ HTML = r"""<!doctype html>
 
 <script>
 const D = __DATA__;
-let mode = 'stock', win = '10', sel = null, chart = null, sortKey = 'mc', sortDir = -1;
+let mode = 'stock', win = '10', sel = null, chart = null, chart2 = null, sortKey = 'mc', sortDir = -1;
 const $ = id => document.getElementById(id);
 const r = () => +$('rIn').value / 100, g = () => +$('gIn').value / 100;
 const fair = roe => (roe == null) ? null : (roe / 100 - g()) / (r() - g());
 const reqRoe = pbr => (pbr * (r() - g()) + g()) * 100;
+const fmtEok = x => x == null ? '-' : (x >= 10000 ? (x / 10000).toFixed(1) + '조' : x.toLocaleString() + '억');
 const f1 = x => x == null ? '-' : x.toFixed(1), f2 = x => x == null ? '-' : x.toFixed(2);
 const cls = x => x == null ? '' : (x > 0 ? 'pos' : 'neg');
 
@@ -333,19 +344,20 @@ function table() {
   if (!sel && rs.length) { sel = rs[0].key; show(); }
 }
 async function show() {
-  let item, d, ps, rsr;
-  if (mode === 'sector') { item = D.sectors.find(s => s.name === sel); if (!item) return; d = item.d; ps = item.ps; rsr = item.rs; }
+  let item, d, ps, rsr, mcv, eqv;
+  if (mode === 'sector') { item = D.sectors.find(s => s.name === sel); if (!item) return; d = item.d; ps = item.ps; rsr = item.rs; mcv = item.mcs; eqv = item.es; }
   else {
     item = D.stocks.find(s => s.c === sel); if (!item) return;
-    try { const j = await (await fetch('pbr_band_data/' + sel + '.json')).json(); d = j.d; ps = j.pbr; rsr = j.roe; } catch (e) { return; }
+    try { const j = await (await fetch('pbr_band_data/' + sel + '.json')).json(); d = j.d; ps = j.pbr; rsr = j.roe; mcv = j.mc; eqv = j.eq; } catch (e) { return; }
   }
   withWin(item);
   const e = enrich({pbr: item.pbr, roe: item.roe, q: item.q});
   const nW = win === '0' ? d.length : Math.min(d.length, +win * 12);
-  d = d.slice(-nW); ps = ps.slice(-nW); rsr = rsr.slice(-nW);
+  d = d.slice(-nW); ps = ps.slice(-nW); rsr = rsr.slice(-nW); mcv = mcv.slice(-nW); eqv = eqv.slice(-nW);
   const nm = mode === 'sector' ? item.name : item.n;
   $('cTitle').textContent = nm + ' - PBR 밴드';
   $('cards').innerHTML = [
+    ['시가총액', fmtEok(mcv[mcv.length - 1]), '자본총계 ' + fmtEok(eqv[eqv.length - 1])],
     ['현재 PBR', f2(item.pbr), '이력 ' + f1(item.yrs) + '년'],
     ['현재 위치', item.pct == null ? '-' : item.pct + '%', (win === '0' ? '전체' : win + '년') + ' 이력 아래에서부터'],
     ['10% / 중앙 / 90%', item.q ? item.q[1] + ' / ' + item.q[2] + ' / ' + item.q[3] : '-', '최저 ' + (item.q ? item.q[4] : '-') + ' · 최고 ' + (item.q ? item.q[5] : '-')],
@@ -362,6 +374,12 @@ async function show() {
     plugins: {legend: {labels: {color: '#c9ccd1', boxWidth: 14}}}, scales: {x: {ticks: {color: '#9aa0a6', maxTicksLimit: 12}, grid: {color: '#1d2027'}},
       y: {position: 'left', ticks: {color: '#9aa0a6'}, grid: {color: '#1d2027'}, title: {display: true, text: 'PBR', color: '#9aa0a6'}},
       y2: {position: 'right', ticks: {color: '#ffa94d'}, grid: {drawOnChartArea: false}, title: {display: true, text: 'ROE %', color: '#ffa94d'}}}}});
+  if (chart2) chart2.destroy();
+  chart2 = new Chart($('ch2'), {type: 'line', data: {labels: d, datasets: [
+      {label: '시가총액(억)', data: mcv, borderColor: '#4dabf7', borderWidth: 2, pointRadius: 0, spanGaps: true},
+      {label: '자본총계(억)', data: eqv, borderColor: '#ffa94d', borderWidth: 2, pointRadius: 0, spanGaps: true, stepped: true}]},
+    options: {responsive: true, maintainAspectRatio: false, interaction: {mode: 'index', intersect: false}, plugins: {legend: {labels: {color: '#c9ccd1', boxWidth: 14}}},
+      scales: {x: {ticks: {color: '#9aa0a6', maxTicksLimit: 12}, grid: {color: '#1d2027'}}, y: {ticks: {color: '#9aa0a6', callback: v => fmtEok(v)}, grid: {color: '#1d2027'}}}}});
 }
 document.querySelectorAll('#segM button').forEach(b => b.onclick = () => {
   document.querySelectorAll('#segM button').forEach(x => x.classList.toggle('active', x === b));
