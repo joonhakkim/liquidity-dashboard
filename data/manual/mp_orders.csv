@@ -417,9 +417,9 @@
 2026-10-30,mingu_mp,reduce_pct,티엘비,356860,6.0,,2026-10-30T20:06:27.508629
 2026-10-30,mingu_mp,increase_pct,한라캐스트,125490,3.0,,2026-10-30T20:06:27.508629
 2026-10-30,mingu_mp,new_entry_pct,에이치브이엠,295310,3.0,,2026-10-30T20:06:27.508629
-2026-10-30,kosdaq_long_short_index,increase_pct,제우스,079370,1.0,,
-2026-10-30,kosdaq_long_short_index,exit,두산테스나,131970,,,
-2026-10-30,kosdaq_long_short_index,reduce_pct,큐리옥스바이오시스템즈,445680,3.0,,
-2026-10-30,kosdaq_long_short_index,exit,비나텍,126340,,,
-2026-10-30,kosdaq_long_short_index,reduce_pct,파인엠텍,441270,2.0,,
-2026-10-30,kosdaq_long_short_index,target_pct,KODEX 코스닥150선물인버스,251340,85.0,숏 비중 80에서 85(5%p 확대),
+2026-10-30,kosdaq_long_short_index,increase_pct,제우스,079370,1.0,,2026-11-02T15:38:46.685537
+2026-10-30,kosdaq_long_short_index,exit,두산테스나,131970,,,2026-11-02T15:38:46.685537
+2026-10-30,kosdaq_long_short_index,reduce_pct,큐리옥스바이오시스템즈,445680,3.0,,2026-11-02T15:38:46.685537
+2026-10-30,kosdaq_long_short_index,exit,비나텍,126340,,,2026-11-02T15:38:46.685537
+2026-10-30,kosdaq_long_short_index,reduce_pct,파인엠텍,441270,2.0,,2026-11-02T15:38:46.685537
+2026-10-30,kosdaq_long_short_index,target_pct,KODEX 코스닥150선물인버스,251340,90.81,숏 비중 85.81에서 90.81(5%p 확대),2026-11-02T15:39:56.893299
