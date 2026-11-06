@@ -471,3 +471,7 @@
 2026-11-04,kosdaq_long_short_index,new_entry_pct,네오팜,092730,2.0,,2026-11-06T09:02:10.625530
 2026-11-04,kosdaq_long_short_index,exit,아이센스,099190,,,2026-11-06T09:02:10.625530
 2026-11-04,kosdaq_long_short_index,target_pct,KODEX 코스닥150선물인버스,251340,79.61,숏 비중 89.61에서 79.61(10%p 축소),2026-11-06T09:03:43.711805
+2026-11-05,kosdaq_long_short_index,increase_pct,제우스,079370,1.0,,2026-11-06T09:04:05.039545
+2026-11-05,kosdaq_long_short_index,increase_pct,네오팜,092730,1.0,,2026-11-06T09:04:05.039545
+2026-11-05,kosdaq_long_short_index,new_entry_pct,파마리서치,214450,3.0,,2026-11-06T09:04:05.039545
+2026-11-05,kosdaq_long_short_index,new_entry_pct,코스메카코리아,241710,2.0,,2026-11-06T09:04:05.039545
