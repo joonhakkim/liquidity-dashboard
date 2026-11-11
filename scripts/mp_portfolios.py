@@ -26,12 +26,12 @@ PORTFOLIOS = [
         "xlsx_path": os.path.join(DOWNLOADS_DIR, "troy_mp_history.xlsx"),
     },
     {
-        "id": "momentum_mp",
-        "name": "모멘텀 MP",
-        "trades_path": os.path.join(DATA_DIR, "manual", "momentum_mp_trades.csv"),
-        "prices_path": os.path.join(DATA_DIR, "momentum_mp_prices.csv"),
-        "out_path": os.path.join(DOCS_DIR, "momentum_mp.html"),
-        "xlsx_path": os.path.join(DOWNLOADS_DIR, "momentum_mp_history.xlsx"),
+        "id": "shield_mp",
+        "name": "쉴드 MP",
+        "trades_path": os.path.join(DATA_DIR, "manual", "shield_mp_trades.csv"),
+        "prices_path": os.path.join(DATA_DIR, "shield_mp_prices.csv"),
+        "out_path": os.path.join(DOCS_DIR, "shield_mp.html"),
+        "xlsx_path": os.path.join(DOWNLOADS_DIR, "shield_mp_history.xlsx"),
     },
     {
         "id": "mingu_mp",
@@ -71,7 +71,7 @@ LONG_SHORT_PORTFOLIOS = [
 # 마지막에 두고 싶다는 요청(2026-09-01)이 있어서 PORTFOLIOS 뒤에 그냥 이어붙이지 않고 직접 나열.
 _BY_ID = {p["id"]: p for p in PORTFOLIOS + LONG_SHORT_PORTFOLIOS}
 ALL_PORTFOLIOS = [_BY_ID[i] for i in [
-    "troy_mp", "momentum_mp", "kosdaq_long_short_index", "mingu_mp",
+    "troy_mp", "shield_mp", "kosdaq_long_short_index", "mingu_mp",
 ]]
 
 # 페이지 비밀번호(클라이언트 사이드 SHA-256 해시 - build_troy_mp_page.py 참고). 위 4개 MP는

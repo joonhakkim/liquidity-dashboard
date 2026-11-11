@@ -2,7 +2,7 @@
 MP(모델 포트폴리오) 트래커 전용 경량 파이프라인. 매일 20:05(register_troy_mp_task_windows.ps1
 스케줄)에 자동 실행된다 - 수동으로 돌릴 땐 반드시 이 시각 이후에 돌릴 것(아래 설명).
 fetch_troy_mp_prices.py/build_troy_mp_page.py 둘 다 mp_portfolios.PORTFOLIOS를 순회하므로
-트로이 MP·모멘텀 MP 등 등록된 포트폴리오 전부가 이 파이프라인 한 번으로 같이 갱신된다.
+트로이 MP·쉴드 MP 등 등록된 포트폴리오 전부가 이 파이프라인 한 번으로 같이 갱신된다.
 
 원래는 run_pipeline.py(아침 07:30)에 같이 있었는데, 그러면 전날 종가로 하루 늦게
 갱신되는 문제가 있었다(코스피 선행 PER 트래커가 겪었던 것과 동일한 문제 -
@@ -42,7 +42,7 @@ STEPS = [
     ORDER_STEP,
     ("fetch_troy_mp_prices.py", "MP 트래커: 지시서로 신규 편입된 종목 가격 이력도 받기(재실행)"),
     ("fetch_market_sector_weights.py", "MP 트래커: 섹터별 OW/UW 비교용 코스피/코스닥 전종목 시총 수집"),
-    ("build_troy_mp_page.py", "MP 트래커 페이지 빌드(트로이 MP/모멘텀 MP/코스닥 롱숏 2종)"),
+    ("build_troy_mp_page.py", "MP 트래커 페이지 빌드(트로이 MP/쉴드 MP/코스닥 롱숏 2종)"),
     ("fetch_investor_flow.py", "유동성 대시보드: 수급주체(개인/외국인/기관) 오늘자 재수집 - "
      "이 소스(네이버 신버전 API)가 실시간 스냅샷이라 아침 07:30(장 시작 전) 실행분은 항상 0으로 "
      "찍혀서, 장 마감 이후인 이 시점에 한 번 더 받아 그날 확정치로 덮어씀(2026-09-22 추가)"),

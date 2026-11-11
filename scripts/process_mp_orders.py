@@ -15,7 +15,7 @@ MP 트래커용 "지시서" 자동 해석 - data/manual/mp_orders.csv에 사용�
 
 - date: YYYY-MM-DD. 오늘 날짜인 지시만 처리한다(파이프라인이 매일 도니까 미래 날짜로
   미리 써둬도 그날이 되면 자동 처리됨).
-- portfolio: mp_portfolios.py의 id (troy_mp/momentum_mp/mingu_mp/kosdaq_long_short_index/my_mp).
+- portfolio: mp_portfolios.py의 id (troy_mp/shield_mp/mingu_mp/kosdaq_long_short_index/my_mp).
 - action:
     reduce_pct / increase_pct - 현재 보유 종목의 비중을 그날 AUM 기준 pct%p만큼 축소/확대
     new_entry_pct - 신규 편입, 비중 pct%
