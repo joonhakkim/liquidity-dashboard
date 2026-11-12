@@ -142,17 +142,20 @@ def build_snapshot():
             for x in d.get("etfTop10MajorConstituentAssets") or []:
                 if x["itemName"] in IDM:
                     continue
-                h = hold.setdefault(x["itemCode"], {"c": x["itemCode"], "name": x["itemName"], "etfs": [], "ws": [], "wl": {}})
+                h = hold.setdefault(x["itemCode"], {"c": x["itemCode"], "name": x["itemName"], "etfs": [], "ws": [], "wl": {}, "sc": {}})
                 h["etfs"].append(e["itemname"])
                 w = num(x.get("etfWeight"))
                 if w:
                     h["ws"].append(w)
                     h["wl"][e["itemname"]] = w
+                sc = num(x.get("stockCount"))  # CU(설정단위)당 보유 주식수 - 주가와 무관해서 ETF가 실제로 더 담았는지 보여줌
+                if sc:
+                    h["sc"][e["itemname"]] = sc
         stocks = []
         for h in hold.values():
             stocks.append({"c": h["c"], "name": h["name"], "k": len(h["etfs"]),
                            "w": round(sum(h["ws"]) / len(h["ws"]), 1) if h["ws"] else None, "etfs": h["etfs"],
-                           "wl": h["wl"], "wm": max(h["ws"]) if h["ws"] else None})
+                           "wl": h["wl"], "sc": h["sc"], "wm": max(h["ws"]) if h["ws"] else None})
         stocks.sort(key=lambda x: (-x["k"], -(x["w"] or 0)))
         secs[s] = {"n_all": v["n_all"], "n": len(etfs), "etfs": etfs, "stocks": stocks}
     return {"asof": asof, "sectors": secs}
@@ -201,11 +204,52 @@ def compare(cur, prev):
     return out
 
 
+HORIZONS = (1, 5, 20)
+
+
+def trend(cur, ref):
+    """ref(과거 스냅샷) 대비 섹터별 '최근 많이 담기 시작한 종목'. 수량 = ETF의 CU당 보유 주식수(주가와 무관)."""
+    out = {}
+    for s, c in cur["sectors"].items():
+        p = ref["sectors"].get(s)
+        if not p:
+            continue
+        pm = {x["c"]: x for x in p["stocks"]}
+        both = {e["name"] for e in p["etfs"]} & {e["name"] for e in c["etfs"]}
+        rows = []
+        for x in c["stocks"]:
+            o = pm.get(x["c"])
+            cmp_n = up = 0
+            chs = []
+            if o:
+                for e, v in (x.get("sc") or {}).items():
+                    ov = (o.get("sc") or {}).get(e)
+                    if e in both and ov:
+                        cmp_n += 1
+                        ch = (v / ov - 1) * 100
+                        chs.append(ch)
+                        if ch > 0.5:
+                            up += 1
+            dk = x["k"] - (o["k"] if o else 0)
+            dw = round((x["w"] or 0) - (o["w"] or 0), 1) if o and x["w"] is not None and o.get("w") is not None else None
+            new = o is None and any(e in both for e in x["etfs"])
+            if up > 0 or dk > 0 or new:
+                rows.append({"name": x["name"], "k": x["k"], "dk": dk, "dw": dw, "up": up, "cmp": cmp_n,
+                             "mean": round(sum(chs) / len(chs), 1) if chs else None, "new": new, "w": x["w"]})
+        rows.sort(key=lambda r: (-r["up"], -(r["mean"] or 0), -r["dk"], -(r["w"] or 0)))
+        out[s] = rows[:12]
+    return out
+
+
 def build_page(snaps):
     cur = snaps[-1]
     prev = snaps[-2] if len(snaps) > 1 else None
     chg = compare(cur, prev)
     dates = [s["asof"] for s in snaps]
+    tr = {}
+    for h in HORIZONS:
+        if len(snaps) > h:
+            tr[h] = {"ref": snaps[-1 - h]["asof"], "rows": trend(cur, snaps[-1 - h])}
     sectors = []
     for s, v in sorted(cur["sectors"].items(), key=lambda kv: -kv[1]["n"]):
         if v["n"] < 2:
@@ -221,8 +265,8 @@ def build_page(snaps):
             stocks.append({"c": x["c"], "name": x["name"], "k": x["k"], "w": x["w"], "wm": x.get("wm"), "etfs": x["etfs"],
                            "d": (ch["delta"].get(x["c"], x["k"]) if ch else None), "h": hist})
         sectors.append({"name": s, "n": v["n"], "n_all": v["n_all"], "etfs": v["etfs"], "stocks": stocks,
-                        "ex": sorted(IDM), "chg": ({k: ch[k] for k in ("new", "gone", "etf_in", "etf_out", "adds", "drops")} if ch else None)})
-    data = {"asof": cur["asof"], "prev": prev["asof"] if prev else None, "dates": dates, "topN": TOP_N, "sectors": sectors}
+                        "ex": sorted(IDM), "tr": {str(h): t["rows"].get(s, []) for h, t in tr.items()}, "chg": ({k: ch[k] for k in ("new", "gone", "etf_in", "etf_out", "adds", "drops")} if ch else None)})
+    data = {"asof": cur["asof"], "prev": prev["asof"] if prev else None, "dates": dates, "topN": TOP_N, "trRef": {str(h): t["ref"] for h, t in tr.items()}, "sectors": sectors}
     html = TEMPLATE.replace("__DATA__", json.dumps(data, ensure_ascii=False, separators=(",", ":")))
     html = html.replace("__ASOF__", cur["asof"]).replace("__UPDATED__", datetime.now().strftime("%m/%d %H:%M"))
     with open(OUT_PATH, "w", encoding="utf-8") as f:
@@ -291,6 +335,13 @@ TEMPLATE = r"""<!doctype html>
   </div>
 
   <div class="box">
+    <h2>최근 많이 담기 시작한 종목 <span style="font-size:12px;font-weight:normal;color:#9aa0a6" id="trSub"></span></h2>
+    <div class="desc">같은 ETF가 그 종목을 <b>실제로 더 사 담았는지</b>를 봅니다(ETF의 CU당 보유 주식수 변화 - 주가가 올라 비중이 커진 것과 구분됩니다). 수량↑ ETF = 보유 주식수를 0.5% 넘게 늘린 ETF 수 / 비교 가능한 ETF 수. 어제와 오늘 둘 다 상위 ETF인 것만 비교합니다.</div>
+    <div class="ctl"><span>비교 기간</span><span class="seg" id="segT"><button data-t="1" class="active">1일 전</button><button data-t="5">5일 전</button><button data-t="20">20일 전</button></span></div>
+    <div class="tblwrap"><table id="trTbl"></table></div>
+  </div>
+
+  <div class="box">
     <h2 id="etfTitle">상위 ETF</h2>
     <div class="desc">섹터 안에서 1개월 수익률 상위 ETF(수익률은 %). 순위는 매일 바뀔 수 있습니다.</div>
     <div class="tblwrap"><table id="etfTbl"></table></div>
@@ -316,7 +367,7 @@ TEMPLATE = r"""<!doctype html>
 
 <script>
 const D = __DATA__;
-let curSec = 0, minK = 2, sortBy = 'k', selStock = null, chart = null;
+let curSec = 0, minK = 2, sortBy = 'k', trH = '1', selStock = null, chart = null;
 const $ = id => document.getElementById(id);
 const cls = v => v > 0 ? 'pos' : (v < 0 ? 'neg' : '');
 const fp = v => v == null ? '-' : (v > 0 ? '+' : '') + v.toFixed(1) + '%';
@@ -326,6 +377,10 @@ $('sel').onchange = e => { curSec = +e.target.value; selStock = null; render(); 
 document.querySelectorAll('#segK button').forEach(b => b.onclick = () => {
   document.querySelectorAll('#segK button').forEach(x => x.classList.remove('active')); b.classList.add('active');
   minK = +b.dataset.k; selStock = null; render();
+});
+document.querySelectorAll('#segT button').forEach(b => b.onclick = () => {
+  document.querySelectorAll('#segT button').forEach(x => x.classList.remove('active')); b.classList.add('active');
+  trH = b.dataset.t; render();
 });
 document.querySelectorAll('#segS button').forEach(b => b.onclick = () => {
   document.querySelectorAll('#segS button').forEach(x => x.classList.remove('active')); b.classList.add('active');
@@ -350,8 +405,29 @@ function renderToday() {
   $('today').innerHTML = rows.length ? rows.join('<br>') : '변화가 없습니다.';
 }
 
+function renderTrend(s) {
+  const ref = D.trRef[trH];
+  if (!ref) {
+    $('trSub').textContent = '';
+    $('trTbl').innerHTML = '<tr><td style="text-align:left;color:#9aa0a6">아직 ' + trH + '일 전 기록이 없습니다. 기록이 ' + (+trH + 1) + '일 이상 쌓이면 표시됩니다(현재 ' + D.dates.length + '일치).</td></tr>';
+    return;
+  }
+  $('trSub').textContent = '(' + ref + ' 대비)';
+  const rows = (s.tr || {})[trH] || [];
+  let t = '<tr><th>종목</th><th>수량↑ ETF</th><th>수량 변화(평균)</th><th>편입 ETF 수</th><th>평균 비중 변화</th></tr>';
+  rows.forEach(r => {
+    const dk = r.dk > 0 ? '+' + r.dk : (r.dk < 0 ? r.dk : '-');
+    t += '<tr><td>' + r.name + (r.new ? '<span class="badge">신규</span>' : '') + '</td><td>' + (r.cmp ? r.up + ' / ' + r.cmp : '-') + '</td><td class="' + cls(r.mean) + '">' +
+      (r.mean == null ? '-' : (r.mean > 0 ? '+' : '') + r.mean.toFixed(1) + '%') + '</td><td>' + r.k + (r.dk ? ' (' + dk + ')' : '') + '</td><td class="' + cls(r.dw) + '">' +
+      (r.dw == null ? '-' : (r.dw > 0 ? '+' : '') + r.dw.toFixed(1) + '%p') + '</td></tr>';
+  });
+  if (!rows.length) t += '<tr><td colspan="5" style="text-align:left;color:#9aa0a6">이 기간에 새로 담기 시작한 종목이 없습니다.</td></tr>';
+  $('trTbl').innerHTML = t;
+}
+
 function render() {
   const s = D.sectors[curSec];
+  renderTrend(s);
   $('etfTitle').textContent = s.name + ' 상위 ' + s.n + '개 ETF (섹터 내 ' + s.n_all + '개 중)';
   let h = '<tr><th>ETF</th><th>1개월</th><th>3개월</th><th>6개월</th><th>연초 이후</th><th>시총(억)</th></tr>';
   s.etfs.forEach(e => { h += '<tr><td>' + e.name + '</td><td class="' + cls(e.r1) + '">' + fp(e.r1) + '</td><td class="' + cls(e.r3) + '">' + fp(e.r3) +
