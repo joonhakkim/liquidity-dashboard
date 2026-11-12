@@ -142,15 +142,17 @@ def build_snapshot():
             for x in d.get("etfTop10MajorConstituentAssets") or []:
                 if x["itemName"] in IDM:
                     continue
-                h = hold.setdefault(x["itemCode"], {"c": x["itemCode"], "name": x["itemName"], "etfs": [], "ws": []})
+                h = hold.setdefault(x["itemCode"], {"c": x["itemCode"], "name": x["itemName"], "etfs": [], "ws": [], "wl": {}})
                 h["etfs"].append(e["itemname"])
                 w = num(x.get("etfWeight"))
                 if w:
                     h["ws"].append(w)
+                    h["wl"][e["itemname"]] = w
         stocks = []
         for h in hold.values():
             stocks.append({"c": h["c"], "name": h["name"], "k": len(h["etfs"]),
-                           "w": round(sum(h["ws"]) / len(h["ws"]), 1) if h["ws"] else None, "etfs": h["etfs"]})
+                           "w": round(sum(h["ws"]) / len(h["ws"]), 1) if h["ws"] else None, "etfs": h["etfs"],
+                           "wl": h["wl"], "wm": max(h["ws"]) if h["ws"] else None})
         stocks.sort(key=lambda x: (-x["k"], -(x["w"] or 0)))
         secs[s] = {"n_all": v["n_all"], "n": len(etfs), "etfs": etfs, "stocks": stocks}
     return {"asof": asof, "sectors": secs}
@@ -165,7 +167,7 @@ def load_history():
 
 
 def compare(cur, prev):
-    """섹터별 변화: 신규/이탈 종목, ETF 수 변화, 상위 ETF 교체."""
+    """섹터별 변화: 신규/이탈 공통종목, ETF 수 변화, 상위 ETF 교체, ETF별 신규 편입/제외 종목(비중 포함)."""
     out = {}
     for s, c in cur["sectors"].items():
         p = (prev or {}).get("sectors", {}).get(s)
@@ -173,13 +175,28 @@ def compare(cur, prev):
             out[s] = None
             continue
         pk = {x["c"]: x["k"] for x in p["stocks"]}
+        pmap = {x["c"]: set(x["etfs"]) for x in p["stocks"]}
         ck = {x["c"]: x for x in c["stocks"]}
+        pe = {e["code"]: e["name"] for e in p["etfs"]}
+        ce = {e["code"]: e["name"] for e in c["etfs"]}
+        both = set(pe.values()) & set(ce.values())  # 어제와 오늘 둘 다 상위 ETF인 것만 비교(ETF 교체로 생기는 잡음 제외)
         new = [x["name"] for x in c["stocks"] if x["k"] >= 2 and pk.get(x["c"], 0) < 2]
         gone = [x["name"] for x in p["stocks"] if x["k"] >= 2 and (ck.get(x["c"]) or {"k": 0})["k"] < 2]
         delta = {x["c"]: x["k"] - pk.get(x["c"], 0) for x in c["stocks"]}
-        pe = {e["code"]: e["name"] for e in p["etfs"]}
-        ce = {e["code"]: e["name"] for e in c["etfs"]}
-        out[s] = {"new": new, "gone": gone, "delta": delta,
+        adds, drops = [], []
+        for x in c["stocks"]:
+            was = pmap.get(x["c"], set())
+            add_e = [e for e in x["etfs"] if e in both and e not in was]
+            if add_e:
+                ws = [(x.get("wl") or {}).get(e) for e in add_e if (x.get("wl") or {}).get(e)]
+                adds.append({"name": x["name"], "etfs": add_e, "w": max(ws) if ws else None, "brand": x["c"] not in pmap})
+        for x in p["stocks"]:
+            now = set((ck.get(x["c"]) or {"etfs": []})["etfs"])
+            drop_e = [e for e in x["etfs"] if e in both and e not in now]
+            if drop_e:
+                drops.append({"name": x["name"], "etfs": drop_e})
+        adds.sort(key=lambda a: -(a["w"] or 0))
+        out[s] = {"new": new, "gone": gone, "delta": delta, "adds": adds, "drops": drops,
                   "etf_in": [n for k, n in ce.items() if k not in pe], "etf_out": [n for k, n in pe.items() if k not in ce]}
     return out
 
@@ -201,10 +218,10 @@ def build_page(snaps):
                 sv = sn["sectors"].get(s)
                 m = next((y for y in sv["stocks"] if y["c"] == x["c"]), None) if sv else None
                 hist.append(m["k"] if m else (0 if sv else None))
-            stocks.append({"c": x["c"], "name": x["name"], "k": x["k"], "w": x["w"], "etfs": x["etfs"],
+            stocks.append({"c": x["c"], "name": x["name"], "k": x["k"], "w": x["w"], "wm": x.get("wm"), "etfs": x["etfs"],
                            "d": (ch["delta"].get(x["c"], x["k"]) if ch else None), "h": hist})
         sectors.append({"name": s, "n": v["n"], "n_all": v["n_all"], "etfs": v["etfs"], "stocks": stocks,
-                        "ex": sorted(IDM), "chg": ({k: ch[k] for k in ("new", "gone", "etf_in", "etf_out")} if ch else None)})
+                        "ex": sorted(IDM), "chg": ({k: ch[k] for k in ("new", "gone", "etf_in", "etf_out", "adds", "drops")} if ch else None)})
     data = {"asof": cur["asof"], "prev": prev["asof"] if prev else None, "dates": dates, "topN": TOP_N, "sectors": sectors}
     html = TEMPLATE.replace("__DATA__", json.dumps(data, ensure_ascii=False, separators=(",", ":")))
     html = html.replace("__ASOF__", cur["asof"]).replace("__UPDATED__", datetime.now().strftime("%m/%d %H:%M"))
@@ -264,6 +281,7 @@ TEMPLATE = r"""<!doctype html>
 
   <div class="ctl">
     <span>섹터</span><select id="sel"></select>
+    <span>정렬</span><span class="seg" id="segS"><button data-s="k" class="active">편입 ETF 수</button><button data-s="w">평균 비중</button><button data-s="wm">최대 비중</button></span>
     <span>최소 편입 ETF 수</span><span class="seg" id="segK"><button data-k="1">1+</button><button data-k="2" class="active">2+</button><button data-k="3">3+</button><button data-k="4">4+</button></span>
   </div>
 
@@ -280,7 +298,7 @@ TEMPLATE = r"""<!doctype html>
 
   <div class="box">
     <h2 id="stkTitle">공통 편입종목</h2>
-    <div class="desc">상위 ETF들의 상위 10개 구성종목 기준. 편입 ETF 수 = 이 종목을 담은 상위 ETF 개수, 평균 비중 = 비중이 공개된 ETF의 평균, 전일 = 직전 기준일 대비 편입 ETF 수 변화. 행을 누르면 아래에 추이가 나옵니다.</div>
+    <div class="desc">상위 ETF들의 상위 10개 구성종목 기준. 편입 ETF 수 = 이 종목을 담은 상위 ETF 개수, 평균 비중 = 비중이 공개된 ETF의 평균, 최대 비중 = 그중 가장 큰 ETF의 비중, 전일 = 직전 기준일 대비 편입 ETF 수 변화(없던 종목이 새로 들어오면 '신규'). 정렬 버튼으로 비중 높은 순도 볼 수 있습니다. 행을 누르면 아래에 추이가 나옵니다.</div>
     <div class="tblwrap"><table id="stkTbl"></table></div>
   </div>
 
@@ -298,7 +316,7 @@ TEMPLATE = r"""<!doctype html>
 
 <script>
 const D = __DATA__;
-let curSec = 0, minK = 2, selStock = null, chart = null;
+let curSec = 0, minK = 2, sortBy = 'k', selStock = null, chart = null;
 const $ = id => document.getElementById(id);
 const cls = v => v > 0 ? 'pos' : (v < 0 ? 'neg' : '');
 const fp = v => v == null ? '-' : (v > 0 ? '+' : '') + v.toFixed(1) + '%';
@@ -309,6 +327,10 @@ document.querySelectorAll('#segK button').forEach(b => b.onclick = () => {
   document.querySelectorAll('#segK button').forEach(x => x.classList.remove('active')); b.classList.add('active');
   minK = +b.dataset.k; selStock = null; render();
 });
+document.querySelectorAll('#segS button').forEach(b => b.onclick = () => {
+  document.querySelectorAll('#segS button').forEach(x => x.classList.remove('active')); b.classList.add('active');
+  sortBy = b.dataset.s; render();
+});
 
 function renderToday() {
   if (!D.prev) { $('todaySub').textContent = ''; $('today').innerHTML = '첫 기록일입니다. 내일부터 전일 대비 변화가 표시됩니다.'; return; }
@@ -317,6 +339,8 @@ function renderToday() {
   D.sectors.forEach(s => {
     const c = s.chg; if (!c) return;
     const p = [];
+    if (c.adds && c.adds.length) p.push('<span class="pos">신규 편입</span> ' + c.adds.slice(0, 8).map(a => a.name + (a.brand ? '(새 종목)' : '') + ' ' + (a.w ? a.w.toFixed(1) + '%' : '') + ' [' + a.etfs.map(n => n.replace(/^(KODEX|TIGER|SOL|ACE|RISE|PLUS|HANARO|KoAct|WON|TIME|1Q|BNK|DAISHIN|KIWOOM|마이티|UNICORN|IBK)\s*/, '')).join(', ') + ']').join(' · '));
+    if (c.drops && c.drops.length) p.push('<span class="neg">제외</span> ' + c.drops.slice(0, 8).map(a => a.name + ' [' + a.etfs.map(n => n.replace(/^(KODEX|TIGER|SOL|ACE|RISE|PLUS|HANARO|KoAct|WON|TIME|1Q|BNK|DAISHIN|KIWOOM|마이티|UNICORN|IBK)\s*/, '')).join(', ') + ']').join(' · '));
     if (c.new.length) p.push('<span class="pos">신규 공통</span> ' + c.new.join(', '));
     if (c.gone.length) p.push('<span class="neg">공통 이탈</span> ' + c.gone.join(', '));
     if (c.etf_in.length) p.push('상위 ETF 진입 ' + c.etf_in.join(', '));
@@ -334,16 +358,18 @@ function render() {
     '</td><td class="' + cls(e.r6) + '">' + fp(e.r6) + '</td><td class="' + cls(e.ytd) + '">' + fp(e.ytd) + '</td><td>' + (e.mcap || 0).toLocaleString() + '</td></tr>'; });
   $('etfTbl').innerHTML = h;
 
-  const rows = s.stocks.filter(x => x.k >= minK);
+  const rows = s.stocks.filter(x => x.k >= minK).slice();
+  const key = { k: x => x.k * 1000 + (x.w || 0), w: x => x.w || 0, wm: x => x.wm || 0 }[sortBy];
+  rows.sort((a, b) => key(b) - key(a));
   $('stkTitle').textContent = s.name + ' 공통 편입종목' + (s.ex.length ? ' (IDM 제외)' : '');
-  let t = '<tr><th>종목</th><th>편입 ETF</th><th>평균 비중</th><th>전일</th><th style="text-align:left">편입 ETF 목록</th></tr>';
+  let t = '<tr><th>종목</th><th>편입 ETF</th><th>평균 비중</th><th>최대 비중</th><th>전일</th><th style="text-align:left">편입 ETF 목록</th></tr>';
   rows.forEach(x => {
     const dl = x.d == null ? '-' : (x.d > 0 ? '+' + x.d : x.d === 0 ? '-' : x.d);
     const nw = (x.d != null && x.d === x.k) ? '<span class="badge">신규</span>' : '';
     t += '<tr class="stk' + (selStock === x.c ? ' sel' : '') + '" data-c="' + x.c + '"><td>' + x.name + nw + '</td><td>' + x.k + ' / ' + s.n + '</td><td>' +
-      (x.w == null ? '-' : x.w.toFixed(1) + '%') + '</td><td class="' + (x.d > 0 ? 'pos' : x.d < 0 ? 'neg' : '') + '">' + dl + '</td><td class="etfs">' + x.etfs.join(' · ') + '</td></tr>';
+      (x.w == null ? '-' : x.w.toFixed(1) + '%') + '</td><td>' + (x.wm == null ? '-' : x.wm.toFixed(1) + '%') + '</td><td class="' + (x.d > 0 ? 'pos' : x.d < 0 ? 'neg' : '') + '">' + dl + '</td><td class="etfs">' + x.etfs.join(' · ') + '</td></tr>';
   });
-  if (!rows.length) t += '<tr><td colspan="5" style="text-align:left;color:#9aa0a6">조건에 맞는 종목이 없습니다.</td></tr>';
+  if (!rows.length) t += '<tr><td colspan="6" style="text-align:left;color:#9aa0a6">조건에 맞는 종목이 없습니다.</td></tr>';
   $('stkTbl').innerHTML = t;
   document.querySelectorAll('tr.stk').forEach(r => r.onclick = () => { selStock = r.dataset.c; render(); });
   drawHist(s, rows);
