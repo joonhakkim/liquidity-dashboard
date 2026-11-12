@@ -10,7 +10,7 @@
   IDM(삼성전자·SK하이닉스·SK스퀘어)은 모든 섹터에서 센 결과에서 뺀다(IDM).
 - 매일 스냅샷을 data/etf_sector_common/YYYY-MM-DD.json 으로 쌓고, 직전 스냅샷과 비교해 신규/이탈/ETF 수 변화를 보여준다.
 - 기준일 = 네이버 수익률 기준일(returnPerformanceReferenceDate). 휴장일엔 같은 날짜로 덮어쓴다.
-스케줄: Windows 작업 'KRX-Sector-ETF'(평일 16:10) -> run_sector_etf.py
+스케줄: Windows 작업 'KRX-Sector-ETF'(화~토 08:00, 네이버 ETF 데이터가 밤사이 전일 기준으로 바뀜) -> run_sector_etf.py
 """
 import glob
 import json

@@ -1,4 +1,4 @@
-"""섹터 ETF 공통 편입종목 전용 경량 파이프라인(평일 16:10, 작업 'KRX-Sector-ETF').
+"""섹터 ETF 공통 편입종목 전용 경량 파이프라인(화~토 08:00, 네이버 ETF 데이터가 밤사이 전일 기준으로 바뀜, 작업 'KRX-Sector-ETF').
 빌드(build_sector_etf_common.py) -> 홈 빌드 -> 이 페이지 관련 파일만 커밋+푸시(git add -A 안 씀)."""
 import subprocess
 import sys
