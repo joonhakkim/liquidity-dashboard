@@ -138,7 +138,7 @@ def build_snapshot():
                 continue
             perf = {p["periodTypeCode"]: p["value"] for p in (d.get("returnPerformanceList") or [])}
             etfs.append({"code": e["itemcode"], "name": e["itemname"], "r3": e["threeMonthEarnRate"],
-                         "act": bool(re.search(r"액티브|KoAct|TIME ", e["itemname"])) or "액티브" in (d.get("etfSummary") or ""), "r1": perf1m(d), "r6": perf.get("M6"), "ytd": perf.get("YTD"), "mcap": e["marketSum"]})
+                         "r1": perf1m(d), "r6": perf.get("M6"), "ytd": perf.get("YTD"), "mcap": e["marketSum"]})
             for x in d.get("etfTop10MajorConstituentAssets") or []:
                 if x["itemName"] in IDM:
                     continue
@@ -352,10 +352,9 @@ function renderToday() {
 
 function render() {
   const s = D.sectors[curSec];
-  const na = s.etfs.filter(e => e.act).length;
-  $('etfTitle').textContent = s.name + ' 상위 ' + s.n + '개 ETF (섹터 내 ' + s.n_all + '개 중, 액티브 ' + na + '개)';
-  let h = '<tr><th>ETF</th><th>유형</th><th>1개월</th><th>3개월</th><th>6개월</th><th>연초 이후</th><th>시총(억)</th></tr>';
-  s.etfs.forEach(e => { h += '<tr><td>' + e.name + '</td><td>' + (e.act === true ? '<span class="badge">액티브</span>' : e.act === false ? '패시브' : '-') + '</td><td class="' + cls(e.r1) + '">' + fp(e.r1) + '</td><td class="' + cls(e.r3) + '">' + fp(e.r3) +
+  $('etfTitle').textContent = s.name + ' 상위 ' + s.n + '개 ETF (섹터 내 ' + s.n_all + '개 중)';
+  let h = '<tr><th>ETF</th><th>1개월</th><th>3개월</th><th>6개월</th><th>연초 이후</th><th>시총(억)</th></tr>';
+  s.etfs.forEach(e => { h += '<tr><td>' + e.name + '</td><td class="' + cls(e.r1) + '">' + fp(e.r1) + '</td><td class="' + cls(e.r3) + '">' + fp(e.r3) +
     '</td><td class="' + cls(e.r6) + '">' + fp(e.r6) + '</td><td class="' + cls(e.ytd) + '">' + fp(e.ytd) + '</td><td>' + (e.mcap || 0).toLocaleString() + '</td></tr>'; });
   $('etfTbl').innerHTML = h;
 
