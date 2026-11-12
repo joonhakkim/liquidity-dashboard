@@ -7,7 +7,7 @@
   시총 100억 미만은 뺀다. 이름의 키워드로 섹터를 나눈다(SECTORS - 이름 기반이라 일부 어긋날 수 있음).
 - 섹터마다 3개월 수익률 상위 TOP_N(5)개 ETF를 '잘하는 ETF'로 본다.
 - 그 ETF들의 상위 10개 구성종목(네이버 etfAnalysis)을 모아, 몇 개 ETF에 같이 들어 있는지(공통 편입)와 평균 비중을 센다.
-  반도체는 IDM(삼성전자·SK하이닉스·SK스퀘어)을 센 결과에서 뺀다(EXCLUDE).
+  IDM(삼성전자·SK하이닉스·SK스퀘어)은 모든 섹터에서 센 결과에서 뺀다(IDM).
 - 매일 스냅샷을 data/etf_sector_common/YYYY-MM-DD.json 으로 쌓고, 직전 스냅샷과 비교해 신규/이탈/ETF 수 변화를 보여준다.
 - 기준일 = 네이버 수익률 기준일(returnPerformanceReferenceDate). 휴장일엔 같은 날짜로 덮어쓴다.
 스케줄: Windows 작업 'KRX-Sector-ETF'(평일 16:10) -> run_sector_etf.py
@@ -47,7 +47,7 @@ SECTORS = [
     ("기계·중공업", r"기계장비|중공업|운송|산업재|CAPEX"),
     ("IT·소프트웨어·AI", r"소프트웨어|인터넷|AI소프트|소버린|IT|플랫폼|메타버스|네트워크|AI플랫폼|온디바이스|AI인프라|광통신|데이터센터|생성형AI|e커머스|AI테크"),
 ]
-EXCLUDE = {"반도체": {"삼성전자", "SK하이닉스", "SK스퀘어"}}
+IDM = {"삼성전자", "SK하이닉스", "SK스퀘어"}  # 모든 섹터에서 공통 편입 집계에서 제외(2026-11-12 사용자 요청)
 
 
 def sector_of(name):
@@ -132,7 +132,7 @@ def build_snapshot():
             etfs.append({"code": e["itemcode"], "name": e["itemname"], "r3": e["threeMonthEarnRate"],
                          "r1": perf.get("M1"), "r6": perf.get("M6"), "ytd": perf.get("YTD"), "mcap": e["marketSum"]})
             for x in d.get("etfTop10MajorConstituentAssets") or []:
-                if x["itemName"] in EXCLUDE.get(s, ()):
+                if x["itemName"] in IDM:
                     continue
                 h = hold.setdefault(x["itemCode"], {"c": x["itemCode"], "name": x["itemName"], "etfs": [], "ws": []})
                 h["etfs"].append(e["itemname"])
@@ -196,7 +196,7 @@ def build_page(snaps):
             stocks.append({"c": x["c"], "name": x["name"], "k": x["k"], "w": x["w"], "etfs": x["etfs"],
                            "d": (ch["delta"].get(x["c"], x["k"]) if ch else None), "h": hist})
         sectors.append({"name": s, "n": v["n"], "n_all": v["n_all"], "etfs": v["etfs"], "stocks": stocks,
-                        "ex": sorted(EXCLUDE.get(s, [])), "chg": ({k: ch[k] for k in ("new", "gone", "etf_in", "etf_out")} if ch else None)})
+                        "ex": sorted(IDM), "chg": ({k: ch[k] for k in ("new", "gone", "etf_in", "etf_out")} if ch else None)})
     data = {"asof": cur["asof"], "prev": prev["asof"] if prev else None, "dates": dates, "topN": TOP_N, "sectors": sectors}
     html = TEMPLATE.replace("__DATA__", json.dumps(data, ensure_ascii=False, separators=(",", ":")))
     html = html.replace("__ASOF__", cur["asof"]).replace("__UPDATED__", datetime.now().strftime("%m/%d %H:%M"))
@@ -285,7 +285,7 @@ TEMPLATE = r"""<!doctype html>
   <div class="note">
     <b>읽는 법</b> &middot; 네이버 금융의 '국내 업종/테마' ETF 중 레버리지·인버스·커버드콜·선물형과 시총 100억 미만을 뺀 뒤, ETF 이름의 키워드로 섹터를 나눴습니다(이름 기준이라 일부는 어긋날 수 있음).
     섹터마다 3개월 수익률 상위 __TOPN__개를 '잘하는 ETF'로 보고, 이들의 상위 10개 구성종목을 모아 몇 개 ETF에 같이 들어 있는지 셉니다. 비중이 비공개인 액티브 ETF는 평균 비중에서 빠집니다.
-    반도체는 IDM(삼성전자·SK하이닉스·SK스퀘어)을 센 결과에서 뺐습니다. ETF가 2개 미만인 섹터는 비교가 의미 없어 숨겼고, 5개 미만인 섹터는 비율이 크게 흔들립니다. 추이는 이 페이지가 매일 쌓은 기록부터 보입니다.
+    IDM(삼성전자·SK하이닉스·SK스퀘어)은 모든 섹터에서 센 결과에서 뺐습니다. ETF가 2개 미만인 섹터는 비교가 의미 없어 숨겼고, 5개 미만인 섹터는 비율이 크게 흔들립니다. 추이는 이 페이지가 매일 쌓은 기록부터 보입니다.
   </div>
 
 <script>
@@ -327,7 +327,7 @@ function render() {
   $('etfTbl').innerHTML = h;
 
   const rows = s.stocks.filter(x => x.k >= minK);
-  $('stkTitle').textContent = s.name + ' 공통 편입종목' + (s.ex.length ? ' (IDM 제외: ' + s.ex.join('·') + ')' : '');
+  $('stkTitle').textContent = s.name + ' 공통 편입종목' + (s.ex.length ? ' (IDM 제외)' : '');
   let t = '<tr><th>종목</th><th>편입 ETF</th><th>평균 비중</th><th>전일</th><th style="text-align:left">편입 ETF 목록</th></tr>';
   rows.forEach(x => {
     const dl = x.d == null ? '-' : (x.d > 0 ? '+' + x.d : x.d === 0 ? '-' : x.d);
