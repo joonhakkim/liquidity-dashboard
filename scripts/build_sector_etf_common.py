@@ -138,7 +138,7 @@ def build_snapshot():
                 continue
             perf = {p["periodTypeCode"]: p["value"] for p in (d.get("returnPerformanceList") or [])}
             etfs.append({"code": e["itemcode"], "name": e["itemname"], "r3": e["threeMonthEarnRate"],
-                         "r1": perf1m(d), "r6": perf.get("M6"), "ytd": perf.get("YTD"), "mcap": e["marketSum"]})
+                         "act": bool(re.search(r"액티브|KoAct|TIME ", e["itemname"])) or "액티브" in (d.get("etfSummary") or ""), "r1": perf1m(d), "r6": perf.get("M6"), "ytd": perf.get("YTD"), "mcap": e["marketSum"]})
             for x in d.get("etfTop10MajorConstituentAssets") or []:
                 if x["itemName"] in IDM:
                     continue
@@ -298,7 +298,7 @@ TEMPLATE = r"""<!doctype html>
 
   <div class="box">
     <h2 id="stkTitle">공통 편입종목</h2>
-    <div class="desc">상위 ETF들의 상위 10개 구성종목 기준. 편입 ETF 수 = 이 종목을 담은 상위 ETF 개수, 평균 비중 = 비중이 공개된 ETF의 평균, 최대 비중 = 그중 가장 큰 ETF의 비중, 전일 = 직전 기준일 대비 편입 ETF 수 변화(없던 종목이 새로 들어오면 '신규'). 정렬 버튼으로 비중 높은 순도 볼 수 있습니다. 행을 누르면 아래에 추이가 나옵니다.</div>
+    <div class="desc">상위 ETF들의 상위 10개 구성종목 기준(네이버가 하루 한 번 갱신하는 값으로, 장중에는 바뀌지 않음). 편입 ETF 수 = 이 종목을 담은 상위 ETF 개수, 평균 비중 = 비중이 공개된 ETF의 평균, 최대 비중 = 그중 가장 큰 ETF의 비중, 전일 = 직전 기준일 대비 편입 ETF 수 변화(없던 종목이 새로 들어오면 '신규'). 정렬 버튼으로 비중 높은 순도 볼 수 있습니다. 행을 누르면 아래에 추이가 나옵니다.</div>
     <div class="tblwrap"><table id="stkTbl"></table></div>
   </div>
 
@@ -352,9 +352,10 @@ function renderToday() {
 
 function render() {
   const s = D.sectors[curSec];
-  $('etfTitle').textContent = s.name + ' 상위 ' + s.n + '개 ETF (섹터 내 ' + s.n_all + '개 중)';
-  let h = '<tr><th>ETF</th><th>1개월</th><th>3개월</th><th>6개월</th><th>연초 이후</th><th>시총(억)</th></tr>';
-  s.etfs.forEach(e => { h += '<tr><td>' + e.name + '</td><td class="' + cls(e.r1) + '">' + fp(e.r1) + '</td><td class="' + cls(e.r3) + '">' + fp(e.r3) +
+  const na = s.etfs.filter(e => e.act).length;
+  $('etfTitle').textContent = s.name + ' 상위 ' + s.n + '개 ETF (섹터 내 ' + s.n_all + '개 중, 액티브 ' + na + '개)';
+  let h = '<tr><th>ETF</th><th>유형</th><th>1개월</th><th>3개월</th><th>6개월</th><th>연초 이후</th><th>시총(억)</th></tr>';
+  s.etfs.forEach(e => { h += '<tr><td>' + e.name + '</td><td>' + (e.act === true ? '<span class="badge">액티브</span>' : e.act === false ? '패시브' : '-') + '</td><td class="' + cls(e.r1) + '">' + fp(e.r1) + '</td><td class="' + cls(e.r3) + '">' + fp(e.r3) +
     '</td><td class="' + cls(e.r6) + '">' + fp(e.r6) + '</td><td class="' + cls(e.ytd) + '">' + fp(e.ytd) + '</td><td>' + (e.mcap || 0).toLocaleString() + '</td></tr>'; });
   $('etfTbl').innerHTML = h;
 
