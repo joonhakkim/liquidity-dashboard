@@ -47,7 +47,7 @@ SECTORS = [
     ("기계·중공업", r"기계장비|중공업|운송|산업재|CAPEX"),
     ("IT·소프트웨어·AI", r"소프트웨어|인터넷|AI소프트|소버린|IT|플랫폼|메타버스|네트워크|AI플랫폼|온디바이스|AI인프라|광통신|데이터센터|생성형AI|e커머스|AI테크"),
 ]
-W_CAP = 10.0  # ETF 안에서 한 종목 비중이 이보다 크면 10%로 깎아서 평균·최대 비중을 계산(2026-11-12 사용자 요청)
+W_MAX = 10.0  # ETF 안에서 비중이 이 값 이상인 종목은 그 ETF에서는 센 결과에서 제외(IDM처럼, 2026-11-12 사용자 요청)
 IDM = {"삼성전자", "SK하이닉스", "SK스퀘어"}  # 모든 섹터에서 공통 편입 집계에서 제외(2026-11-12 사용자 요청)
 
 
@@ -141,13 +141,11 @@ def build_snapshot():
             etfs.append({"code": e["itemcode"], "name": e["itemname"], "r3": e["threeMonthEarnRate"],
                          "r1": perf1m(d), "r6": perf.get("M6"), "ytd": perf.get("YTD"), "mcap": e["marketSum"]})
             for x in d.get("etfTop10MajorConstituentAssets") or []:
-                if x["itemName"] in IDM:
+                w = num(x.get("etfWeight"))
+                if x["itemName"] in IDM or (w is not None and w >= W_MAX):
                     continue
                 h = hold.setdefault(x["itemCode"], {"c": x["itemCode"], "name": x["itemName"], "etfs": [], "ws": [], "wl": {}, "sc": {}})
                 h["etfs"].append(e["itemname"])
-                w = num(x.get("etfWeight"))
-                if w:
-                    w = min(w, W_CAP)
                 if w:
                     h["ws"].append(w)
                     h["wl"][e["itemname"]] = w
@@ -353,7 +351,7 @@ TEMPLATE = r"""<!doctype html>
 
   <div class="box">
     <h2 id="stkTitle">공통 편입종목</h2>
-    <div class="desc">상위 ETF들의 상위 10개 구성종목 기준(네이버가 하루 한 번 갱신하는 값으로, 장중에는 바뀌지 않음). 편입 ETF 수 = 이 종목을 담은 상위 ETF 개수, 평균 비중 = 비중이 공개된 ETF의 평균, 최대 비중 = 그중 가장 큰 ETF의 비중(ETF 안에서 10%를 넘는 비중은 10%로 깎아서 계산), 전일 = 직전 기준일 대비 편입 ETF 수 변화(없던 종목이 새로 들어오면 '신규'). 정렬 버튼으로 비중 높은 순도 볼 수 있습니다. 행을 누르면 아래에 추이가 나옵니다.</div>
+    <div class="desc">상위 ETF들의 상위 10개 구성종목 기준(네이버가 하루 한 번 갱신하는 값으로, 장중에는 바뀌지 않음). 편입 ETF 수 = 이 종목을 담은 상위 ETF 개수, 평균 비중 = 비중이 공개된 ETF의 평균, 최대 비중 = 그중 가장 큰 ETF의 비중(ETF 안에서 비중이 10% 이상인 종목은 그 ETF에서는 제외), 전일 = 직전 기준일 대비 편입 ETF 수 변화(없던 종목이 새로 들어오면 '신규'). 정렬 버튼으로 비중 높은 순도 볼 수 있습니다. 행을 누르면 아래에 추이가 나옵니다.</div>
     <div class="tblwrap"><table id="stkTbl"></table></div>
   </div>
 
@@ -366,7 +364,7 @@ TEMPLATE = r"""<!doctype html>
   <div class="note">
     <b>읽는 법</b> &middot; 네이버 금융의 '국내 업종/테마' ETF 중 레버리지·인버스·커버드콜·선물형과 시총 100억 미만을 뺀 뒤, ETF 이름의 키워드로 섹터를 나눴습니다(이름 기준이라 일부는 어긋날 수 있음).
     반도체와 비반도체(나머지 모든 섹터 ETF)로 나눠 각각 1개월 수익률 상위 __TOPN__개를 '잘하는 ETF'로 보고, 이들의 상위 10개 구성종목을 모아 몇 개 ETF에 같이 들어 있는지 셉니다. 비중이 비공개인 액티브 ETF는 평균 비중에서 빠집니다.
-    IDM(삼성전자·SK하이닉스·SK스퀘어)은 모든 섹터에서 센 결과에서 뺐습니다. ETF가 2개 미만인 섹터는 비교가 의미 없어 숨겼고, 5개 미만인 섹터는 비율이 크게 흔들립니다. 추이는 이 페이지가 매일 쌓은 기록부터 보입니다.
+    IDM(삼성전자·SK하이닉스·SK스퀘어)은 모든 섹터에서, ETF 안에서 비중이 10% 이상인 종목은 그 ETF에서 센 결과에서 뺐습니다. ETF가 2개 미만인 섹터는 비교가 의미 없어 숨겼고, 5개 미만인 섹터는 비율이 크게 흔들립니다. 추이는 이 페이지가 매일 쌓은 기록부터 보입니다.
   </div>
 
 <script>
