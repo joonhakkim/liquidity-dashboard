@@ -5,7 +5,7 @@
 방식
 - 네이버 금융 ETF 목록(etfItemList)에서 '국내 업종/테마'(etfTabCode=2) ETF만 쓴다. 레버리지/인버스/커버드콜/선물형,
   시총 100억 미만은 뺀다. 이름의 키워드로 섹터를 나눈다(SECTORS - 이름 기반이라 일부 어긋날 수 있음).
-- 섹터마다 3개월 수익률 상위 TOP_N(5)개 ETF를 '잘하는 ETF'로 본다.
+- 섹터마다 1개월 수익률 상위 TOP_N(5)개 ETF를 '잘하는 ETF'로 본다.
 - 그 ETF들의 상위 10개 구성종목(네이버 etfAnalysis)을 모아, 몇 개 ETF에 같이 들어 있는지(공통 편입)와 평균 비중을 센다.
   IDM(삼성전자·SK하이닉스·SK스퀘어)은 모든 섹터에서 센 결과에서 뺀다(IDM).
 - 매일 스냅샷을 data/etf_sector_common/YYYY-MM-DD.json 으로 쌓고, 직전 스냅샷과 비교해 신규/이탈/ETF 수 변화를 보여준다.
@@ -89,11 +89,7 @@ def pick_etfs():
         s = sector_of(it["itemname"])
         if s:
             by_sec.setdefault(s, []).append(it)
-    chosen = {}
-    for s, lst in by_sec.items():
-        lst.sort(key=lambda x: -x["threeMonthEarnRate"])
-        chosen[s] = {"n_all": len(lst), "etfs": lst[:TOP_N]}
-    return chosen
+    return by_sec
 
 
 def fetch_detail(code):
@@ -106,14 +102,26 @@ def fetch_detail(code):
         return code, None
 
 
+def perf1m(d):
+    for p in (d.get("returnPerformanceList") or []):
+        if p.get("periodTypeCode") == "M1":
+            return p.get("value")
+    return None
+
+
 def build_snapshot():
-    chosen = pick_etfs()
-    codes = sorted({e["itemcode"] for v in chosen.values() for e in v["etfs"]})
+    by_sec = pick_etfs()
+    codes = sorted({e["itemcode"] for v in by_sec.values() for e in v})
     with ThreadPoolExecutor(6) as ex:
         det = dict(ex.map(fetch_detail, codes))
     failed = [c for c in codes if det.get(c) is None]
     if len(failed) > len(codes) * 0.3:
         raise RuntimeError(f"ETF 상세 조회 실패 과다: {len(failed)}/{len(codes)}")
+    chosen = {}
+    for s, lst in by_sec.items():
+        ok = [e for e in lst if det.get(e["itemcode"]) and perf1m(det[e["itemcode"]]) is not None]
+        ok.sort(key=lambda e: -perf1m(det[e["itemcode"]]))
+        chosen[s] = {"n_all": len(ok), "etfs": ok[:TOP_N]}
     asof = None
     for d in det.values():
         if d and d.get("returnPerformanceReferenceDate"):
@@ -130,7 +138,7 @@ def build_snapshot():
                 continue
             perf = {p["periodTypeCode"]: p["value"] for p in (d.get("returnPerformanceList") or [])}
             etfs.append({"code": e["itemcode"], "name": e["itemname"], "r3": e["threeMonthEarnRate"],
-                         "r1": perf.get("M1"), "r6": perf.get("M6"), "ytd": perf.get("YTD"), "mcap": e["marketSum"]})
+                         "r1": perf1m(d), "r6": perf.get("M6"), "ytd": perf.get("YTD"), "mcap": e["marketSum"]})
             for x in d.get("etfTop10MajorConstituentAssets") or []:
                 if x["itemName"] in IDM:
                     continue
@@ -251,7 +259,7 @@ TEMPLATE = r"""<!doctype html>
 </head>
 <body>
   <a class="back" href="index.html">&larr; 홈</a>
-  <h1>섹터 ETF 공통 편입종목<span class="sub">섹터별 3개월 수익률 상위 ETF들이 같이 담은 종목</span></h1>
+  <h1>섹터 ETF 공통 편입종목<span class="sub">섹터별 1개월 수익률 상위 ETF들이 같이 담은 종목</span></h1>
   <div class="updated">최종 갱신: __UPDATED__ &middot; 데이터 기준일: __ASOF__ &middot; 매일 자동 갱신</div>
 
   <div class="ctl">
@@ -266,7 +274,7 @@ TEMPLATE = r"""<!doctype html>
 
   <div class="box">
     <h2 id="etfTitle">상위 ETF</h2>
-    <div class="desc">섹터 안에서 3개월 수익률 상위 ETF(수익률은 %). 순위는 매일 바뀔 수 있습니다.</div>
+    <div class="desc">섹터 안에서 1개월 수익률 상위 ETF(수익률은 %). 순위는 매일 바뀔 수 있습니다.</div>
     <div class="tblwrap"><table id="etfTbl"></table></div>
   </div>
 
@@ -284,7 +292,7 @@ TEMPLATE = r"""<!doctype html>
 
   <div class="note">
     <b>읽는 법</b> &middot; 네이버 금융의 '국내 업종/테마' ETF 중 레버리지·인버스·커버드콜·선물형과 시총 100억 미만을 뺀 뒤, ETF 이름의 키워드로 섹터를 나눴습니다(이름 기준이라 일부는 어긋날 수 있음).
-    섹터마다 3개월 수익률 상위 __TOPN__개를 '잘하는 ETF'로 보고, 이들의 상위 10개 구성종목을 모아 몇 개 ETF에 같이 들어 있는지 셉니다. 비중이 비공개인 액티브 ETF는 평균 비중에서 빠집니다.
+    섹터마다 1개월 수익률 상위 __TOPN__개를 '잘하는 ETF'로 보고, 이들의 상위 10개 구성종목을 모아 몇 개 ETF에 같이 들어 있는지 셉니다. 비중이 비공개인 액티브 ETF는 평균 비중에서 빠집니다.
     IDM(삼성전자·SK하이닉스·SK스퀘어)은 모든 섹터에서 센 결과에서 뺐습니다. ETF가 2개 미만인 섹터는 비교가 의미 없어 숨겼고, 5개 미만인 섹터는 비율이 크게 흔들립니다. 추이는 이 페이지가 매일 쌓은 기록부터 보입니다.
   </div>
 
@@ -321,8 +329,8 @@ function renderToday() {
 function render() {
   const s = D.sectors[curSec];
   $('etfTitle').textContent = s.name + ' 상위 ' + s.n + '개 ETF (섹터 내 ' + s.n_all + '개 중)';
-  let h = '<tr><th>ETF</th><th>3개월</th><th>1개월</th><th>6개월</th><th>연초 이후</th><th>시총(억)</th></tr>';
-  s.etfs.forEach(e => { h += '<tr><td>' + e.name + '</td><td class="' + cls(e.r3) + '">' + fp(e.r3) + '</td><td class="' + cls(e.r1) + '">' + fp(e.r1) +
+  let h = '<tr><th>ETF</th><th>1개월</th><th>3개월</th><th>6개월</th><th>연초 이후</th><th>시총(억)</th></tr>';
+  s.etfs.forEach(e => { h += '<tr><td>' + e.name + '</td><td class="' + cls(e.r1) + '">' + fp(e.r1) + '</td><td class="' + cls(e.r3) + '">' + fp(e.r3) +
     '</td><td class="' + cls(e.r6) + '">' + fp(e.r6) + '</td><td class="' + cls(e.ytd) + '">' + fp(e.ytd) + '</td><td>' + (e.mcap || 0).toLocaleString() + '</td></tr>'; });
   $('etfTbl').innerHTML = h;
 
