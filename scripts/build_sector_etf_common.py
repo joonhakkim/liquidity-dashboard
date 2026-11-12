@@ -26,7 +26,7 @@ import requests
 BASE_DIR = os.path.join(os.path.dirname(__file__), "..")
 SNAP_DIR = os.path.join(BASE_DIR, "data", "etf_sector_common")
 OUT_PATH = os.path.join(BASE_DIR, "docs", "sector_etf_common.html")
-TOP_N = 5
+TOP_N = 8  # 그룹당 '잘하는 ETF' 개수(2026-11-12 5->8)
 MIN_MCAP = 100  # 억원
 HEADERS = {"User-Agent": "Mozilla/5.0"}
 DROP_NAME = re.compile(r"레버리지|인버스|커버드콜|위클리|옵션|2X|선물|채\(")
@@ -47,6 +47,7 @@ SECTORS = [
     ("기계·중공업", r"기계장비|중공업|운송|산업재|CAPEX"),
     ("IT·소프트웨어·AI", r"소프트웨어|인터넷|AI소프트|소버린|IT|플랫폼|메타버스|네트워크|AI플랫폼|온디바이스|AI인프라|광통신|데이터센터|생성형AI|e커머스|AI테크"),
 ]
+W_CAP = 10.0  # ETF 안에서 한 종목 비중이 이보다 크면 10%로 깎아서 평균·최대 비중을 계산(2026-11-12 사용자 요청)
 IDM = {"삼성전자", "SK하이닉스", "SK스퀘어"}  # 모든 섹터에서 공통 편입 집계에서 제외(2026-11-12 사용자 요청)
 
 
@@ -87,8 +88,8 @@ def pick_etfs():
         if (it.get("marketSum") or 0) < MIN_MCAP or it.get("threeMonthEarnRate") is None:
             continue
         s = sector_of(it["itemname"])
-        if s:
-            by_sec.setdefault(s, []).append(it)
+        if s:  # 2026-11-12: 13개 섹터 대신 반도체 / 비반도체 두 그룹으로만 나눈다(분류 못 한 스타일·그룹주 ETF는 계속 제외)
+            by_sec.setdefault("반도체" if s == "반도체" else "비반도체", []).append(it)
     return by_sec
 
 
@@ -145,6 +146,8 @@ def build_snapshot():
                 h = hold.setdefault(x["itemCode"], {"c": x["itemCode"], "name": x["itemName"], "etfs": [], "ws": [], "wl": {}, "sc": {}})
                 h["etfs"].append(e["itemname"])
                 w = num(x.get("etfWeight"))
+                if w:
+                    w = min(w, W_CAP)
                 if w:
                     h["ws"].append(w)
                     h["wl"][e["itemname"]] = w
@@ -237,7 +240,7 @@ def trend(cur, ref):
                 rows.append({"name": x["name"], "k": x["k"], "dk": dk, "dw": dw, "up": up, "cmp": cmp_n,
                              "mean": round(sum(chs) / len(chs), 1) if chs else None, "new": new, "w": x["w"]})
         rows.sort(key=lambda r: (-r["up"], -(r["mean"] or 0), -r["dk"], -(r["w"] or 0)))
-        out[s] = rows[:12]
+        out[s] = rows[:10]
     return out
 
 
@@ -325,6 +328,7 @@ TEMPLATE = r"""<!doctype html>
 
   <div class="ctl">
     <span>섹터</span><select id="sel"></select>
+    <span>표시 종목</span><span class="seg" id="segN"><button data-n="10" class="active">10개</button><button data-n="20">20개</button><button data-n="25">전체</button></span>
     <span>정렬</span><span class="seg" id="segS"><button data-s="k" class="active">편입 ETF 수</button><button data-s="w">평균 비중</button><button data-s="wm">최대 비중</button></span>
     <span>최소 편입 ETF 수</span><span class="seg" id="segK"><button data-k="1">1+</button><button data-k="2" class="active">2+</button><button data-k="3">3+</button><button data-k="4">4+</button></span>
   </div>
@@ -349,7 +353,7 @@ TEMPLATE = r"""<!doctype html>
 
   <div class="box">
     <h2 id="stkTitle">공통 편입종목</h2>
-    <div class="desc">상위 ETF들의 상위 10개 구성종목 기준(네이버가 하루 한 번 갱신하는 값으로, 장중에는 바뀌지 않음). 편입 ETF 수 = 이 종목을 담은 상위 ETF 개수, 평균 비중 = 비중이 공개된 ETF의 평균, 최대 비중 = 그중 가장 큰 ETF의 비중, 전일 = 직전 기준일 대비 편입 ETF 수 변화(없던 종목이 새로 들어오면 '신규'). 정렬 버튼으로 비중 높은 순도 볼 수 있습니다. 행을 누르면 아래에 추이가 나옵니다.</div>
+    <div class="desc">상위 ETF들의 상위 10개 구성종목 기준(네이버가 하루 한 번 갱신하는 값으로, 장중에는 바뀌지 않음). 편입 ETF 수 = 이 종목을 담은 상위 ETF 개수, 평균 비중 = 비중이 공개된 ETF의 평균, 최대 비중 = 그중 가장 큰 ETF의 비중(ETF 안에서 10%를 넘는 비중은 10%로 깎아서 계산), 전일 = 직전 기준일 대비 편입 ETF 수 변화(없던 종목이 새로 들어오면 '신규'). 정렬 버튼으로 비중 높은 순도 볼 수 있습니다. 행을 누르면 아래에 추이가 나옵니다.</div>
     <div class="tblwrap"><table id="stkTbl"></table></div>
   </div>
 
@@ -361,13 +365,13 @@ TEMPLATE = r"""<!doctype html>
 
   <div class="note">
     <b>읽는 법</b> &middot; 네이버 금융의 '국내 업종/테마' ETF 중 레버리지·인버스·커버드콜·선물형과 시총 100억 미만을 뺀 뒤, ETF 이름의 키워드로 섹터를 나눴습니다(이름 기준이라 일부는 어긋날 수 있음).
-    섹터마다 1개월 수익률 상위 __TOPN__개를 '잘하는 ETF'로 보고, 이들의 상위 10개 구성종목을 모아 몇 개 ETF에 같이 들어 있는지 셉니다. 비중이 비공개인 액티브 ETF는 평균 비중에서 빠집니다.
+    반도체와 비반도체(나머지 모든 섹터 ETF)로 나눠 각각 1개월 수익률 상위 __TOPN__개를 '잘하는 ETF'로 보고, 이들의 상위 10개 구성종목을 모아 몇 개 ETF에 같이 들어 있는지 셉니다. 비중이 비공개인 액티브 ETF는 평균 비중에서 빠집니다.
     IDM(삼성전자·SK하이닉스·SK스퀘어)은 모든 섹터에서 센 결과에서 뺐습니다. ETF가 2개 미만인 섹터는 비교가 의미 없어 숨겼고, 5개 미만인 섹터는 비율이 크게 흔들립니다. 추이는 이 페이지가 매일 쌓은 기록부터 보입니다.
   </div>
 
 <script>
 const D = __DATA__;
-let curSec = 0, minK = 2, sortBy = 'k', trH = '1', selStock = null, chart = null;
+let curSec = 0, showN = 10, minK = 2, sortBy = 'k', trH = '1', selStock = null, chart = null;
 const $ = id => document.getElementById(id);
 const cls = v => v > 0 ? 'pos' : (v < 0 ? 'neg' : '');
 const fp = v => v == null ? '-' : (v > 0 ? '+' : '') + v.toFixed(1) + '%';
@@ -377,6 +381,10 @@ $('sel').onchange = e => { curSec = +e.target.value; selStock = null; render(); 
 document.querySelectorAll('#segK button').forEach(b => b.onclick = () => {
   document.querySelectorAll('#segK button').forEach(x => x.classList.remove('active')); b.classList.add('active');
   minK = +b.dataset.k; selStock = null; render();
+});
+document.querySelectorAll('#segN button').forEach(b => b.onclick = () => {
+  document.querySelectorAll('#segN button').forEach(x => x.classList.remove('active')); b.classList.add('active');
+  showN = +b.dataset.n; selStock = null; render();
 });
 document.querySelectorAll('#segT button').forEach(b => b.onclick = () => {
   document.querySelectorAll('#segT button').forEach(x => x.classList.remove('active')); b.classList.add('active');
@@ -437,6 +445,7 @@ function render() {
   const rows = s.stocks.filter(x => x.k >= minK).slice();
   const key = { k: x => x.k * 1000 + (x.w || 0), w: x => x.w || 0, wm: x => x.wm || 0 }[sortBy];
   rows.sort((a, b) => key(b) - key(a));
+  rows.splice(showN);
   $('stkTitle').textContent = s.name + ' 공통 편입종목' + (s.ex.length ? ' (IDM 제외)' : '');
   let t = '<tr><th>종목</th><th>편입 ETF</th><th>평균 비중</th><th>최대 비중</th><th>전일</th><th style="text-align:left">편입 ETF 목록</th></tr>';
   rows.forEach(x => {
