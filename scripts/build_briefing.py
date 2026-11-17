@@ -68,6 +68,60 @@ def cut_to_date(D, asof):
     return cut(D)
 
 
+def apply_live(d, D):
+    """확정 데이터(갱신용 시총 파일·KRX 종가)가 전 영업일까지 안 들어왔을 때 홈페이지 장중 실시간 값(docs/live/intraday.json,
+    장 마감 15:35 = 그날 종가 기준 잠정치)을 국면 표·섹터 데이터 끝에 하루 붙인다 - 2026-11-17 사용자 "17일 브리핑에 13일 거라서 의미가 없노"
+    -> "홈페이지에 실시간으로 받아오는 데이터들 있자나". 페이지 applyLive와 같은 방식(확정일보다 새 날짜일 때만, 확정이 오면 자동으로 빠짐).
+    돌려주는 값: (d, D, 붙인 날짜 문자열 또는 None, 실시간 시각)."""
+    try:
+        j = json.loads((DOCS / "live" / "intraday.json").read_text(encoding="utf-8"))
+    except Exception:  # noqa: BLE001
+        return d, D, None, None
+    ld = j.get("date")
+    if not ld:
+        return d, D, None, None
+    used = None
+    # 섹터·시장 폭·지수(섹터 이평선 페이지 데이터)
+    S = j.get("sector") or {}
+    if ld > D["dates"][-1] and S.get("keys") and S.get("all"):
+        keys = S["keys"]
+        n0 = len(D["dates"])
+        D["dates"].append(ld)
+        for i, kk in enumerate(keys):
+            if isinstance(D["all"].get(kk), list) and len(D["all"][kk]) == n0:
+                D["all"][kk].append(S["all"][i])
+        for sx in D["sectors"]:
+            v = (S.get("sec") or {}).get(sx["name"])
+            for i, kk in enumerate(keys):
+                if isinstance(sx.get(kk), list) and len(sx[kk]) == n0:
+                    sx[kk].append(v[i] if v else None)
+        for nm, key in (("코스피", "KOSPI"), ("코스닥", "KOSDAQ")):
+            a = D.get("idx", {}).get(nm)
+            iv = (j.get("index") or {}).get(key)
+            if isinstance(a, list) and len(a) == n0:
+                a.append(iv[0] if iv else a[-1])
+        if S.get("ret"):
+            D["ret"] = S["ret"]
+        used = ld
+    # 국면 표
+    P = j.get("phase") or {}
+    if pd.Timestamp(ld) > d.index[-1] and P.get("shown") is not None:
+        row = d.iloc[-1].copy()
+        sm = j.get("sm") or {}
+        kv = (j.get("index") or {}).get("KOSPI")
+        upd = dict(phase=P["shown"], phase_shown=P["shown"], score=P.get("score"), cau_raw=P.get("raw"), caution_line=P.get("line"),
+                   caution=P.get("caution"), C=P.get("C", np.nan) / 100, D=P.get("D", np.nan) / 100, X=P.get("X", np.nan) / 100,
+                   sC=P.get("sC"), sD=P.get("sD"), sX=P.get("sX"), stage=1 if P.get("target") == 60 else 0,
+                   kospi=kv[0] if kv else np.nan, sm_idx=sm.get("idx", np.nan))
+        for kk, v in upd.items():
+            if kk in row.index and v is not None:
+                row[kk] = v
+        row.name = pd.Timestamp(ld)
+        d = pd.concat([d, row.to_frame().T.astype(d.dtypes.to_dict(), errors="ignore")])
+        used = ld
+    return d, D, used, j.get("built") or j.get("ts")
+
+
 def sma(a, m):
     s = pd.Series(a, dtype="float64")
     return s.rolling(m, min_periods=m).mean().values if m > 1 else s.values
@@ -229,6 +283,8 @@ def main():
     # 2026-10-21 사용자 "시가총액은 내가 매일 올리니까 홈페이지엔 최신 수치가 있는데" - 섹터·시장 폭은 시총 파일 기준 최신일까지 쓰고
     # (국면 점수·지수는 KRX 종가가 들어와야 갱신되므로 국면 기준일 그대로), 머리글에 두 날짜를 따로 표시한다.
     D = load_sector_page()
+    d, D, live_used, live_ts = apply_live(d, D)
+    asof = d.index[-1]
     sec_asof = D["dates"][-1]
     dates = D["dates"]
     n = len(dates)
@@ -487,6 +543,7 @@ def main():
 <div class="page">
   <div class="hdr"><div><h1>시장 브리핑 · {title_date}</h1><div class="sub">국면 {asof:%Y-%m-%d}({WD[asof.weekday()]}) 종가 · 지수·시장 폭·섹터 {sec_asof}(시가총액 파일 기준, 중소형 지수는 국면 기준일) · 섹터 정리 종목 기준 · 자동 생성 {now:%m/%d %H:%M}</div></div>
     <div class="sub">1/2 시장 판단</div></div>
+  {f'<div style="background:#fff4e6;border:1px solid #ffa94d;border-radius:4px;padding:1px 6px;margin:2px 0;font-size:9.5px;white-space:nowrap;overflow:hidden"><b>잠정</b> {live_used} 값 = 홈페이지 실시간({live_ts}, 장 마감) · 확정 데이터 미반영 · 이익추정치·실적 가속은 확정일 기준</div>' if live_used else ''}
   <div class="hero">
     <div class="box" style="border-color:{PH3C[cur3]}"><div class="lbl">국면</div><div class="val" style="color:{PH3C[cur3]}">{cur3}</div><div class="sub">{since:%m/%d}부터 {k}거래일째</div></div>
     <div class="box"><div class="lbl">목표 비중</div><div class="val">{target}%</div><div class="sub">{'꺾임 주의 ' + str(ck) + '일째' if cau else '꺾임 주의 없음'}</div></div>
