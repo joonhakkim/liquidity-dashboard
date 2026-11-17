@@ -119,11 +119,14 @@ def load_sector_map():
     return dict(zip(d["code"], d["sector"]))
 
 
-def get_holdings(portfolio):
+def get_holdings(portfolio, as_of=None):
     trades_path, prices_path = portfolio["trades_path"], portfolio["prices_path"]
     if not os.path.exists(trades_path) or not os.path.exists(prices_path):
         return None
     trades = load_trades(trades_path)
+    if as_of is not None:
+        # 지시에 적힌 종가 기준일 시점의 상태로 되돌려 계산(그 이후 매매·장중 가격은 무시)
+        trades = trades[pd.to_datetime(trades["date"]) <= pd.Timestamp(as_of)]
     if trades.empty:
         return {"trades": trades, "holdings": [], "aum": TOTAL_CAPITAL, "prices": {}, "date": None}
     prices = pd.read_csv(prices_path, dtype={"code": str}, parse_dates=["date"])
@@ -131,6 +134,8 @@ def get_holdings(portfolio):
         return None
     prices["code"] = prices["code"].str.zfill(6)
     prices_wide = prices.pivot_table(index="date", columns="code", values="close").ffill()
+    if as_of is not None:
+        prices_wide = prices_wide[prices_wide.index <= pd.Timestamp(as_of)]
     dates = prices_wide.index
     if len(dates) < 2:
         return None
@@ -174,7 +179,12 @@ def main():
     # 지시가 다음날 이후로도 영영 처리 안 되는 문제가 있었다(사용자가 "민구MP 변동이
     # 없는데"라고 지적해서 발견). 밀린 지시는 그 지시에 적힌 날짜(예: "9/16 종가로")가
     # 아니라 실제 처리되는 날의 종가를 쓰게 된다 - 하루 이상 밀리면 사용자에게 다시 확인.
+    # 2026-11-17: 체결일·체결가는 "지시에 적힌 종가 기준일"의 확정 종가로 고정한다(예전엔 처리하는 날의 가장 최근
+    # 가격행을 써서, 장중에 돌면 어제 종가 지시가 오늘 날짜·장중가로 기록됐다). 기준일 종가는 그날 20:00 이후에만 확정.
+    now = datetime.now()
     todo = orders[(orders["date"] <= today) & (orders["processed"].isna() | (orders["processed"] == ""))]
+    if now.hour < 20:
+        todo = todo[todo["date"] < today]
     if todo.empty:
         print(f"오늘({today}) 처리할 지시 없음")
         return
@@ -182,12 +192,15 @@ def main():
     sector_map = load_sector_map()
     summary = [f"===== {today} mp_orders 처리 시작 ====="]
 
-    for pid, group in todo.groupby("portfolio"):
+    for (pid, as_of), group in todo.groupby(["portfolio", "date"], sort=True):
         portfolio = PORTFOLIO_BY_ID.get(pid)
         if portfolio is None:
             summary.append(f"[{pid}] 알 수 없는 포트폴리오 id, 스킵")
             continue
-        state = get_holdings(portfolio)
+        state = get_holdings(portfolio, as_of)
+        if state is not None and state["date"] not in (None, as_of):
+            summary.append(f"[{pid}] {as_of} 종가 행이 가격 파일에 없음(최신 {state['date']}) - 처리 보류")
+            continue
         if state is None:
             summary.append(f"[{pid}] 가격 데이터를 아예 못 읽음 - 처리 보류(다음 실행에 재시도)")
             continue
@@ -309,7 +322,7 @@ def main():
                 summary.append(f"[{pid}] rebalance_equal pct 없음 - 스킵")
             else:
                 # 방금 처리한 exit/reduce/new_entry까지 반영한 최신 보유현황을 다시 계산
-                state2 = get_holdings(portfolio)
+                state2 = get_holdings(portfolio, as_of)
                 target_amt = state2["aum"] * float(pct) / 100.0
                 for h in state2["holdings"]:
                     cur_amt = h["shares"] * h["cur_price"]
@@ -325,7 +338,7 @@ def main():
             # target_pct: 그 종목 비중을 그날 종가·AUM 기준 정확히 pct%로(보유 중이면 차이만큼 매수/매도,
             # 없으면 신규편입). 목표표 전체 리밸런싱용(2026-10-12 추가 - 전날 비중으로 차이를 미리 계산하면
             # 당일 주가 변동만큼 목표에서 어긋나서).
-            state2 = get_holdings(portfolio)
+            state2 = get_holdings(portfolio, as_of)
             held = {h["code"]: h for h in state2["holdings"]}
             for idx, row in target_rows:
                 name = row.get("name")
