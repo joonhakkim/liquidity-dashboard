@@ -659,3 +659,14 @@
 2026-11-18,troy_mp,target_pct,로보티즈,108490,2.0,,
 2026-11-18,troy_mp,target_pct,삼현,437730,2.0,,
 2026-11-18,troy_mp,target_pct,DB손해보험,005830,2.0,,
+2026-11-17,kosdaq_long_short_index,increase_pct,제우스,079370,1.0,,2026-11-18T09:57:59.485353
+2026-11-17,kosdaq_long_short_index,reduce_pct,네오셈,253590,3.0,,2026-11-18T09:57:59.485353
+2026-11-17,kosdaq_long_short_index,exit,지엔씨에너지,119850,,,2026-11-18T09:57:59.485353
+2026-11-17,kosdaq_long_short_index,new_entry_pct,엑시콘,092870,3.0,,2026-11-18T09:57:59.485353
+2026-11-17,kosdaq_long_short_index,exit,티에스이,131290,,,2026-11-18T09:57:59.485353
+2026-11-17,kosdaq_long_short_index,increase_pct,비엠티,086670,2.0,,2026-11-18T09:57:59.485353
+2026-11-17,kosdaq_long_short_index,increase_pct,파마리서치,214450,2.0,,2026-11-18T09:57:59.485353
+2026-11-17,kosdaq_long_short_index,target_pct,KODEX 코스닥150선물인버스,251340,80.25,숏 비중 75.25에서 80.25(5%p 확대),2026-11-18T09:57:59.485353
+2026-11-17,shield_mp,increase_pct,파마리서치,214450,5.0,,2026-11-18T09:57:59.525848
+2026-11-17,shield_mp,increase_pct,삼양식품,003230,2.0,,2026-11-18T09:57:59.525848
+2026-11-17,shield_mp,exit,한국화장품,123690,,,2026-11-18T09:57:59.525848
