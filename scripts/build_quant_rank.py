@@ -59,7 +59,8 @@ def main():
     cap = cap.sort_index()
     ok_rows = cap.notna().sum(axis=1) >= 0.5 * cap.notna().sum(axis=1).max()
     cap, op1, op2 = cap[ok_rows], op1.reindex(cap.index[ok_rows]), op2.reindex(cap.index[ok_rows])
-    capf, op1f, op2f = cap.ffill(limit=3), op1.ffill(), op2.ffill()
+    # 추정치는 5일까지만 채운다(무기한 채우면 커버리지가 끊긴 종목의 몇 년 전 추정치가 남아 유니버스가 2.7배로 부풀었다 - 2026-11-19 발견)
+    capf, op1f, op2f = cap.ffill(limit=3), op1.ffill(limit=5), op2.ffill(limit=5)
     t = len(capf) - 1
     asof = capf.index[t]
     c0 = capf.iloc[t]
@@ -67,10 +68,13 @@ def main():
     m1 = ret(t, t - D1M)
     m6, m12 = ret(t, t - D6M), ret(t, t - D12M)
     m6x, m12x = capf.iloc[t - D1M] / capf.iloc[t - D6M] - 1, capf.iloc[t - D1M] / capf.iloc[t - D12M] - 1
-    def rev(o):
-        prev = o.iloc[t - D1M]
-        return (o.iloc[t] / prev - 1).where(prev > 0)
-    r1, r2 = rev(op1f), rev(op2f)
+    # 추정치 기준연도는 매년 1월 첫 거래일에 한 해씩 넘어간다. 최근 1개월 안에 넘어간 종목은
+    # FY1 변화 = 지금 FY1 / 1개월 전 FY2, FY2 변화는 비교 대상이 없어 비운다(페이지에서 FY1 점수로 대신).
+    sw = ((op1f / op2f.shift(1) - 1).abs() < 0.02) & ((op1f / op1f.shift(1) - 1).abs() > 0.02)
+    swin = sw.iloc[t - D1M + 1:t + 1].any()
+    a1, a2, b1, b2 = op1f.iloc[t], op2f.iloc[t], op1f.iloc[t - D1M], op2f.iloc[t - D1M]
+    r1 = pd.Series(np.where(swin, a1 / b2 - 1, a1 / b1 - 1), index=op1f.columns).where(np.where(swin, b2 > 0, b1 > 0))
+    r2 = (a2 / b2 - 1).where(~swin & (b2 > 0))
     per1, per2 = c0 / op1f.iloc[t], c0 / op2f.iloc[t]
     # 수급
     F, I, fnames = bf.load_flows()
@@ -99,11 +103,11 @@ def main():
         vals = [m1.get(c), m6.get(c), m12.get(c), m6x.get(c), m12x.get(c), r1.get(c), r2.get(c),
                 fl["F5"].get(c, np.nan), fl["F20"].get(c, np.nan), fl["I5"].get(c, np.nan), fl["I20"].get(c, np.nan),
                 per1.get(c), per2.get(c)]
-        if not all(v is not None and np.isfinite(v) for v in vals):
+        if not all(v is not None and np.isfinite(v) for i, v in enumerate(vals) if i != 6):
             continue
         capok = c0.get(c)
         rows.append({"c": c, "n": name, "s": sec_of.get(c) or naver.get(c) or "-", "cap": int(round(capok / 1e8)),
-                     "v": [round(float(v) * (100 if i < 7 else 1), 2) for i, v in enumerate(vals)]})
+                     "v": [None if (v is None or not np.isfinite(v)) else round(float(v) * (100 if i < 7 else 1), 2) for i, v in enumerate(vals)]})
     out = {"asof": asof.strftime("%Y-%m-%d"), "flow_asof": fasof.strftime("%Y-%m-%d"), "rows": rows}
     html = (TEMPLATE.replace("__UPDATED__", datetime.now().strftime("%Y-%m-%d %H:%M")).replace("__ASOF__", out["asof"])
             .replace("__FASOF__", out["flow_asof"]).replace("__DATA__", json.dumps(out, ensure_ascii=False, separators=(",", ":"))))
@@ -166,19 +170,19 @@ const secs = [...new Set(D.rows.map(r=>r.s))].sort();
 document.getElementById('sec').innerHTML += secs.map(s=>`<option>${s}</option>`).join('');
 const f = (v,d=1)=> v==null? '-' : v.toFixed(d);
 const cl = v => v>0? 'pos' : v<0? 'neg' : '';
-function pct(arr, dir){            // 백분위 점수 0~100 (좋을수록 높음)
-  const n = arr.length, idx = arr.map((v,i)=>i).sort((a,b)=>dir*(arr[a]-arr[b]));
-  const s = new Array(n); idx.forEach((i,k)=> s[i] = n>1? k/(n-1)*100 : 50); return s;
+function pct(arr, dir){            // 백분위 점수 0~100 (좋을수록 높음), 값 없는 종목은 null
+  const idx = arr.map((v,i)=>i).filter(i=>arr[i]!=null).sort((a,b)=>dir*(arr[a]-arr[b]));
+  const n = idx.length, s = new Array(arr.length).fill(null); idx.forEach((i,k)=> s[i] = n>1? k/(n-1)*100 : 50); return s;
 }
+const FALLBACK = {6:5};   // FY2 변화가 없으면(1월 기준연도 전환 직후) FY1 변화 점수로 대신
 function calc(){
   const minCap = +document.getElementById('minCap').value||0, sec = document.getElementById('sec').value;
   let rows = D.rows.filter(r => r.cap >= minCap);
   const sumW = ITEMS.reduce((a,it)=>a+W[it[2]],0) || 1;
   const sc = rows.map(()=>({M:0,R:0,F:0,V:0}));
-  for (const [k,dir,g] of ITEMS){
-    const p = pct(rows.map(r=>r.v[k]), dir);
-    p.forEach((x,i)=> sc[i][g] += x*W[g]);
-  }
+  const P = {};
+  for (const [k,dir,g] of ITEMS) P[k] = pct(rows.map(r=>r.v[k]), dir);
+  for (const [k,dir,g] of ITEMS) P[k].forEach((x,i)=> sc[i][g] += (x==null? P[FALLBACK[k]][i] : x)*W[g]);
   const gw = {M:0,R:0,F:0,V:0}; for (const it of ITEMS) gw[it[2]] += W[it[2]];
   rows = rows.map((r,i)=>({...r, M:gw.M?sc[i].M/gw.M:0, R:gw.R?sc[i].R/gw.R:0, F:gw.F?sc[i].F/gw.F:0, V:gw.V?sc[i].V/gw.V:0,
     tot:(sc[i].M+sc[i].R+sc[i].F+sc[i].V)/sumW}));
