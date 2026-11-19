@@ -538,9 +538,9 @@ def main():
             v = r["v"]
             tag = " <span style='color:#e67700;font-size:9px'>흑전</span>" if v[12] == 1 else ""
             return ("<tr>" + f"<td><b>{r['rk']}</b></td><td>{prev_s(r)}</td><td style='text-align:left'>{r['n']}{tag}</td><td class='sub' style='text-align:left'>{r['s']}</td>"
-                    f"<td>{r['cap']:,}</td><td><b>{r['tot']:.1f}</b></td>" + "".join(f"<td>{fv(r['g'][g], 0)}</td>" for g in gk) +
+                    f"<td>{r['cap']:,}</td><td><b>{r['tot']:.1f}</b></td>"
                     f"<td class='{cv(v[0])}'>{fv(v[0])}</td><td class='{cv(v[5])}'>{fv(v[5])}</td><td class='{cv(v[6])}'>{fv(v[6])}</td>"
-                    f"<td class='{cv(v[11])}'>{fv(v[11])}</td><td>{yoy_s(v[9])}</td><td>{fv(v[13])}</td><td>{fv(v[8])}</td></tr>")
+                    f"<td class='{cv(v[11])}'>{fv(v[11])}</td><td>{yoy_s(v[9])}</td><td>{fv(v[13])}</td><td>{fv(v[8])}</td><td class='memo'></td></tr>")
         top20 = "".join(qrow(r) for r in QB["rows"][:20])
         keep_rows = QB["rows"][20:40]
         def krow(r):
@@ -566,8 +566,8 @@ def main():
   <div class="qguide"><b>{rname} 가중치</b> {' · '.join(f'{k} <b>{w}</b>' for k, w in QB['weights'].items())}
     &nbsp;|&nbsp; <b>운용</b> 주 1회 상위 20 동일 비중, 들고 있는 종목은 40위 안이면 유지(빠진 자리만 상위에서 채움).
     11년 백테스트 연 27%(코스피 10%), 최대 낙폭 -43% · 하락 국면 하락형 연 13%(코스피 2%) · 급락 초기엔 코스피보다 더 빠질 수 있음.</div>
-  <h2>상위 20 <span class="sub">묶음 점수 = 유니버스 안 백분위(0~100) · 1M·OP 변화·YoY = % · 외인 = 보유율 % · 시총/OP2 = 내년 영업이익 대비 배수</span></h2>
-  <table class="qr"><tr><th>#</th><th>1주 전</th><th style="text-align:left">종목</th><th style="text-align:left">섹터</th><th>시총(억)</th><th>총점</th>{''.join(f'<th>{GNQ[g]}</th>' for g in gk)}<th>1M%</th><th>FY1 OP 1M</th><th>FY2 OP 1M</th><th>FY1 OP 3M</th><th>TTM YoY</th><th>외인%</th><th>시총/OP2</th></tr>{top20}</table>
+  <h2>상위 20 <span class="sub">총점 = {rname} 가중 백분위(0~100) · 1M·OP 변화·YoY = % · 외인 = 보유율 % · 시총/OP2 = 내년 영업이익 대비 배수</span></h2>
+  <table class="qr"><tr><th>#</th><th>1주 전</th><th style="text-align:left">종목</th><th style="text-align:left">섹터</th><th>시총(억)</th><th>총점</th><th>1M%</th><th>FY1 OP<br>1M</th><th>FY2 OP<br>1M</th><th>FY1 OP<br>3M</th><th>TTM<br>YoY</th><th>외인%</th><th>시총/<br>OP2</th><th class='memo' style='text-align:left'>비고</th></tr>{top20}</table>
   <h2>21~40위 (보유 중이면 유지하는 구간)</h2>
   <div class="grid2">{keep_tbl}</div>
   <div class="note" style="font-size:10px;color:#495057">{drop_txt}</div>
@@ -603,7 +603,8 @@ def main():
   .qguide {{ font-size:10px; color:#495057; line-height:1.55; background:#f8f9fa; border-radius:5px; padding:5px 8px; margin:4px 0; }}
   .qtbl td {{ padding:1px 4px; font-size:9.5px; line-height:1.35; }} .qtbl .chip {{ margin-right:6px; }}
   .note {{ color:#868e96; font-size:9.5px; margin-top:4px; }}
-  table.qr td, table.qr th {{ padding:2.5px 4px; font-size:9.8px; }} table.qr tr:nth-child(even) td {{ background:#f8f9fa; }}
+  table.qr td, table.qr th {{ padding:2px 4px; font-size:9.8px; }} table.qr td {{ height:6.6mm; }} table.qr tr:nth-child(even) td {{ background:#f8f9fa; }}
+  table.qr th.memo, table.qr td.memo {{ width:52mm; border-left:1px solid #ced4da; }} table.qr td.memo {{ border-bottom:1px solid #adb5bd; background:#fff !important; }}
   .btn {{ position:fixed; right:16px; top:12px; background:#212529; color:#fff; border:0; border-radius:6px; padding:6px 12px; cursor:pointer; }}
 </style></head><body>
 <button class="btn noprint" onclick="window.print()">인쇄 / PDF</button>
