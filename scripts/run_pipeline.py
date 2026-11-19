@@ -96,6 +96,7 @@ SLOW_STEPS = [
     ("build_flow_analysis.py", "수급 분석 재빌드(시총 캐시 갱신 반영)"),
     ("build_flow_stocks.py", "종목 수급 재빌드(시총 캐시 갱신 반영)"),
     ("build_flow_lab.py", "수급 국면·평균단가(실험) 재빌드(시총 캐시 갱신 반영)"),
+    ("build_quant_rank.py", "퀀트 종합 순위 재빌드(밴드·수급 갱신 반영, 2026-11-19 추가)"),
     ("build_briefing.py", "아침 브리핑 재생성(섹터 재빌드 반영)"),
     ("build_home.py", "홈페이지 빌드(PER 트래커 최신 링크 반영용으로 한 번 더)"),
 ]
