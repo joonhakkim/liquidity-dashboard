@@ -7,7 +7,7 @@
   - 추정치 상/하향(항목당 1.0): FY1·FY2 영업이익 추정치의 1개월 변화율
   - 수급(항목당 0.25): 외국인·기관의 5일·20일 순매수대금 / 시가총액
   - 밸류(항목당 0.25): 시총 / FY1·FY2 영업이익 (낮을수록 높은 점수)
-  - 점수 = 항목별 순위를 0~100 백분위로 바꿔 가중 평균. 순위·가중치·시총 하한은 페이지에서 바로 바꿀 수 있다(계산은 페이지 JS).
+  - 점수 = 항목별 순위를 0~100 백분위로 바꿔 가중 평균(가중치: 모멘텀·수급·밸류 항목당 0.25, 추정치 항목당 1.0). 순위·가중치·시총 하한은 페이지에서 바로 바꿀 수 있다(계산은 페이지 JS).
 데이터: 기업 밴드 찾기 2(+갱신용) 일별 시총·영업이익 추정치(build_op_band.load_band_workbook 캐시), 수급.xlsx(+갱신용).
 주의: 수익률은 시가총액 변화로 계산하므로 유·무상증자 등 주식수 변화가 섞인다.
 """
@@ -145,17 +145,13 @@ TEMPLATE = r"""<!doctype html>
     <b>규칙</b> 유니버스 = FY1·FY2 영업이익 추정치가 모두 흑자인 종목(순이익 추정치 없음 &rarr; 영업이익 대체) &middot;
     모멘텀 5개(1개월은 <b>하락률 클수록</b> 고점수, 6M·12M 상승률, 6M-1M·12M-1M = 최근 1개월 제외 수익률) &middot;
     추정치 변화 2개(FY1·FY2 영업이익 1개월 변화율) &middot; 수급 4개(외국인·기관 5일·20일 순매수대금/시총) &middot; 밸류 2개(시총/영업이익 FY1·FY2, 낮을수록).
-    항목별 순위를 0~100 백분위로 바꿔 가중 평균. <b>수익률은 시총 변화</b>라 증자·분할 때 왜곡될 수 있음.
+    항목별 순위를 0~100 백분위로 바꿔 가중 평균(가중치: 모멘텀·수급·밸류 항목당 0.25, 추정치 항목당 1.0). <b>수익률은 시총 변화</b>라 증자·분할 때 왜곡될 수 있음.
   </div>
   <div class="ctl">
     시총 하한(억) <input type="number" id="minCap" value="500" step="100">
     섹터 <select id="sec"><option value="">전체</option></select>
     검색 <input type="text" id="q" placeholder="종목명">
     표시 <select id="topn"><option selected>20</option><option>50</option><option>100</option><option>9999</option></select>
-    가중치 &mdash; 모멘텀 <input type="number" id="wM" value="0.25" step="0.05">
-    추정치 <input type="number" id="wR" value="1" step="0.05">
-    수급 <input type="number" id="wF" value="0.25" step="0.05">
-    밸류 <input type="number" id="wV" value="0.25" step="0.05">
     <span id="cnt" class="sub"></span>
   </div>
   <div class="box"><div class="tblwrap"><table id="tbl"></table></div></div>
@@ -164,7 +160,7 @@ const D = __DATA__;
 // 항목 인덱스: 0 1M수익률 1 6M 2 12M 3 6M-1M 4 12M-1M 5 OP1 변화 6 OP2 변화 7 외5 8 외20 9 기5 10 기20 11 PER1 12 PER2
 // dir: 1=클수록 좋음, -1=작을수록 좋음 / grp: M,R,F,V
 const ITEMS = [[0,-1,'M'],[1,1,'M'],[2,1,'M'],[3,1,'M'],[4,1,'M'],[5,1,'R'],[6,1,'R'],[7,1,'F'],[8,1,'F'],[9,1,'F'],[10,1,'F'],[11,-1,'V'],[12,-1,'V']];
-const G = {M:'wM', R:'wR', F:'wF', V:'wV'};
+const W = {M:0.25, R:1, F:0.25, V:0.25};   // 항목당 가중치(고정)
 let sortKey = 'tot', sortDir = -1;
 const secs = [...new Set(D.rows.map(r=>r.s))].sort();
 document.getElementById('sec').innerHTML += secs.map(s=>`<option>${s}</option>`).join('');
@@ -177,7 +173,6 @@ function pct(arr, dir){            // 백분위 점수 0~100 (좋을수록 높�
 function calc(){
   const minCap = +document.getElementById('minCap').value||0, sec = document.getElementById('sec').value;
   let rows = D.rows.filter(r => r.cap >= minCap);
-  const W = {}; for (const g in G) W[g] = +document.getElementById(G[g]).value||0;
   const sumW = ITEMS.reduce((a,it)=>a+W[it[2]],0) || 1;
   const sc = rows.map(()=>({M:0,R:0,F:0,V:0}));
   for (const [k,dir,g] of ITEMS){
@@ -208,7 +203,7 @@ function render(){
   const t = document.getElementById('tbl'); t.innerHTML = h;
   t.querySelectorAll('th').forEach(th=>th.onclick=()=>{ const k=th.dataset.k; if(sortKey===k) sortDir*=-1; else {sortKey=k; sortDir=(k==='rk'||k==='n'||k==='s')?1:-1;} render(); });
 }
-['minCap','sec','q','topn','wM','wR','wF','wV'].forEach(id=>document.getElementById(id).addEventListener('input',render));
+['minCap','sec','q','topn'].forEach(id=>document.getElementById(id).addEventListener('input',render));
 sortKey='rk'; sortDir=1; render();
 </script>
 </body>
