@@ -511,6 +511,72 @@ def main():
     mv_dn = ", ".join(f"{nm} {c:+.0f}" for nm, _v, c, _n in movers[:5])
     yoy_tbl = "".join(tr([r["name"], f"{int(r['n_stocks'])}", f"<b>{r['accel']:+.1f}%p</b>", r.get("valuation_grade") if isinstance(r.get("valuation_grade"), str) else "-"])
                       for _, r in yoy.head(5).iterrows()) if len(yoy) else ""
+    # 3쪽: 퀀트 종합 순위(build_quant_rank.py가 남긴 data/quant_rank_brief.json - 2026-11-19 사용자 "브리핑에 추가, 3페이지 되어도 됨")
+    qr_page, n_tot = "", 2
+    try:
+        QB = json.load(open(DATA / "quant_rank_brief.json", encoding="utf-8"))
+        n_tot = 3
+        RG = QB["reg"]
+        rname = "상승형" if RG["state"] == "up" else "하락형"
+        rcol = "#c92a2a" if RG["state"] == "up" else "#1971c2"
+        gk = [g for g, w in {"M": 1, "R": 1, "V": 1, "Y": 1, "A": 1, "R3": 1, "H": 1}.items()]
+        WSQ = {"up": {"M": 0.5, "R": 1.5, "A": 1, "R3": 0.5, "H": 0.5}, "down": {"R": 3, "V": 1, "Y": 1, "A": 1}}[RG["state"]]
+        GNQ = {"M": "모멘텀", "R": "추정치", "V": "밸류", "Y": "이익성장", "A": "성장가속", "R3": "3M상향", "H": "외인보유"}
+        gk = list(WSQ)
+        fv = lambda v, d=1: "-" if v is None else f"{v:.{d}f}"  # noqa: E731
+        cv = lambda v: "" if v is None else ("up" if v > 0 else "dn" if v < 0 else "")  # noqa: E731
+        def yoy_s(v):
+            return "-" if v is None else ("500+" if v >= 500 else f"{v:.0f}")
+        def prev_s(r):
+            if QB["prev_date"] is None:
+                return "-"
+            p = r["prev"]
+            if p is None:
+                return "<b class='up'>신규</b>"
+            return f"{p}" + (f" <span class='{'up' if p > r['rk'] else 'dn'}'>{'▲' if p > r['rk'] else '▼'}</span>" if p != r["rk"] else "")
+        def qrow(r):
+            v = r["v"]
+            tag = " <span style='color:#e67700;font-size:9px'>흑전</span>" if v[12] == 1 else ""
+            return ("<tr>" + f"<td><b>{r['rk']}</b></td><td>{prev_s(r)}</td><td style='text-align:left'>{r['n']}{tag}</td><td class='sub' style='text-align:left'>{r['s']}</td>"
+                    f"<td>{r['cap']:,}</td><td><b>{r['tot']:.1f}</b></td>" + "".join(f"<td>{fv(r['g'][g], 0)}</td>" for g in gk) +
+                    f"<td class='{cv(v[0])}'>{fv(v[0])}</td><td class='{cv(v[5])}'>{fv(v[5])}</td><td class='{cv(v[6])}'>{fv(v[6])}</td>"
+                    f"<td class='{cv(v[11])}'>{fv(v[11])}</td><td>{yoy_s(v[9])}</td><td>{fv(v[13])}</td><td>{fv(v[8])}</td></tr>")
+        top20 = "".join(qrow(r) for r in QB["rows"][:20])
+        keep_rows = QB["rows"][20:40]
+        def krow(r):
+            return f"<tr><td>{r['rk']}</td><td style='text-align:left'>{r['n']}</td><td class='sub' style='text-align:left'>{r['s']}</td><td>{r['tot']:.1f}</td><td>{prev_s(r)}</td></tr>"
+        half = (len(keep_rows) + 1) // 2
+        keep_tbl = "".join(f"<div><table><tr><th>순위</th><th>종목</th><th>섹터</th><th>총점</th><th>1주 전</th></tr>{''.join(krow(r) for r in part)}</table></div>"
+                           for part in (keep_rows[:half], keep_rows[half:]))
+        if QB["prev_date"] is None:
+            drop_txt = "순위 기록이 1주 쌓이면 1주 전 순위·빠진 종목이 표시됩니다(기록 시작 2026-11-19)."
+        elif QB["dropped"]:
+            drop_txt = "1주 전 상위 20 중 지금 40위 밖(매도 대상): " + ", ".join(f"<b>{n}</b>(전 {p}위)" for _c, n, p in QB["dropped"])
+        else:
+            drop_txt = "1주 전 상위 20 중 40위 밖으로 밀린 종목 없음(교체 없음)."
+        cond = "200일선 +2% 위로 가면(1주 지연) 상승형으로 전환" if RG["state"] == "down" else "200일선 -2% 아래로 가면(1주 지연) 하락형으로 전환"
+        qr_page = f"""<div class="page">
+  <div class="hdr"><div><h1>퀀트 종합 순위</h1><div class="sub">시총·추정치 {QB['asof']} · 외국인 보유율 {QB['fh_asof']} · 코스피 {RG['asof']} · 시총 {QB['min_cap']:,}억 이상 {QB['n_uni']}종목 · 1주 전 비교 {QB['prev_date'] or '-'}</div></div>
+    <div class="sub">3/3 퀀트 · joonhakkim.github.io/liquidity-dashboard/quant_rank.html</div></div>
+  <div class="hero">
+    <div class="box" style="border-color:{rcol}"><div class="lbl">국면 (코스피 200일선 ±2%p)</div><div class="val" style="color:{rcol}">{rname}</div><div class="sub">{RG['since']}부터</div></div>
+    <div class="box"><div class="lbl">코스피 / 200일선</div><div class="val">{RG['gap']:+.1f}%</div><div class="sub">{RG['close']:,.0f} / {RG['ma200']:,.0f}</div></div>
+    <div class="box"><div class="lbl">판단 기준 (1주 전 이격)</div><div class="val">{RG['gap_lag']:+.1f}%</div><div class="sub">{cond}</div></div>
+  </div>
+  <div class="qguide"><b>{rname} 가중치</b> {' · '.join(f'{k} <b>{w}</b>' for k, w in QB['weights'].items())}
+    &nbsp;|&nbsp; <b>운용</b> 주 1회 상위 20 동일 비중, 들고 있는 종목은 40위 안이면 유지(빠진 자리만 상위에서 채움).
+    11년 백테스트 연 27%(코스피 10%), 최대 낙폭 -43% · 하락 국면 하락형 연 13%(코스피 2%) · 급락 초기엔 코스피보다 더 빠질 수 있음.</div>
+  <h2>상위 20 <span class="sub">묶음 점수 = 유니버스 안 백분위(0~100) · 1M·OP 변화·YoY = % · 외인 = 보유율 % · 시총/OP2 = 내년 영업이익 대비 배수</span></h2>
+  <table class="qr"><tr><th>#</th><th>1주 전</th><th style="text-align:left">종목</th><th style="text-align:left">섹터</th><th>시총(억)</th><th>총점</th>{''.join(f'<th>{GNQ[g]}</th>' for g in gk)}<th>1M%</th><th>FY1 OP 1M</th><th>FY2 OP 1M</th><th>FY1 OP 3M</th><th>TTM YoY</th><th>외인%</th><th>시총/OP2</th></tr>{top20}</table>
+  <h2>21~40위 (보유 중이면 유지하는 구간)</h2>
+  <div class="grid2">{keep_tbl}</div>
+  <div class="note" style="font-size:10px;color:#495057">{drop_txt}</div>
+</div>"""
+    except FileNotFoundError:
+        pass
+    except Exception as e:  # noqa: BLE001
+        print(f"퀀트 순위 3쪽 생략: {e}")
+        qr_page, n_tot = "", 2
     html = f"""<!doctype html>
 <html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>시장 브리핑 {title_date}</title>
@@ -537,12 +603,13 @@ def main():
   .qguide {{ font-size:10px; color:#495057; line-height:1.55; background:#f8f9fa; border-radius:5px; padding:5px 8px; margin:4px 0; }}
   .qtbl td {{ padding:1px 4px; font-size:9.5px; line-height:1.35; }} .qtbl .chip {{ margin-right:6px; }}
   .note {{ color:#868e96; font-size:9.5px; margin-top:4px; }}
+  table.qr td, table.qr th {{ padding:2.5px 4px; font-size:9.8px; }} table.qr tr:nth-child(even) td {{ background:#f8f9fa; }}
   .btn {{ position:fixed; right:16px; top:12px; background:#212529; color:#fff; border:0; border-radius:6px; padding:6px 12px; cursor:pointer; }}
 </style></head><body>
 <button class="btn noprint" onclick="window.print()">인쇄 / PDF</button>
 <div class="page">
   <div class="hdr"><div><h1>시장 브리핑 · {title_date}</h1><div class="sub">국면 {asof:%Y-%m-%d}({WD[asof.weekday()]}) 종가 · 지수·시장 폭·섹터 {sec_asof}(시가총액 파일 기준, 중소형 지수는 국면 기준일) · 섹터 정리 종목 기준 · 자동 생성 {now:%m/%d %H:%M}</div></div>
-    <div class="sub">1/2 시장 판단</div></div>
+    <div class="sub">1/{n_tot} 시장 판단</div></div>
   {f'<div style="background:#fff4e6;border:1px solid #ffa94d;border-radius:4px;padding:1px 6px;margin:2px 0;font-size:9.5px;white-space:nowrap;overflow:hidden"><b>잠정</b> {live_used} 값 = 홈페이지 실시간({live_ts}, 장 마감) · 확정 데이터 미반영 · 이익추정치·실적 가속은 확정일 기준</div>' if live_used else ''}
   <div class="hero">
     <div class="box" style="border-color:{PH3C[cur3]}"><div class="lbl">국면</div><div class="val" style="color:{PH3C[cur3]}">{cur3}</div><div class="sub">{since:%m/%d}부터 {k}거래일째</div></div>
@@ -567,7 +634,7 @@ def main():
   <div class="note">기저효과 극단치(±200%p 초과)·5종목 미만 섹터 제외. 밸류 등급 = OP밴드 3년 하위 10% 바텀 대비 %의 5분위(상 = 바텀에 가까움).</div>
 </div>
 <div class="page">
-  <div class="hdr"><div><h1>섹터 흐름</h1><div class="sub">데이터 기준 {sec_asof} · 섹터 정리 {len(secs)}개 섹터 · 종목 수 기준 비율</div></div><div class="sub">2/2 섹터 · joonhakkim.github.io/liquidity-dashboard</div></div>
+  <div class="hdr"><div><h1>섹터 흐름</h1><div class="sub">데이터 기준 {sec_asof} · 섹터 정리 {len(secs)}개 섹터 · 종목 수 기준 비율</div></div><div class="sub">2/{n_tot} 섹터 · joonhakkim.github.io/liquidity-dashboard</div></div>
   <h2>섹터 4사분면 (가로 15일선 위 비율 50% · 세로 8일-15일선 위 비율 0) <span class="sub">← = 1주 전 사분면</span></h2>
   {quad_svg}
   <div class="qguide"><b>읽는 법</b> 가로 = 섹터 종목 중 15일선 위에 있는 비율(오른쪽일수록 단기 추세 강함, 50%가 기준) · 세로 = 8일선 위 비율 − 15일선 위 비율(위쪽일수록 최근 며칠 더 좋아지는 중, 0이 기준).
@@ -585,6 +652,7 @@ def main():
     <div><h2>데드크로스 신규 진입 {len(new_dead)}개 <span class="sub">(최근 5거래일 · 교차일·차이·8일/15일)</span></h2><table>{weak}</table></div>
   </div>
 </div>
+{qr_page}
 </body></html>"""
     DESKTOP_DIR.mkdir(parents=True, exist_ok=True)
     OUT_HTML = DESKTOP_DIR / f"_briefing_{now:%Y%m%d_%H%M%S}.html"   # PDF 변환용 임시 파일
@@ -602,7 +670,7 @@ def main():
         print(f"PDF 저장 완료: {dst}")
         # 3장으로 넘치면 교차 섹터 표 줄 수를 하나씩 줄여 다시 만든다(2026-10-26 사용자 "또 브리핑 3장이다")
         n_pages = len(re.findall(rb"/Type\s*/Page[^s]", dst.read_bytes()))
-        if n_pages > 2 and XN > 2:
+        if n_pages > n_tot and XN > 2:
             print(f"PDF {n_pages}장 - 교차 섹터 표 {XN}줄 -> {XN - 1}줄로 다시 생성")
             OUT_HTML.unlink(missing_ok=True)
             subprocess.run([sys.executable, __file__], env={**os.environ, "BRIEF_XN": str(XN - 1)}, check=False)

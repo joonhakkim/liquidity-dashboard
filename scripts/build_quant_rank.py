@@ -38,8 +38,71 @@ OUT_PATH = os.path.join(BASE_DIR, "docs", "quant_rank.html")
 SECTOR_MAP_PATH = os.path.join(BASE_DIR, "data", "sector_map.csv")
 KOSPI_PATH = os.path.join(BASE_DIR, "data", "kospi_index_cache.csv")
 FH_PATH = os.path.join(BASE_DIR, "data", "screening", "cache", "foreign_hold.pkl")
+BRIEF_PATH = os.path.join(BASE_DIR, "data", "quant_rank_brief.json")   # 아침 브리핑 3쪽용(현재 국면 상위 40)
+HIST_PATH = os.path.join(BASE_DIR, "data", "quant_rank_hist.json")     # 날짜별 상위 40 기록(1주 전 순위 비교용)
 D1M, D3M, D6M, D12M = 21, 63, 126, 252
 BAND_TH, LAG = 0.02, 5
+# 페이지 JS와 같은 규칙(바꿀 때 둘 다 바꿀 것)
+GRP = {"M": [(0, -1), (1, 1), (2, 1), (3, 1), (4, 1)], "R": [(5, 1), (6, 1)], "V": [(7, -1), (8, -1)],
+       "Y": [(9, 1)], "A": [(10, 1)], "R3": [(11, 1)], "H": [(13, 1)]}
+MID = {"Y", "A", "R3", "H"}
+WS = {"up": {"M": 0.5, "R": 1.5, "V": 0, "Y": 0, "A": 1, "R3": 0.5, "H": 0.5},
+      "down": {"M": 0, "R": 3, "V": 1, "Y": 1, "A": 1, "R3": 0, "H": 0}}
+GN = {"M": "모멘텀", "R": "추정치 상향", "V": "밸류", "Y": "이익 성장", "A": "성장 가속", "R3": "3개월 상향", "H": "외국인 보유율"}
+
+
+def score_rows(rows, state, min_cap=1000):
+    """페이지 calc()와 같은 점수. 반환: 총점 내림차순 DataFrame(c, n, s, cap, v, 묶음 점수, tot)."""
+    rs = [r for r in rows if r["cap"] >= min_cap]
+    df = pd.DataFrame(rs)
+    for g, items in GRP.items():
+        ps = []
+        for k, d in items:
+            x = pd.Series([r["v"][k] for r in rs], dtype=float) * d
+            ok = x.notna()
+            p = pd.Series(np.nan, index=x.index)
+            m = int(ok.sum())
+            if m:
+                p[ok] = (x[ok].rank(method="first") - 1) / (m - 1) * 100 if m > 1 else 50.0
+            ps.append(p)
+        P = pd.concat(ps, axis=1).mean(axis=1, skipna=True)
+        df[g] = P.fillna(50.0) if g in MID else P
+    W = WS[state]
+    sw = sum(W.values())
+    df["tot"] = sum(W[g] * df[g] for g in GRP if W[g] > 0) / sw
+    return df.dropna(subset=["tot"]).sort_values("tot", ascending=False).reset_index(drop=True)
+
+
+def save_brief(out, min_cap=1000, keep=40):
+    state = out["reg"]["state"]
+    df = score_rows(out["rows"], state, min_cap)
+    top = df.head(keep)
+    hist = {}
+    if os.path.exists(HIST_PATH):
+        try:
+            hist = json.load(open(HIST_PATH, encoding="utf-8"))
+        except Exception:
+            hist = {}
+    hist[out["asof"]] = {"state": state, "top": [[r.c, r.n] for r in top.itertuples()]}
+    hist = dict(sorted(hist.items())[-60:])
+    json.dump(hist, open(HIST_PATH, "w", encoding="utf-8"), ensure_ascii=False)
+    # 1주 전 = 기준일 7일 전 이전의 마지막 기록
+    cut = (pd.Timestamp(out["asof"]) - pd.Timedelta(days=7)).strftime("%Y-%m-%d")
+    prev_key = max([d for d in hist if d <= cut], default=None)
+    prev = hist[prev_key]["top"] if prev_key else None
+    prank = {c: i + 1 for i, (c, _) in enumerate(prev)} if prev else {}
+    now40 = set(top.c)
+    dropped = [[c, n, i + 1] for i, (c, n) in enumerate(prev[:20]) if c not in now40] if prev else []
+    rows = []
+    for i, r in enumerate(top.itertuples(), 1):
+        rows.append({"rk": i, "c": r.c, "n": r.n, "s": r.s, "cap": r.cap, "tot": round(r.tot, 1),
+                     "g": {g: (None if pd.isna(getattr(r, g)) else round(float(getattr(r, g)))) for g in GRP},
+                     "v": r.v, "prev": prank.get(r.c) if prev else None})
+    brief = {"asof": out["asof"], "fh_asof": out["fh_asof"], "reg": out["reg"], "min_cap": min_cap, "n_uni": len(df),
+             "weights": {GN[g]: w for g, w in WS[state].items() if w > 0}, "prev_date": prev_key,
+             "rows": rows, "dropped": dropped}
+    json.dump(brief, open(BRIEF_PATH, "w", encoding="utf-8"), ensure_ascii=False)
+    return df
 
 
 def load_band_arrays():
@@ -173,6 +236,8 @@ def main():
         rows.append({"c": c, "n": name, "s": sec_of.get(c) or naver.get(c) or "-", "cap": int(round(cc / 1e8)),
                      "v": [rd(v, s) for v, s in zip(vals, scale)]})
     out = {"asof": asof.strftime("%Y-%m-%d"), "fh_asof": fh_asof, "reg": reg, "rows": rows}
+    sdf = save_brief(out)
+    print("브리핑용 상위 5:", ", ".join(sdf["n"].head(5)))
     html = (TEMPLATE.replace("__UPDATED__", datetime.now().strftime("%Y-%m-%d %H:%M")).replace("__ASOF__", out["asof"])
             .replace("__FHASOF__", fh_asof).replace("__KASOF__", reg["asof"])
             .replace("__DATA__", json.dumps(out, ensure_ascii=False, separators=(",", ":"))))
