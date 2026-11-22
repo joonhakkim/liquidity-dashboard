@@ -161,7 +161,8 @@ def get_holdings(portfolio, as_of=None):
 
 
 def append_trade(trades_path, date, code, name, action, price, amount, sector):
-    line = f"{date},{code},{name},{action},{price:.0f},{amount:.1f},{sector}\n"
+    q = lambda s: f'"{s}"' if ("," in str(s) or '"' in str(s)) else s   # 2026-11-22: 섹터명 "호텔,레스토랑,레저"가 쉼표로 칸을 깨뜨려서 따옴표 처리
+    line = f"{date},{code},{q(name)},{action},{price:.0f},{amount:.1f},{q(sector)}\n"
     with open(trades_path, "a", encoding="utf-8") as f:
         f.write(line)
 
