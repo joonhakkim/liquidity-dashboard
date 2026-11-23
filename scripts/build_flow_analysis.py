@@ -71,7 +71,11 @@ def load_flows():
     두 파일 수정시각이 같으면 캐시(2026-10-27 갱신용 파일 추가 - 밴드 파일과 같은 방식)."""
     key = (os.path.getmtime(FLOW_XLSX), os.path.getmtime(FLOW_UPD_XLSX) if os.path.exists(FLOW_UPD_XLSX) else None)
     if os.path.exists(CACHE_PATH):
-        c = pd.read_pickle(CACHE_PATH)
+        try:   # 2026-11-24: 시스템 파이썬(pandas 3)이 쓴 캐시는 .venv(pandas 2)에서 못 읽음 -> 엑셀에서 다시 만듦
+            c = pd.read_pickle(CACHE_PATH)
+        except Exception as e:
+            print(f"수급 캐시 읽기 실패({type(e).__name__}) - 엑셀에서 다시 만듦")
+            c = {}
         if c.get("mtime") == key:
             return c["F"], c["I"], c["names"]
     F, I, nm = _parse_flow_xlsx(FLOW_XLSX)
