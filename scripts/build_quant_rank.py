@@ -83,6 +83,8 @@ FLOW_PATH = os.path.join(BASE_DIR, "data", "screening", "cache", "naver_flow.pkl
 def score_rows(rows, state, min_cap=2000):
     """페이지 calc()와 같은 점수. 반환: 총점 내림차순 DataFrame(c, n, s, cap, v, 묶음 점수, tot)."""
     rs = [r for r in rows if r["cap"] >= min_cap]
+    if state == "down":   # 하락형은 TTM 대비 FY1을 보므로 TTM 영업흑자 + FY1 추정 흑자만(v[20] 있고 v[12]!=1)
+        rs = [r for r in rs if r["v"][20] is not None and r["v"][12] != 1]
     df = pd.DataFrame(rs)
     for g, items in GRP.items():
         if g in RAW:
@@ -344,8 +346,12 @@ def make_rows(t, capf, op1f, op2f, ttmf, fhF, meta, naver, sec_of, bnames):
         if len(F):
             fh = F.ffill(limit=5).iloc[-1]
             fh_asof = F.index[-1].strftime("%Y-%m-%d")
+    # 거래정지(마지막 거래일 거래대금 0)는 제외 - 거래대금 감소 항목에서 만점을 받는 것을 막음(2026-11-26 사용자)
+    halted = set(TVq.columns[TVq.iloc[-1] == 0]) if len(TVq) and (asof - TVq.index[-1]).days <= 7 else set()
     rows = []
     for c in capf.columns:
+        if c in halted:
+            continue
         name = meta["name"].get(c) or bnames.get(c)
         if not name or name.endswith("우") or name.endswith("우B") or name.endswith("우(전환)"):
             continue
@@ -425,7 +431,7 @@ TEMPLATE = r"""<!doctype html>
     회색 칸은 지금 가중치 0인 참고 항목(이전 모델 항목 포함).<br>
     <b>항목</b> 모멘텀(1개월은 하락률 클수록 고점수, 6·12개월, 최근 1개월 제외 6·12개월) &middot; 추정치 상향(FY1·FY2 영업이익 1개월) &middot; 밸류(시총/영업이익 FY1·FY2, 낮을수록) &middot;
     이익 성장(실적 TTM 영업이익 1년 변화) &middot; 성장 가속(그 값의 3개월 변화) &middot; 3개월 추정치 상향(FY1) &middot; 외국인 보유율. 각 항목은 유니버스 안 백분위(0~100).
-    유니버스 = FY2 영업이익 추정치 흑자(올해 적자·내년 흑자 포함, <span class="tag">흑전</span> 표시). <b>수익률은 시총 변화</b>라 증자·분할 때 왜곡될 수 있음.
+    유니버스 = FY2 영업이익 추정치 흑자(올해 적자·내년 흑자 포함, <span class="tag">흑전</span> 표시). 거래정지 종목은 제외. <b>하락형일 때는 실적 TTM 영업흑자 + FY1 추정 흑자인 종목만</b>(비교할 값이 없는 종목 제외). <b>수익률은 시총 변화</b>라 증자·분할 때 왜곡될 수 있음.
   </div>
   <div class="ctl">
     가중치 <select id="mode"><option value="auto">현재 국면</option><option value="up">상승형으로 보기</option><option value="down">하락형으로 보기</option></select>
@@ -471,7 +477,7 @@ function pct(arr, dir){            // 백분위 0~100 (좋을수록 높음), 값
 function weights(){ const m = document.getElementById('mode').value; return WS[m==='auto'? RG.state : m]; }
 function calc(){
   const minCap = +document.getElementById('minCap').value||0, W = weights();
-  let rows = D.rows.filter(r => r.cap >= minCap);
+  let rows = D.rows.filter(r => r.cap >= minCap && (curState()!=='down' || (r.v[20]!=null && r.v[12]!==1)));   // 하락형: TTM 흑자 + FY1 추정 흑자만
   const G = {};
   for (const g in GRP){
     if (g in RAW){ G[g] = rows.map(r=> (r.v[GRP[g][0][0]]||0)*100); continue; }
