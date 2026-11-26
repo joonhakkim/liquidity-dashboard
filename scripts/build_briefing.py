@@ -551,7 +551,7 @@ def main():
         if QB["prev_date"] is None:
             drop_txt = "순위 기록이 1주 쌓이면 1주 전 순위·빠진 종목이 표시됩니다(기록 시작 2026-11-19)."
         elif QB["dropped"]:
-            drop_txt = "1주 전 상위 20 중 지금 40위 밖(매도 대상): " + ", ".join(f"<b>{n}</b>(전 {p}위)" for _c, n, p in QB["dropped"])
+            drop_txt = "1주 전 상위 20 중 지금 40위 밖(매도 대상): " + ", ".join(f"<b>{n}</b>(전 {p}위)" for _c, n, p in QB["dropped"][:6]) + (f" 외 {len(QB['dropped']) - 6}개" if len(QB["dropped"]) > 6 else "")
         else:
             drop_txt = "1주 전 상위 20 중 40위 밖으로 밀린 종목 없음(교체 없음)."
         cond = "200일선 +2% 위로 가면(1주 지연) 상승형으로 전환" if RG["state"] == "down" else "200일선 -2% 아래로 가면(1주 지연) 하락형으로 전환"
@@ -565,7 +565,7 @@ def main():
   </div>
   <div class="qguide"><b>{rname} 가중치</b> {' · '.join(f'{k} <b>{w}</b>' for k, w in QB['weights'].items())}
     &nbsp;|&nbsp; <b>운용</b> 주 1회 상위 20 동일 비중, 들고 있는 종목은 40위 안이면 유지(빠진 자리만 상위에서 채움).
-    11년 백테스트 연 27%(코스피 10%), 최대 낙폭 -43% · 하락 국면 하락형 연 13%(코스피 2%) · 급락 초기엔 코스피보다 더 빠질 수 있음.</div>
+    11년 백테스트(2,000억 이상) 연 45%(코스피 10%), 최대 낙폭 -45% · 급락 초기엔 코스피보다 더 빠질 수 있음.</div>
   <h2>상위 20 <span class="sub">총점 = {rname} 가중 백분위(0~100) · 1M·OP 변화·YoY = % · 외인 = 보유율 % · 시총/OP2 = 내년 영업이익 대비 배수</span></h2>
   <table class="qr"><tr><th>#</th><th>1주 전</th><th style="text-align:left">종목</th><th style="text-align:left">섹터</th><th>시총(억)</th><th>총점</th><th>1M%</th><th>FY1 OP<br>1M</th><th>FY2 OP<br>1M</th><th>FY1 OP<br>3M</th><th>TTM<br>YoY</th><th>외인%</th><th>시총/<br>OP2</th><th class='memo' style='text-align:left'>비고</th></tr>{top20}</table>
   <h2>21~40위 (보유 중이면 유지하는 구간)</h2>
@@ -586,7 +586,7 @@ def main():
   body {{ font-family: "Malgun Gothic", -apple-system, sans-serif; color:#212529; background:#f1f3f5; margin:0; font-size:11px; line-height:1.45; }}
   .page {{ width:210mm; min-height:277mm; margin:12px auto; background:#fff; padding:9mm 10mm; box-shadow:0 1px 4px #0002; }}
   @media print {{ body {{ background:#fff; }} .page {{ margin:0; box-shadow:none; padding:0; width:auto; min-height:auto; page-break-after:always; }} .noprint {{ display:none; }} }}
-  h1 {{ font-size:17px; margin:0; }} h2 {{ font-size:12.5px; margin:10px 0 4px; padding-bottom:2px; border-bottom:2px solid #343a40; }}
+  h1 {{ font-size:17px; margin:0; }} h2 {{ font-size:12.5px; margin:7px 0 3px; padding-bottom:2px; border-bottom:2px solid #343a40; }}
   .hdr {{ display:flex; justify-content:space-between; align-items:flex-end; border-bottom:3px solid #212529; padding-bottom:4px; margin-bottom:6px; }}
   .hdr .sub, .sub {{ color:#868e96; font-size:10px; }}
   .hero {{ display:flex; gap:8px; margin:6px 0; }}
@@ -603,7 +603,7 @@ def main():
   .qguide {{ font-size:10px; color:#495057; line-height:1.55; background:#f8f9fa; border-radius:5px; padding:5px 8px; margin:4px 0; }}
   .qtbl td {{ padding:1px 4px; font-size:9.5px; line-height:1.35; }} .qtbl .chip {{ margin-right:6px; }}
   .note {{ color:#868e96; font-size:9.5px; margin-top:4px; }}
-  table.qr td, table.qr th {{ padding:2px 4px; font-size:9.8px; }} table.qr td {{ height:6.6mm; }} table.qr tr:nth-child(even) td {{ background:#f8f9fa; }}
+  table.qr td, table.qr th {{ padding:2px 4px; font-size:9.8px; }} table.qr td {{ height:6.2mm; }} table.qr tr:nth-child(even) td {{ background:#f8f9fa; }}
   table.qr th.memo, table.qr td.memo {{ width:52mm; border-left:1px solid #ced4da; }} table.qr td.memo {{ border-bottom:1px solid #adb5bd; background:#fff !important; }}
   .btn {{ position:fixed; right:16px; top:12px; background:#212529; color:#fff; border:0; border-radius:6px; padding:6px 12px; cursor:pointer; }}
 </style></head><body>
