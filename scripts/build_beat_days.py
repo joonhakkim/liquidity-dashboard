@@ -183,7 +183,7 @@ TEMPLATE = r"""<!doctype html>
   <div class="ctl">
     <span class="seg" id="seg"></span>
     시장 <select id="mkt"><option value="">전체</option><option value="P">코스피</option><option value="Q">코스닥</option></select>
-    시총 하한(억) <input type="number" id="minCap" value="1000" step="500">
+    시총 하한(억) <input type="number" id="minCap" value="2000" step="500">
     최소 이긴 날 <select id="minW"></select>
     <label><input type="checkbox" id="all3"> 5·7·10일 모두 승률 ≥ <input type="number" id="allPct" value="70" step="10" style="width:46px">%</label>
     섹터 <select id="sec"><option value="">전체</option></select>
