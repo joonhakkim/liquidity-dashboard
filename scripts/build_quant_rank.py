@@ -171,7 +171,37 @@ def main():
     cap, op1, op2, ttm = cap.loc[idx], op1.reindex(idx), op2.reindex(idx), ttm.reindex(idx)
     # 추정치는 5일까지만 채운다(무기한 채우면 커버리지가 끊긴 종목의 몇 년 전 추정치가 남아 유니버스가 2.7배로 부풀었다 - 2026-11-19 발견)
     capf, op1f, op2f, ttmf = cap.ffill(limit=3), op1.ffill(limit=5), op2.ffill(limit=5), ttm.ffill(limit=5)
-    t = len(capf) - 1
+    T = len(capf) - 1
+    fhF = pd.read_pickle(FH_PATH).sort_index() if os.path.exists(FH_PATH) else None
+    sm = pd.read_csv(SECTOR_MAP_PATH, dtype=str)
+    meta = pd.DataFrame({"name": sm["name"].values}, index=sm["code"].str.zfill(6).values)
+    meta = meta[~meta.index.duplicated()]
+    naver = dict(zip(sm["code"].str.zfill(6), sm["sector"]))
+    sectors, _ = assign_sectors(meta)
+    sec_of = {c: (s if src == "U" else None) for c, (s, src) in sectors.items()}
+    out = make_rows(T, capf, op1f, op2f, ttmf, fhF, meta, naver, sec_of, bnames)
+    # 2026-11-26: 전일·1주 전 순위(그날 데이터로 지금 가중치를 다시 계산 - 가중치를 바꿔도 비교가 맞게)
+    prev = {}
+    for key, back in (("d1", 1), ("d5", 5)):
+        po = make_rows(T - back, capf, op1f, op2f, ttmf, fhF, meta, naver, sec_of, bnames)
+        prev[key] = {"date": po["asof"],
+                     "rank": {st: {r.c: i + 1 for i, r in enumerate(score_rows(po["rows"], st).itertuples())} for st in WS}}
+    out["prev"] = prev
+    reg = regime()
+    out["reg"] = reg
+    asof, fh_asof, rows = pd.Timestamp(out["asof"]), out["fh_asof"], out["rows"]
+    sdf = save_brief(out)
+    print("브리핑용 상위 5:", ", ".join(sdf["n"].head(5)))
+    html = (TEMPLATE.replace("__UPDATED__", datetime.now().strftime("%Y-%m-%d %H:%M")).replace("__ASOF__", out["asof"])
+            .replace("__FHASOF__", fh_asof).replace("__KASOF__", reg["asof"])
+            .replace("__DATA__", json.dumps(out, ensure_ascii=False, separators=(",", ":"))))
+    with open(OUT_PATH, "w", encoding="utf-8") as fh_out:
+        fh_out.write(html)
+    print(f"종목 {len(rows)}개(시총 하한 전), 기준일 {out['asof']}, 전일 {prev['d1']['date']}, 1주 전 {prev['d5']['date']}, 보유율 {fh_asof}, 국면 {reg['state']}(이격 {reg['gap']}%, 1주 전 {reg['gap_lag']}%, {reg['since']}부터) | 저장: {OUT_PATH} ({len(html) // 1024}KB)")
+
+
+def make_rows(t, capf, op1f, op2f, ttmf, fhF, meta, naver, sec_of, bnames):
+    """기준 행 t의 항목 값. 반환 {"asof", "fh_asof", "rows"}."""
     asof = capf.index[t]
     c0 = capf.iloc[t]
     ret = lambda a, b: capf.iloc[a] / capf.iloc[b] - 1  # noqa: E731
@@ -200,20 +230,11 @@ def main():
     fy1neg = (a1 <= 0)
     # 외국인 보유율(최근 5거래일 안 마지막 값)
     fh, fh_asof = pd.Series(dtype=float), "-"
-    if os.path.exists(FH_PATH):
-        F = pd.read_pickle(FH_PATH).sort_index()
-        F = F.loc[:asof]
+    if fhF is not None:
+        F = fhF.loc[:asof]
         if len(F):
             fh = F.ffill(limit=5).iloc[-1]
             fh_asof = F.index[-1].strftime("%Y-%m-%d")
-    reg = regime()
-    # 이름·섹터
-    sm = pd.read_csv(SECTOR_MAP_PATH, dtype=str)
-    meta = pd.DataFrame({"name": sm["name"].values}, index=sm["code"].str.zfill(6).values)
-    meta = meta[~meta.index.duplicated()]
-    naver = dict(zip(sm["code"].str.zfill(6), sm["sector"]))
-    sectors, _ = assign_sectors(meta)
-    sec_of = {c: (s if src == "U" else None) for c, (s, src) in sectors.items()}
     rows = []
     for c in capf.columns:
         name = meta["name"].get(c) or bnames.get(c)
@@ -235,15 +256,7 @@ def main():
             return None if (v is None or not np.isfinite(v)) else round(float(v) * s, 2)
         rows.append({"c": c, "n": name, "s": sec_of.get(c) or naver.get(c) or "-", "cap": int(round(cc / 1e8)),
                      "v": [rd(v, s) for v, s in zip(vals, scale)]})
-    out = {"asof": asof.strftime("%Y-%m-%d"), "fh_asof": fh_asof, "reg": reg, "rows": rows}
-    sdf = save_brief(out)
-    print("브리핑용 상위 5:", ", ".join(sdf["n"].head(5)))
-    html = (TEMPLATE.replace("__UPDATED__", datetime.now().strftime("%Y-%m-%d %H:%M")).replace("__ASOF__", out["asof"])
-            .replace("__FHASOF__", fh_asof).replace("__KASOF__", reg["asof"])
-            .replace("__DATA__", json.dumps(out, ensure_ascii=False, separators=(",", ":"))))
-    with open(OUT_PATH, "w", encoding="utf-8") as fh_out:
-        fh_out.write(html)
-    print(f"종목 {len(rows)}개(시총 하한 전), 기준일 {out['asof']}, 보유율 {fh_asof}, 국면 {reg['state']}(이격 {reg['gap']}%, 1주 전 {reg['gap_lag']}%, {reg['since']}부터) | 저장: {OUT_PATH} ({len(html) // 1024}KB)")
+    return {"asof": asof.strftime("%Y-%m-%d"), "fh_asof": fh_asof, "rows": rows}
 
 
 TEMPLATE = r"""<!doctype html>
@@ -269,7 +282,7 @@ TEMPLATE = r"""<!doctype html>
   .note { font-size:12px; color:#9aa0a6; line-height:1.75; background:#1a1d24; border-radius:10px; padding:12px 16px; margin-bottom:14px; } .note b { color:#ffa94d; }
   table { border-collapse:collapse; width:100%; font-size:12px; }
   th, td { padding:5px 7px; border-bottom:1px solid #23262e; text-align:right; white-space:nowrap; }
-  th:nth-child(-n+3), td:nth-child(-n+3) { text-align:left; }
+  th:nth-child(4), td:nth-child(4), th:nth-child(5), td:nth-child(5) { text-align:left; }
   th { color:#9aa0a6; font-weight:normal; cursor:pointer; position:sticky; top:0; background:#12151b; } th.sorted { color:#4dabf7; }
   tr.keep td { background:#151922; } tr.cut td { border-top:2px solid #4dabf7; }
   .pos { color:#ff8787; } .neg { color:#74a7ff; } .sub { color:#7c828b; }
@@ -303,6 +316,7 @@ TEMPLATE = r"""<!doctype html>
     표시 <select id="topn"><option selected>20</option><option>40</option><option>100</option><option>9999</option></select>
     <span id="cnt" class="sub"></span>
   </div>
+  <div class="box" id="chg"></div>
   <div class="box"><div class="tblwrap"><table id="tbl"></table></div></div>
 <script>
 const D = __DATA__;
@@ -344,27 +358,54 @@ function calc(){
     for (const g in GRP){ o[g] = G[g][i]; if (W[g]>0){ if (G[g][i]==null) bad = true; else tot += W[g]*G[g][i]; } }
     o.tot = bad? null : tot/sw; return o; });
   rows.sort((a,b)=>(b.tot??-1)-(a.tot??-1)); rows.forEach((r,i)=>r.rk = r.tot==null? null : i+1);
+  const st = curState();
+  rows.forEach(r=>{ for (const k of ['d1','d5']){ const p = D.prev[k].rank[st][r.c]; r[k+'p'] = p??null; r[k] = (p!=null && r.rk!=null)? p - r.rk : null; } });
   return rows;
+}
+function curState(){ const m = document.getElementById('mode').value; return m==='auto'? RG.state : m; }
+function mv(r, k){                  // 순위 변화 표시: ▲ 오름 / ▼ 내림 / 신규
+  if (r.rk==null) return '';
+  if (r[k+'p']==null) return '<span class="tag">신규</span>';
+  const d = r[k]; return d>0? `<span class="pos">▲${d}</span>` : d<0? `<span class="neg">▼${-d}</span>` : '<span class="sub">-</span>';
+}
+function renderChg(all){
+  const st = curState(), P = D.prev.d1, top = all.filter(r=>r.rk!=null && r.rk<=20);
+  const inn = top.filter(r=>r.d1p==null || r.d1p>20);
+  const byC = Object.fromEntries(all.map(r=>[r.c, r]));
+  const out = Object.entries(P.rank[st]).filter(([c,p])=>p<=20 && !(byC[c] && byC[c].rk!=null && byC[c].rk<=20))
+                .map(([c,p])=>({c, p, r: byC[c]})).sort((a,b)=>a.p-b.p);
+  const top100 = all.filter(r=>r.rk!=null && r.rk<=100 && r.d1!=null);
+  const up = top100.slice().sort((a,b)=>b.d1-a.d1).filter(r=>r.d1>0).slice(0,8);
+  const dn = all.filter(r=>r.rk!=null && r.d1p!=null && r.d1p<=100 && r.d1<0).sort((a,b)=>a.d1-b.d1).slice(0,8);
+  const nm = r => `<b>${r.n}</b>`;
+  document.getElementById('chg').innerHTML =
+    `<div style="font-size:13px;margin-bottom:6px"><b>전일(${P.date}) 대비</b> <span class="sub">&middot; 같은 가중치로 그날 데이터를 다시 계산(시총 1,000억 기준) &middot; 표의 '전일'·'1주' 칸 = 순위 변화</span></div>
+     <div class="wt" style="margin-top:0">
+     <b>상위 20 진입</b> ${inn.length? inn.map(r=>`${nm(r)}(${r.d1p? r.d1p+'→' : '신규→'}${r.rk})`).join(', ') : '없음'}<br>
+     <b>상위 20 이탈</b> ${out.length? out.map(o=>`${o.r? nm(o.r) : o.c}(${o.p}→${o.r && o.r.rk? o.r.rk : '제외'})`).join(', ') : '없음'}<br>
+     <b>많이 오름</b>(100위 안) ${up.length? up.map(r=>`${nm(r)} ${r.d1p}→${r.rk}`).join(' &middot; ') : '없음'}<br>
+     <b>많이 내림</b>(전일 100위 안) ${dn.length? dn.map(r=>`${nm(r)} ${r.d1p}→${r.rk}`).join(' &middot; ') : '없음'}</div>`;
 }
 function render(){
   const W = weights();
   document.getElementById('wt').innerHTML = `<b>${regName(document.getElementById('mode').value==='auto'? RG.state : document.getElementById('mode').value)} 가중치</b> &nbsp;` +
     Object.entries(W).filter(([g,w])=>w>0).map(([g,w])=>`${GN[g]} <b>${w}</b>`).join(' &middot; ');
   const all = calc(), sec = document.getElementById('sec').value;
+  renderChg(all);
   const q = document.getElementById('q').value.trim(), topn = +document.getElementById('topn').value;
   let rows = all.filter(r=>r.rk!=null && (!sec||r.s===sec) && (!q||r.n.includes(q)));
   const key = sortKey, gv = (r)=> key==='n'||key==='s'? r[key] : (key.startsWith('v')? r.v[+key.slice(1)] : r[key]);
   rows.sort((a,b)=>{ const x=gv(a), y=gv(b); if(x==null) return 1; if(y==null) return -1; return (x>y?1:x<y?-1:0)*sortDir; });
   document.getElementById('cnt').textContent = `유니버스 ${all.filter(r=>r.rk!=null).length}종목 중 ${rows.length}개`;
   const on = g => W[g]>0? '' : ' style="opacity:.45"';
-  const H = [['rk','#'],['n','종목'],['s','섹터'],['cap','시총(억)'],['tot','총점'],['M','모멘텀'],['R','추정치'],['V','밸류'],['Y','이익성장'],['A','성장가속'],['R3','3M상향'],['H','외인보유'],
+  const H = [['rk','#'],['d1','전일'],['d5','1주'],['n','종목'],['s','섹터'],['cap','시총(억)'],['tot','총점'],['M','모멘텀'],['R','추정치'],['V','밸류'],['Y','이익성장'],['A','성장가속'],['R3','3M상향'],['H','외인보유'],
     ['v0','1M%'],['v1','6M%'],['v2','12M%'],['v5','FY1 OP 1M%'],['v6','FY2 OP 1M%'],['v11','FY1 OP 3M%'],['v9','TTM OP YoY%'],['v13','외인%'],['v7','시총/OP1'],['v8','시총/OP2']];
   const gcol = {M:1,R:1,V:1,Y:1,A:1,R3:1,H:1};
   let h = '<tr>'+H.map(([k,t])=>`<th data-k="${k}" class="${k===sortKey?'sorted':''}"${k in gcol? on(k):''}>${t}</th>`).join('')+'</tr>';
   const byRank = sortKey==='rk' && !sec && !q;
   h += rows.slice(0, topn).map(r=>{
     const trc = byRank && r.rk>20 && r.rk<=40 ? (r.rk===21? 'keep cut':'keep') : '';
-    return `<tr class="${trc}"><td>${r.rk}</td><td>${r.n}${r.v[12]===1?'<span class="tag">흑전</span>':''}</td><td class="sub">${r.s}</td><td>${r.cap.toLocaleString()}</td>
+    return `<tr class="${trc}"><td>${r.rk}</td><td>${mv(r,'d1')}</td><td>${mv(r,'d5')}</td><td>${r.n}${r.v[12]===1?'<span class="tag">흑전</span>':''}</td><td class="sub">${r.s}</td><td>${r.cap.toLocaleString()}</td>
     <td><span class="bar" style="width:${r.tot*0.6}px"></span>${f(r.tot)}</td>` +
     ['M','R','V','Y','A','R3','H'].map(g=>`<td${on(g)}>${f(r[g],0)}</td>`).join('') +
     [0,1,2,5,6,11,9].map(k=>`<td class="${cl(r.v[k])}">${k===9 && r.v[k]!=null && Math.abs(r.v[k])>=500? (r.v[k]>0?'500+':'-500') : f(r.v[k])}</td>`).join('') +
