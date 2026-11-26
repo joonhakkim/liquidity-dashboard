@@ -16,7 +16,7 @@
   - 3개월 추정치 상향: FY1 추정치 3개월 변화
   - 외국인 보유율: 네이버 일별(fetch_foreign_hold.py)
   - 이익 성장·3개월 상향·보유율이 없으면 중간값(50)으로 둔다(백테스트와 같음)
-유니버스: FY2 영업이익 추정치 흑자(FY1 적자·FY2 흑자 = 내년 흑전도 포함), 우선주 제외. 시총 하한 기본 1,000억(페이지에서 변경).
+유니버스: FY2 영업이익 추정치 흑자(FY1 적자·FY2 흑자 = 내년 흑전도 포함), 우선주 제외. 시총 하한 기본 2,000억(2026-11-26 사용자: 그 밑은 못 삼)(페이지에서 변경).
 수급 항목은 11년 검증에서 비용 차감 후 손해라 뺐다.
 데이터: 기업 밴드 찾기 2(+갱신용) 일별 시총·영업이익 추정치·실적 TTM, data/kospi_index_cache.csv, foreign_hold.pkl.
 주의: 수익률은 시가총액 변화로 계산하므로 유·무상증자 등 주식수 변화가 섞인다.
@@ -75,7 +75,7 @@ GN = {"M": "모멘텀", "R": "추정치 상향", "V": "밸류", "Y": "이익 성
 FLOW_PATH = os.path.join(BASE_DIR, "data", "screening", "cache", "naver_flow.pkl")
 
 
-def score_rows(rows, state, min_cap=1000):
+def score_rows(rows, state, min_cap=2000):
     """페이지 calc()와 같은 점수. 반환: 총점 내림차순 DataFrame(c, n, s, cap, v, 묶음 점수, tot)."""
     rs = [r for r in rows if r["cap"] >= min_cap]
     df = pd.DataFrame(rs)
@@ -100,7 +100,7 @@ def score_rows(rows, state, min_cap=1000):
     return df.dropna(subset=["tot"]).sort_values("tot", ascending=False).reset_index(drop=True)
 
 
-def save_brief(out, min_cap=1000, keep=40):
+def save_brief(out, min_cap=2000, keep=40):
     state = out["reg"]["state"]
     df = score_rows(out["rows"], state, min_cap)
     top = df.head(keep)
@@ -423,7 +423,7 @@ TEMPLATE = r"""<!doctype html>
   </div>
   <div class="ctl">
     가중치 <select id="mode"><option value="auto">현재 국면</option><option value="up">상승형으로 보기</option><option value="down">하락형으로 보기</option></select>
-    시총 하한(억) <input type="number" id="minCap" value="1000" step="100">
+    시총 하한(억) <input type="number" id="minCap" value="2000" step="100">
     섹터 <select id="sec"><option value="">전체</option></select>
     검색 <input type="text" id="q" placeholder="종목명">
     표시 <select id="topn"><option selected>20</option><option>40</option><option>100</option><option>9999</option></select>
@@ -499,7 +499,7 @@ function renderChg(all){
   const dn = all.filter(r=>r.rk!=null && r.d1p!=null && r.d1p<=100 && r.d1<0).sort((a,b)=>a.d1-b.d1).slice(0,8);
   const nm = r => `<b>${r.n}</b>`;
   document.getElementById('chg').innerHTML =
-    `<div style="font-size:13px;margin-bottom:6px"><b>전일(${P.date}) 대비</b> <span class="sub">&middot; 같은 가중치로 그날 데이터를 다시 계산(시총 1,000억 기준) &middot; 표의 '전일'·'1주' 칸 = 순위 변화</span></div>
+    `<div style="font-size:13px;margin-bottom:6px"><b>전일(${P.date}) 대비</b> <span class="sub">&middot; 같은 가중치로 그날 데이터를 다시 계산(시총 2,000억 기준) &middot; 표의 '전일'·'1주' 칸 = 순위 변화</span></div>
      <div class="wt" style="margin-top:0">
      <b>상위 20 진입</b> ${inn.length? inn.map(r=>`${nm(r)}(${r.d1p? r.d1p+'→' : '신규→'}${r.rk})`).join(', ') : '없음'}<br>
      <b>상위 20 이탈</b> ${out.length? out.map(o=>`${o.r? nm(o.r) : o.c}(${o.p}→${o.r && o.r.rk? o.r.rk : '제외'})`).join(', ') : '없음'}<br>
