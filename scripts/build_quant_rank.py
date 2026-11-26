@@ -46,8 +46,10 @@ BAND_TH, LAG = 0.02, 5
 # 페이지 JS와 같은 규칙(바꿀 때 둘 다 바꿀 것)
 GRP = {"M": [(0, -1), (1, 1), (2, 1), (3, 1), (4, 1)], "R": [(5, 1), (6, 1)], "V": [(7, -1), (8, -1)],
        "Y": [(9, 1)], "A": [(10, 1)], "R3": [(11, 1)], "H": [(13, 1)], "O": [(14, 1)], "P": [(15, 1)], "IR": [(16, 1)],
-       "MR": [(0, 1), (1, -1), (2, -1), (3, -1), (4, -1)], "B5": [(17, 1)]}
-MID = {"Y", "A", "R3", "H", "O", "P", "IR", "B5"}
+       "MR": [(0, 1), (1, -1), (2, -1), (3, -1), (4, -1)], "B5": [(17, 1)],
+       "PB": [(19, 1)], "OB": [(18, -1)], "FG": [(20, -1)], "TV": [(21, -1)], "NEG": [(12, 1)]}
+MID = {"Y", "A", "R3", "H", "O", "P", "IR", "B5", "PB", "OB", "FG", "TV"}
+RAW = {"NEG"}   # 백분위가 아니라 값 그대로(0/1 → 0/100) 쓰는 가점
 # 2026-11-26: 하락형에 수급 3개(10년 수급 연구 생존 신호) 각 0.5 추가 - 11년 백테스트 연 27.2→31.0%, 2016~20 27.9→33.6,
 # 2021~26 26.6→29.0, 하락 국면 11.2→20.6, 2022 -12→-5%. 상승형에 넣으면 오히려 나빠져서(27.2→24.3) 하락형만.
 # 2026-11-26(2차): 1년 수익률 대신 1주·2주·1달·3달 성과(코스피 대비 평균 초과·하위 10%)로 다시 고름(사용자 요청, 안2).
@@ -55,10 +57,21 @@ MID = {"Y", "A", "R3", "H", "O", "P", "IR", "B5"}
 #   하락형: 밸류 1→0.5, '모멘텀 역방향'(6·12개월 낙폭 + 최근 1개월 덜 빠짐) 2 추가
 #   11년: 연 31.0→35.8%, 1달 평균 초과 +1.59→+1.91%p, 1달 하위10% -4.1→-3.4, 3달 하위10% -5.7→-3.9, 최악의 달 초과 -19.6→-9.8.
 #   하락형 변경은 2016~20·2021~26 둘 다 개선. 상승형 변경은 2021~26 개선, 2016~20 소폭 악화(모멘텀이 최근에 더 통함).
-WS = {"up": {"M": 1.5, "R": 1.5, "V": 0, "Y": 0, "A": 0.5, "R3": 0.5, "H": 1, "O": 0, "P": 0, "IR": 0, "MR": 0, "B5": 0.5},
-      "down": {"M": 0, "R": 3, "V": 0.5, "Y": 1, "A": 1, "R3": 0, "H": 0, "O": 0.5, "P": 0.5, "IR": 0.5, "MR": 2, "B5": 0}}
+# 2026-11-26(3차, 신안): 사용자 요청으로 짧은 기간 기준 전 과정 재검증(개별 항목 단독 → 백지 조합 탐색 → 다듬기 →
+#   유니버스·시총 → 국면 규칙 → 운용 규칙 → 연도별·가중치 흔들기). 점수 = 1달 평균 초과 + 0.5×1달 하위10%
+#   + 2주(1달 환산) + 3달/3, 두 기간(2016~20, 2021~26) 중 나쁜 쪽을 키움.
+#   상승형: 추정치 상향 1 · PBR밴드 위치 높음(자기 3년 중 비싸게 평가받는 중) 1 · 성장 가속 0.25 · 내년 흑전 가점 0.25
+#   하락형: FY1 추정/TTM 낮음(실적이 이미 추정치를 따라잡음) 1 · 성장 가속 1 · 거래대금 감소 0.5 · 기관 20일 역 0.625 · OP밴드 낮음 0.25
+#   11년 연 48%(안2 36%), 1달 평균 초과 +2.65%p(이긴 비율 71%), 1달 하위10% -3.4, 3달 하위10% -1.7, MDD -46%(안2 -40%).
+#   11년 중 9년 안2보다 점수 좋음. 시총 500억·2000억(탐색에 안 쓴 조건)에서도 안2보다 두 기간 모두 좋음.
+#   주의: 상승형은 PBR밴드 비중에 민감(반으로 줄이면 크게 나빠짐). 2016~20만으로 고른 가중치는 2021~26에 안 통했음(과최적화 위험).
+WS = {"up": {"M": 0, "R": 1, "V": 0, "Y": 0, "A": 0.25, "R3": 0, "H": 0, "O": 0, "P": 0, "IR": 0, "MR": 0, "B5": 0,
+             "PB": 1, "OB": 0, "FG": 0, "TV": 0, "NEG": 0.25},
+      "down": {"M": 0, "R": 0, "V": 0, "Y": 0, "A": 1, "R3": 0, "H": 0, "O": 0, "P": 0, "IR": 0.625, "MR": 0, "B5": 0,
+               "PB": 0, "OB": 0.25, "FG": 1, "TV": 0.5, "NEG": 0}}
 GN = {"M": "모멘텀", "R": "추정치 상향", "V": "밸류", "Y": "이익 성장", "A": "성장 가속", "R3": "3개월 상향", "H": "외국인 보유율",
-      "O": "기타법인 60일", "P": "개인 20일", "IR": "기관 20일 역", "MR": "낙폭 후 반등", "B5": "5일 이긴 날"}
+      "O": "기타법인 60일", "P": "개인 20일", "IR": "기관 20일 역", "MR": "낙폭 후 반등", "B5": "5일 이긴 날",
+      "PB": "PBR밴드 위치 높음", "OB": "OP밴드 낮음", "FG": "추정/TTM 낮음", "TV": "거래대금 감소", "NEG": "내년 흑전 가점"}
 FLOW_PATH = os.path.join(BASE_DIR, "data", "screening", "cache", "naver_flow.pkl")
 
 
@@ -67,6 +80,9 @@ def score_rows(rows, state, min_cap=1000):
     rs = [r for r in rows if r["cap"] >= min_cap]
     df = pd.DataFrame(rs)
     for g, items in GRP.items():
+        if g in RAW:
+            df[g] = pd.Series([r["v"][items[0][0]] for r in rs], dtype=float).fillna(0) * 100
+            continue
         ps = []
         for k, d in items:
             x = pd.Series([r["v"][k] for r in rs], dtype=float) * d
@@ -192,7 +208,7 @@ def main():
     cr = cap.pct_change(fill_method=None)
     ex = cr.sub(kr.reindex(cap.index), axis=0)
     win = (ex > 0).astype(float).where(ex.notna())
-    fhF = (fhF, flow, win)
+    fhF = (fhF, flow, win, make_ext(capf, op1f, op2f))
     sm = pd.read_csv(SECTOR_MAP_PATH, dtype=str)
     meta = pd.DataFrame({"name": sm["name"].values}, index=sm["code"].str.zfill(6).values)
     meta = meta[~meta.index.duplicated()]
@@ -218,6 +234,51 @@ def main():
     with open(OUT_PATH, "w", encoding="utf-8") as fh_out:
         fh_out.write(html)
     print(f"종목 {len(rows)}개(시총 하한 전), 기준일 {out['asof']}, 전일 {prev['d1']['date']}, 1주 전 {prev['d5']['date']}, 보유율 {fh_asof}, 국면 {reg['state']}(이격 {reg['gap']}%, 1주 전 {reg['gap_lag']}%, {reg['since']}부터) | 저장: {OUT_PATH} ({len(html) // 1024}KB)")
+
+
+TV_PATH = os.path.join(BASE_DIR, "data", "screening", "cache", "trading_value.pkl")
+EQ_PATH = os.path.join(BASE_DIR, "data", "screening", "cache", "equity_dart.pkl")
+
+
+def make_ext(capf, op1f, op2f):
+    """2026-11-26 전면 재검증(신안)용 원자료: OP밴드용 시총/12개월 선행 OP, PBR(DART 자본), 거래대금(원). 백테스트 bt_ext3와 같은 정의."""
+    idx, cols = capf.index, capf.columns
+    w = ((pd.Series(idx.month, index=idx) - 1) / 12.0).values[:, None]
+    ntm = op1f * (1 - w) + op2f * w
+    opm = (capf / ntm).where(ntm > 0)
+    pbr = pd.DataFrame(index=idx, columns=cols, dtype=float)
+    if os.path.exists(EQ_PATH):
+        import build_pbr_band as pb
+        st = pd.read_pickle(EQ_PATH)
+        eq, ni = st["eq"], st.get("ni", {})
+        have = {c for (c, _) in eq}
+        E = {}
+        for c in cols:
+            if c not in have:
+                continue
+            recs = pb.build_fund(c, eq, ni)
+            if not recs:
+                continue
+            r = pd.DataFrame(recs, columns=["d", "e", "ttm", "avg"]).sort_values("d").drop_duplicates("d", keep="last").set_index("d")
+            E[c] = r["e"].reindex(idx, method="ffill")
+        if E:
+            E = pd.DataFrame(E).reindex(columns=cols)
+            pbr = (capf / E).where(E > 0)
+    tv = pd.DataFrame()
+    if os.path.exists(TV_PATH):
+        tv = pd.read_pickle(TV_PATH)["df"].sort_index()
+        tv.index = pd.to_datetime(tv.index)
+    return {"opm": opm, "pbr": pbr, "tv": tv}
+
+
+def band_pct(df, t, win=756, minp=252):
+    """t 시점 값이 자기 과거 win일(오늘 포함) 안에서 몇 % 위치인지(0~1, pandas rolling rank pct와 같은 평균 순위)."""
+    W = df.iloc[max(0, t - win + 1):t + 1]
+    cur = W.iloc[-1]
+    n = W.notna().sum()
+    less = (W.lt(cur, axis=1)).sum()
+    eq = (W.eq(cur, axis=1)).sum()
+    return ((less + (eq + 1) / 2) / n).where((n >= minp) & cur.notna())
 
 
 def make_rows(t, capf, op1f, op2f, ttmf, fhF, meta, naver, sec_of, bnames):
@@ -249,7 +310,14 @@ def make_rows(t, capf, op1f, op2f, ttmf, fhF, meta, naver, sec_of, bnames):
     yacc = yoy - yoy_at(t - D3M)
     fy1neg = (a1 <= 0)
     # 외국인 보유율(최근 5거래일 안 마지막 값)
-    fhF, flow, win = fhF
+    fhF, flow, win, ext = fhF
+    opband, pbrband = band_pct(ext["opm"], t), band_pct(ext["pbr"], t)
+    tt = ttmf.iloc[t]
+    fwdg = (op1f.iloc[t] / tt - 1).where(tt > 0).clip(-5, 5)
+    tvs = pd.Series(dtype=float)
+    TVq = ext["tv"].loc[:asof] if len(ext["tv"]) else ext["tv"]
+    if len(TVq) >= 120 and (asof - TVq.index[-1]).days <= 7:
+        tvs = TVq.iloc[-20:].mean() / TVq.iloc[-120:].mean()
     w5 = win.iloc[t - 4:t + 1]
     n5 = w5.notna().sum()
     b5 = (w5.sum() / n5).where(n5 >= 3)
@@ -285,10 +353,12 @@ def make_rows(t, capf, op1f, op2f, ttmf, fhF, meta, naver, sec_of, bnames):
             continue
         # 0 1M 1 6M 2 12M 3 6M-1M 4 12M-1M 5 FY1 1M 6 FY2 1M 7 PER1 8 PER2 9 YoY 10 YoY가속 11 FY1 3M 12 내년흑전 13 외인보유율
         # 14 기타법인 15 개인 16 기관역 17 5일 중 코스피 이긴 날 비율(%)
+        # 18 OP밴드 위치(%, 3년 안) 19 PBR밴드 위치(%) 20 FY1 OP/TTM OP-1(%) 21 거래대금 20일/120일 평균
         vals = [m1.get(c), m6.get(c), m12.get(c), m6x.get(c), m12x.get(c), r1.get(c), r2.get(c), per1.get(c), per2.get(c),
                 yoy.get(c), yacc.get(c), r3m.get(c), float(fy1neg.get(c, False)), fh.get(c, np.nan),
-                oth60.get(c, np.nan), ind20.get(c, np.nan), inst20r.get(c, np.nan), b5.get(c, np.nan)]
-        scale = [100] * 7 + [1, 1] + [100, 100, 100, 1, 1] + [100, 100, 100, 100]
+                oth60.get(c, np.nan), ind20.get(c, np.nan), inst20r.get(c, np.nan), b5.get(c, np.nan),
+                opband.get(c, np.nan), pbrband.get(c, np.nan), fwdg.get(c, np.nan), tvs.get(c, np.nan)]
+        scale = [100] * 7 + [1, 1] + [100, 100, 100, 1, 1] + [100, 100, 100, 100] + [100, 100, 100, 1]
 
         def rd(v, s):
             return None if (v is None or not np.isfinite(v)) else round(float(v) * s, 2)
@@ -340,13 +410,13 @@ TEMPLATE = r"""<!doctype html>
   <div class="note">
     <b>국면</b> 코스피가 200일선보다 <b>2% 넘게 위</b>면 상승형, <b>2% 넘게 아래</b>면 하락형, 그 사이는 직전 국면 유지. 판단은 1주(5거래일) 전 값 기준.<br>
     <b>운용</b> 주 1회 상위 20종목 동일 비중. <b>들고 있는 종목은 40위 안이면 유지</b>하고 빠진 자리만 상위에서 채운다(표에서 21~40위 음영).<br>
-    <b>11년 백테스트</b>(2016~2026.11, 시총 1,000억 이상, 주 1회 다음 날 종가, 비용 0.25%): 이 규칙 연 36%(2016~20 31%, 2021~26 40%), 최대 낙폭 -40%, 코스피 연 10%.
-    하락 국면에서 하락형 연 29%, 상승 국면에서 상승형 연 41%. 급락 초기엔 코스피보다 더 빠질 수 있음.<br>
-    <b>가중치는 짧은 기간 성과로 고름(2026-11-26)</b> 1주·2주·1달·3달 구간마다 코스피 대비 초과수익을 봄. 코스피 대비 1달 평균 +1.9%p(이긴 비율 64%), 가장 나쁜 10% 구간 -3.4%p, 3달 +5.9%p(하위 10% -3.9%p).
-    상승 국면 성과는 1~2주는 잡음에 가깝고 2~3달 단위로 판단하는 게 맞음. <b>낙폭 후 반등</b> = 6·12개월 많이 빠졌고 최근 1개월은 덜 빠진 종목(하락형).
-    <b>5일 이긴 날</b> = 최근 5거래일 중 코스피보다 더 오른(덜 빠진) 날 비율(상승형, 모멘텀과 같이 쓸 때만 효과).<br>
-    <b>수급(하락형만, 2026-11-26 추가)</b> 기타법인 60일 순매수/시총 &middot; 개인 20일 순매수/거래대금 &middot; 기관 20일 순매도/거래대금(기관이 판 종목이 고점수) 각 0.5.
-    10년 수급 연구에서 살아남은 신호. 외국인·기관 순매수를 그대로 넣으면 오히려 나빴고, 상승형에 넣어도 나빠져서 하락형만. 기타법인에는 자사주 매입이 섞임. 네이버 일별 수급(__FLASOF__).<br>
+    <b>가중치는 짧은 기간 성과로 처음부터 다시 고름(2026-11-26)</b> 1주·2주·1달·3달 구간마다 코스피 대비 초과수익(평균과 가장 나쁜 10%)을 보고, 2016~20과 2021~26 둘 다에서 좋은 조합만 남김.<br>
+    <b>11년 백테스트</b>(2016~2026.11, 시총 1,000억 이상, 주 1회 다음 날 종가, 비용 0.25%): 연 48%, 최대 낙폭 -46%, 코스피 연 10%. 코스피 대비 1달 평균 +2.7%p(이긴 비율 71%), 가장 나쁜 10% 구간 -3.4%p, 3달 평균 +8.1%p(하위 10% -1.7%p).
+    비용 0.5%여도 연 44%. 상승 국면 성과는 1~2주는 잡음에 가깝고 2~3달 단위로 판단. 급락 초기엔 코스피보다 더 빠질 수 있음.<br>
+    <b>상승형</b> 추정치 상향 + <b>PBR밴드 위치 높음</b>(자기 3년 PBR 중 높은 쪽 = 재평가 받는 중) + 성장 가속 + 내년 흑자 전환 가점. PBR밴드 비중에 민감한 편.<br>
+    <b>하락형</b> <b>추정/TTM 낮음</b>(FY1 영업이익 추정치 대비 실적 TTM이 이미 높음 = 실적이 추정치를 따라잡음) + 성장 가속 + <b>거래대금 감소</b>(20일/120일 평균) + 기관 20일 순매도 + OP밴드 낮음(자기 3년 중 쌈).<br>
+    <b>수급</b> 하락형에 기관 20일 순매도/거래대금(기관이 판 종목이 고점수)만 남음. 외국인·기관 순매수는 넣으면 나빠짐. 네이버 일별 수급(__FLASOF__).
+    회색 칸은 지금 가중치 0인 참고 항목(이전 모델 항목 포함).<br>
     <b>항목</b> 모멘텀(1개월은 하락률 클수록 고점수, 6·12개월, 최근 1개월 제외 6·12개월) &middot; 추정치 상향(FY1·FY2 영업이익 1개월) &middot; 밸류(시총/영업이익 FY1·FY2, 낮을수록) &middot;
     이익 성장(실적 TTM 영업이익 1년 변화) &middot; 성장 가속(그 값의 3개월 변화) &middot; 3개월 추정치 상향(FY1) &middot; 외국인 보유율. 각 항목은 유니버스 안 백분위(0~100).
     유니버스 = FY2 영업이익 추정치 흑자(올해 적자·내년 흑자 포함, <span class="tag">흑전</span> 표시). <b>수익률은 시총 변화</b>라 증자·분할 때 왜곡될 수 있음.
@@ -366,12 +436,15 @@ const D = __DATA__;
 // v 인덱스: 0 1M 1 6M 2 12M 3 6M-1M 4 12M-1M 5 FY1 1M 6 FY2 1M 7 PER1 8 PER2 9 YoY 10 YoY가속 11 FY1 3M 12 내년흑전(0/1) 13 외인보유율
 //           14 기타법인 60일/시총% 15 개인 20일/거래대금% 16 -기관 20일/거래대금% 17 5일 중 코스피 이긴 날%
 const GRP = {M:[[0,-1],[1,1],[2,1],[3,1],[4,1]], R:[[5,1],[6,1]], V:[[7,-1],[8,-1]], Y:[[9,1]], A:[[10,1]], R3:[[11,1]], H:[[13,1]],
-             O:[[14,1]], P:[[15,1]], IR:[[16,1]], MR:[[0,1],[1,-1],[2,-1],[3,-1],[4,-1]], B5:[[17,1]]};
-const MID = {Y:50, A:50, R3:50, H:50, O:50, P:50, IR:50, B5:50};    // 값 없으면 중간값(백테스트와 같음)
-const WS = { up:   {M:1.5, R:1.5, V:0,   Y:0, A:0.5, R3:0.5, H:1, O:0,   P:0,   IR:0,   MR:0, B5:0.5},
-             down: {M:0,   R:3,   V:0.5, Y:1, A:1,   R3:0,   H:0, O:0.5, P:0.5, IR:0.5, MR:2, B5:0} };
+             O:[[14,1]], P:[[15,1]], IR:[[16,1]], MR:[[0,1],[1,-1],[2,-1],[3,-1],[4,-1]], B5:[[17,1]],
+             PB:[[19,1]], OB:[[18,-1]], FG:[[20,-1]], TV:[[21,-1]], NEG:[[12,1]]};
+const MID = {Y:50, A:50, R3:50, H:50, O:50, P:50, IR:50, B5:50, PB:50, OB:50, FG:50, TV:50};    // 값 없으면 중간값(백테스트와 같음)
+const RAW = {NEG:1};   // 백분위 대신 값 그대로(0/1 → 0/100)
+const WS = { up:   {M:0, R:1, V:0, Y:0, A:0.25, R3:0, H:0, O:0, P:0, IR:0,     MR:0, B5:0, PB:1, OB:0,    FG:0, TV:0,   NEG:0.25},
+             down: {M:0, R:0, V:0, Y:0, A:1,    R3:0, H:0, O:0, P:0, IR:0.625, MR:0, B5:0, PB:0, OB:0.25, FG:1, TV:0.5, NEG:0} };
 const GN = {M:'모멘텀', R:'추정치 상향', V:'밸류', Y:'이익 성장', A:'성장 가속', R3:'3개월 상향', H:'외국인 보유율',
-            O:'기타법인 60일', P:'개인 20일', IR:'기관 20일 역', MR:'낙폭 후 반등', B5:'5일 이긴 날'};
+            O:'기타법인 60일', P:'개인 20일', IR:'기관 20일 역', MR:'낙폭 후 반등', B5:'5일 이긴 날',
+            PB:'PBR밴드 위치 높음', OB:'OP밴드 낮음', FG:'추정/TTM 낮음', TV:'거래대금 감소', NEG:'내년 흑전 가점'};
 const RG = D.reg;
 let sortKey = 'rk', sortDir = 1;
 const secs = [...new Set(D.rows.map(r=>r.s))].sort();
@@ -395,6 +468,7 @@ function calc(){
   let rows = D.rows.filter(r => r.cap >= minCap);
   const G = {};
   for (const g in GRP){
+    if (g in RAW){ G[g] = rows.map(r=> (r.v[GRP[g][0][0]]||0)*100); continue; }
     const P = GRP[g].map(([k,dir]) => pct(rows.map(r=>r.v[k]), dir));
     G[g] = rows.map((_,i)=>{ const xs = P.map(p=>p[i]).filter(x=>x!=null); return xs.length? xs.reduce((a,b)=>a+b,0)/xs.length : (g in MID? MID[g] : null); });
   }
@@ -444,17 +518,17 @@ function render(){
   rows.sort((a,b)=>{ const x=gv(a), y=gv(b); if(x==null) return 1; if(y==null) return -1; return (x>y?1:x<y?-1:0)*sortDir; });
   document.getElementById('cnt').textContent = `유니버스 ${all.filter(r=>r.rk!=null).length}종목 중 ${rows.length}개`;
   const on = g => W[g]>0? '' : ' style="opacity:.45"';
-  const H = [['rk','#'],['d1','전일'],['d5','1주'],['n','종목'],['s','섹터'],['cap','시총(억)'],['tot','총점'],['M','모멘텀'],['R','추정치'],['V','밸류'],['Y','이익성장'],['A','성장가속'],['R3','3M상향'],['H','외인보유'],['O','기타법인'],['P','개인'],['IR','기관역'],['MR','낙폭반등'],['B5','5일승'],
-    ['v17','5일 이긴%'],['v0','1M%'],['v1','6M%'],['v2','12M%'],['v5','FY1 OP 1M%'],['v6','FY2 OP 1M%'],['v11','FY1 OP 3M%'],['v9','TTM OP YoY%'],['v13','외인%'],['v7','시총/OP1'],['v8','시총/OP2']];
-  const gcol = {M:1,R:1,V:1,Y:1,A:1,R3:1,H:1,O:1,P:1,IR:1,MR:1,B5:1};
+  const H = [['rk','#'],['d1','전일'],['d5','1주'],['n','종목'],['s','섹터'],['cap','시총(억)'],['tot','총점'],['M','모멘텀'],['R','추정치'],['V','밸류'],['Y','이익성장'],['A','성장가속'],['R3','3M상향'],['H','외인보유'],['O','기타법인'],['P','개인'],['IR','기관역'],['MR','낙폭반등'],['B5','5일승'],['PB','PBR밴드↑'],['OB','OP밴드↓'],['FG','추정/TTM↓'],['TV','거래대금↓'],
+    ['v19','PBR밴드%'],['v18','OP밴드%'],['v20','FY1/TTM%'],['v21','거래대금20/120'],['v17','5일 이긴%'],['v0','1M%'],['v1','6M%'],['v2','12M%'],['v5','FY1 OP 1M%'],['v6','FY2 OP 1M%'],['v11','FY1 OP 3M%'],['v9','TTM OP YoY%'],['v13','외인%'],['v7','시총/OP1'],['v8','시총/OP2']];
+  const gcol = {M:1,R:1,V:1,Y:1,A:1,R3:1,H:1,O:1,P:1,IR:1,MR:1,B5:1,PB:1,OB:1,FG:1,TV:1};
   let h = '<tr>'+H.map(([k,t])=>`<th data-k="${k}" class="${k===sortKey?'sorted':''}"${k in gcol? on(k):''}>${t}</th>`).join('')+'</tr>';
   const byRank = sortKey==='rk' && !sec && !q;
   h += rows.slice(0, topn).map(r=>{
     const trc = byRank && r.rk>20 && r.rk<=40 ? (r.rk===21? 'keep cut':'keep') : '';
     return `<tr class="${trc}"><td>${r.rk}</td><td>${mv(r,'d1')}</td><td>${mv(r,'d5')}</td><td>${r.n}${r.v[12]===1?'<span class="tag">흑전</span>':''}</td><td class="sub">${r.s}</td><td>${r.cap.toLocaleString()}</td>
     <td><span class="bar" style="width:${r.tot*0.6}px"></span>${f(r.tot)}</td>` +
-    ['M','R','V','Y','A','R3','H','O','P','IR','MR','B5'].map(g=>`<td${on(g)}>${f(r[g],0)}</td>`).join('') +
-    `<td>${f(r.v[17],0)}</td>` + [0,1,2,5,6,11,9].map(k=>`<td class="${cl(r.v[k])}">${k===9 && r.v[k]!=null && Math.abs(r.v[k])>=500? (r.v[k]>0?'500+':'-500') : f(r.v[k])}</td>`).join('') +
+    ['M','R','V','Y','A','R3','H','O','P','IR','MR','B5','PB','OB','FG','TV'].map(g=>`<td${on(g)}>${f(r[g],0)}</td>`).join('') +
+    `<td>${f(r.v[19],0)}</td><td>${f(r.v[18],0)}</td><td>${f(r.v[20],0)}</td><td>${f(r.v[21],2)}</td><td>${f(r.v[17],0)}</td>` + [0,1,2,5,6,11,9].map(k=>`<td class="${cl(r.v[k])}">${k===9 && r.v[k]!=null && Math.abs(r.v[k])>=500? (r.v[k]>0?'500+':'-500') : f(r.v[k])}</td>`).join('') +
     `<td>${f(r.v[13])}</td><td>${f(r.v[7])}</td><td>${f(r.v[8])}</td></tr>`; }).join('');
   const t = document.getElementById('tbl'); t.innerHTML = h;
   t.querySelectorAll('th').forEach(th=>th.onclick=()=>{ const k=th.dataset.k; if(sortKey===k) sortDir*=-1; else {sortKey=k; sortDir=(k==='rk'||k==='n'||k==='s')?1:-1;} render(); });
