@@ -6,7 +6,8 @@
 - 하루 ±31% 넘게 움직인 날(분할·병합 등)과 거래정지일은 세지 않음(분모에서 빠짐).
 - 가격: data/bollinger_prices.csv 종가(상대강도 페이지와 같은 파일), 지수: 네이버 코스피(캐시 data/kospi_index_cache.csv).
 - 대상: 코스피·코스닥 보통주(스팩·우선주·리츠 제외). 코스닥 종목도 코스피 대비(상대강도 페이지와 같은 규칙).
-- 시총: op_band_summary.csv latest_mktcap(없는 종목은 시총 하한 0일 때만 표시).
+- 시총: KRX Open API 마지막 날 전 종목 MKTCAP 우선, 실패 시 op_band_summary.csv latest_mktcap
+  (2026-11-26: 밴드 파일만 쓰면 프로티나 등 145종목이 시총이 비어 기본 1,000억 하한에 가려졌음).
 출력: docs/beat_days.html, data/screening/beat_days_summary.csv
 """
 import json
@@ -26,6 +27,33 @@ OUT_PATH = os.path.join(BASE_DIR, "docs", "beat_days.html")
 SUMMARY_PATH = os.path.join(BASE_DIR, "data", "screening", "beat_days_summary.csv")
 WINDOWS = [5, 7, 10]
 NDAYS = max(WINDOWS)
+
+
+def krx_caps(day):
+    """KRX Open API 그날 전 종목 시가총액(원). 실패하면 빈 dict(밴드 파일 시총만 씀)."""
+    import requests
+    from dotenv import load_dotenv
+    load_dotenv(os.path.join(BASE_DIR, ".env"))
+    key = os.environ.get("KRX_OPEN_API_KEY")
+    if not key:
+        return {}
+    out = {}
+    for ep in ("stk_bydd_trd", "ksq_bydd_trd"):
+        for k in range(3):
+            try:
+                r = requests.get(f"https://data-dbg.krx.co.kr/svc/apis/sto/{ep}", params={"basDd": day},
+                                 headers={"AUTH_KEY": key}, timeout=30)
+                rows = r.json().get("OutBlock_1", []) if r.status_code == 200 else None
+                if rows is not None:
+                    break
+            except Exception:
+                rows = None
+        for x in rows or []:
+            try:
+                out[str(x["ISU_CD"]).zfill(6)] = float(x["MKTCAP"])
+            except (KeyError, ValueError, TypeError):
+                pass
+    return out
 
 
 def main():
@@ -57,6 +85,9 @@ def main():
     if os.path.exists(OP_BAND_SUMMARY_PATH):
         op = pd.read_csv(OP_BAND_SUMMARY_PATH, dtype={"code": str}, usecols=["code", "latest_mktcap"])
         cap = dict(zip(op["code"].str.lstrip("A"), op["latest_mktcap"]))
+    kc = krx_caps(days[-1])     # 밴드 파일에 없는 종목(프로티나 등 145개)도 시총이 있게: KRX 전 종목 시총 우선
+    cap.update({c: v for c, v in kc.items() if np.isfinite(v)})
+    print(f"시총: KRX {len(kc)}종목, 없는 종목 {sum(1 for c in codes if pd.isna(cap.get(c, np.nan)))}개")
     sectors, _ = assign_sectors(meta)
 
     rows = []
