@@ -45,14 +45,20 @@ D1M, D3M, D6M, D12M = 21, 63, 126, 252
 BAND_TH, LAG = 0.02, 5
 # 페이지 JS와 같은 규칙(바꿀 때 둘 다 바꿀 것)
 GRP = {"M": [(0, -1), (1, 1), (2, 1), (3, 1), (4, 1)], "R": [(5, 1), (6, 1)], "V": [(7, -1), (8, -1)],
-       "Y": [(9, 1)], "A": [(10, 1)], "R3": [(11, 1)], "H": [(13, 1)], "O": [(14, 1)], "P": [(15, 1)], "IR": [(16, 1)]}
-MID = {"Y", "A", "R3", "H", "O", "P", "IR"}
+       "Y": [(9, 1)], "A": [(10, 1)], "R3": [(11, 1)], "H": [(13, 1)], "O": [(14, 1)], "P": [(15, 1)], "IR": [(16, 1)],
+       "MR": [(0, 1), (1, -1), (2, -1), (3, -1), (4, -1)], "B5": [(17, 1)]}
+MID = {"Y", "A", "R3", "H", "O", "P", "IR", "B5"}
 # 2026-11-26: 하락형에 수급 3개(10년 수급 연구 생존 신호) 각 0.5 추가 - 11년 백테스트 연 27.2→31.0%, 2016~20 27.9→33.6,
 # 2021~26 26.6→29.0, 하락 국면 11.2→20.6, 2022 -12→-5%. 상승형에 넣으면 오히려 나빠져서(27.2→24.3) 하락형만.
-WS = {"up": {"M": 0.5, "R": 1.5, "V": 0, "Y": 0, "A": 1, "R3": 0.5, "H": 0.5, "O": 0, "P": 0, "IR": 0},
-      "down": {"M": 0, "R": 3, "V": 1, "Y": 1, "A": 1, "R3": 0, "H": 0, "O": 0.5, "P": 0.5, "IR": 0.5}}
+# 2026-11-26(2차): 1년 수익률 대신 1주·2주·1달·3달 성과(코스피 대비 평균 초과·하위 10%)로 다시 고름(사용자 요청, 안2).
+#   상승형: 모멘텀 0.5→1.5, 성장 가속 1→0.5, 보유율 0.5→1, '5일 중 코스피 이긴 날' 0.5 추가
+#   하락형: 밸류 1→0.5, '모멘텀 역방향'(6·12개월 낙폭 + 최근 1개월 덜 빠짐) 2 추가
+#   11년: 연 31.0→35.8%, 1달 평균 초과 +1.59→+1.91%p, 1달 하위10% -4.1→-3.4, 3달 하위10% -5.7→-3.9, 최악의 달 초과 -19.6→-9.8.
+#   하락형 변경은 2016~20·2021~26 둘 다 개선. 상승형 변경은 2021~26 개선, 2016~20 소폭 악화(모멘텀이 최근에 더 통함).
+WS = {"up": {"M": 1.5, "R": 1.5, "V": 0, "Y": 0, "A": 0.5, "R3": 0.5, "H": 1, "O": 0, "P": 0, "IR": 0, "MR": 0, "B5": 0.5},
+      "down": {"M": 0, "R": 3, "V": 0.5, "Y": 1, "A": 1, "R3": 0, "H": 0, "O": 0.5, "P": 0.5, "IR": 0.5, "MR": 2, "B5": 0}}
 GN = {"M": "모멘텀", "R": "추정치 상향", "V": "밸류", "Y": "이익 성장", "A": "성장 가속", "R3": "3개월 상향", "H": "외국인 보유율",
-      "O": "기타법인 60일", "P": "개인 20일", "IR": "기관 20일 역"}
+      "O": "기타법인 60일", "P": "개인 20일", "IR": "기관 20일 역", "MR": "낙폭 후 반등", "B5": "5일 이긴 날"}
 FLOW_PATH = os.path.join(BASE_DIR, "data", "screening", "cache", "naver_flow.pkl")
 
 
@@ -179,7 +185,14 @@ def main():
     T = len(capf) - 1
     fhF = pd.read_pickle(FH_PATH).sort_index() if os.path.exists(FH_PATH) else None
     flow = pickle.load(open(FLOW_PATH, "rb")) if os.path.exists(FLOW_PATH) else None
-    fhF = (fhF, flow)
+    # 5일 이긴 날: 그날 시총 변화율 > 코스피 등락률이면 1 (빈 날은 셈에서 뺌, 백테스트 beat_feat.py와 같은 정의)
+    k = pd.read_csv(KOSPI_PATH, dtype={"date": str})
+    k["date"] = pd.to_datetime(k["date"].str[:8])
+    kr = k.drop_duplicates("date").set_index("date")["close"].astype(float).sort_index().pct_change()
+    cr = cap.pct_change(fill_method=None)
+    ex = cr.sub(kr.reindex(cap.index), axis=0)
+    win = (ex > 0).astype(float).where(ex.notna())
+    fhF = (fhF, flow, win)
     sm = pd.read_csv(SECTOR_MAP_PATH, dtype=str)
     meta = pd.DataFrame({"name": sm["name"].values}, index=sm["code"].str.zfill(6).values)
     meta = meta[~meta.index.duplicated()]
@@ -236,7 +249,10 @@ def make_rows(t, capf, op1f, op2f, ttmf, fhF, meta, naver, sec_of, bnames):
     yacc = yoy - yoy_at(t - D3M)
     fy1neg = (a1 <= 0)
     # 외국인 보유율(최근 5거래일 안 마지막 값)
-    fhF, flow = fhF
+    fhF, flow, win = fhF
+    w5 = win.iloc[t - 4:t + 1]
+    n5 = w5.notna().sum()
+    b5 = (w5.sum() / n5).where(n5 >= 3)
     # 수급(하락형): 기타법인 60일 순매수/시총, 개인 20일 순매수/거래대금, -기관 20일 순매수/거래대금 (백테스트 bt_ext3와 같은 정의)
     oth60 = ind20 = inst20r = pd.Series(dtype=float)
     fl_asof = "-"
@@ -268,10 +284,11 @@ def make_rows(t, capf, op1f, op2f, ttmf, fhF, meta, naver, sec_of, bnames):
         if not all(v is not None and np.isfinite(v) for v in need):
             continue
         # 0 1M 1 6M 2 12M 3 6M-1M 4 12M-1M 5 FY1 1M 6 FY2 1M 7 PER1 8 PER2 9 YoY 10 YoY가속 11 FY1 3M 12 내년흑전 13 외인보유율
+        # 14 기타법인 15 개인 16 기관역 17 5일 중 코스피 이긴 날 비율(%)
         vals = [m1.get(c), m6.get(c), m12.get(c), m6x.get(c), m12x.get(c), r1.get(c), r2.get(c), per1.get(c), per2.get(c),
                 yoy.get(c), yacc.get(c), r3m.get(c), float(fy1neg.get(c, False)), fh.get(c, np.nan),
-                oth60.get(c, np.nan), ind20.get(c, np.nan), inst20r.get(c, np.nan)]
-        scale = [100] * 7 + [1, 1] + [100, 100, 100, 1, 1] + [100, 100, 100]
+                oth60.get(c, np.nan), ind20.get(c, np.nan), inst20r.get(c, np.nan), b5.get(c, np.nan)]
+        scale = [100] * 7 + [1, 1] + [100, 100, 100, 1, 1] + [100, 100, 100, 100]
 
         def rd(v, s):
             return None if (v is None or not np.isfinite(v)) else round(float(v) * s, 2)
@@ -323,8 +340,11 @@ TEMPLATE = r"""<!doctype html>
   <div class="note">
     <b>국면</b> 코스피가 200일선보다 <b>2% 넘게 위</b>면 상승형, <b>2% 넘게 아래</b>면 하락형, 그 사이는 직전 국면 유지. 판단은 1주(5거래일) 전 값 기준.<br>
     <b>운용</b> 주 1회 상위 20종목 동일 비중. <b>들고 있는 종목은 40위 안이면 유지</b>하고 빠진 자리만 상위에서 채운다(표에서 21~40위 음영).<br>
-    <b>11년 백테스트</b>(2016~2026.11, 시총 1,000억 이상, 주 1회 다음 날 종가, 비용 0.25%): 이 규칙 연 31%(2016~20 34%, 2021~26 29%), 최대 낙폭 -43%, 코스피 연 10%.
-    하락 국면에서 하락형 연 21%(수급 넣기 전 11%), 상승 국면에서 상승형 연 39%. 급락 초기엔 코스피보다 더 빠질 수 있음.<br>
+    <b>11년 백테스트</b>(2016~2026.11, 시총 1,000억 이상, 주 1회 다음 날 종가, 비용 0.25%): 이 규칙 연 36%(2016~20 31%, 2021~26 40%), 최대 낙폭 -40%, 코스피 연 10%.
+    하락 국면에서 하락형 연 29%, 상승 국면에서 상승형 연 41%. 급락 초기엔 코스피보다 더 빠질 수 있음.<br>
+    <b>가중치는 짧은 기간 성과로 고름(2026-11-26)</b> 1주·2주·1달·3달 구간마다 코스피 대비 초과수익을 봄. 코스피 대비 1달 평균 +1.9%p(이긴 비율 64%), 가장 나쁜 10% 구간 -3.4%p, 3달 +5.9%p(하위 10% -3.9%p).
+    상승 국면 성과는 1~2주는 잡음에 가깝고 2~3달 단위로 판단하는 게 맞음. <b>낙폭 후 반등</b> = 6·12개월 많이 빠졌고 최근 1개월은 덜 빠진 종목(하락형).
+    <b>5일 이긴 날</b> = 최근 5거래일 중 코스피보다 더 오른(덜 빠진) 날 비율(상승형, 모멘텀과 같이 쓸 때만 효과).<br>
     <b>수급(하락형만, 2026-11-26 추가)</b> 기타법인 60일 순매수/시총 &middot; 개인 20일 순매수/거래대금 &middot; 기관 20일 순매도/거래대금(기관이 판 종목이 고점수) 각 0.5.
     10년 수급 연구에서 살아남은 신호. 외국인·기관 순매수를 그대로 넣으면 오히려 나빴고, 상승형에 넣어도 나빠져서 하락형만. 기타법인에는 자사주 매입이 섞임. 네이버 일별 수급(__FLASOF__).<br>
     <b>항목</b> 모멘텀(1개월은 하락률 클수록 고점수, 6·12개월, 최근 1개월 제외 6·12개월) &middot; 추정치 상향(FY1·FY2 영업이익 1개월) &middot; 밸류(시총/영업이익 FY1·FY2, 낮을수록) &middot;
@@ -344,14 +364,14 @@ TEMPLATE = r"""<!doctype html>
 <script>
 const D = __DATA__;
 // v 인덱스: 0 1M 1 6M 2 12M 3 6M-1M 4 12M-1M 5 FY1 1M 6 FY2 1M 7 PER1 8 PER2 9 YoY 10 YoY가속 11 FY1 3M 12 내년흑전(0/1) 13 외인보유율
-//           14 기타법인 60일/시총% 15 개인 20일/거래대금% 16 -기관 20일/거래대금%
+//           14 기타법인 60일/시총% 15 개인 20일/거래대금% 16 -기관 20일/거래대금% 17 5일 중 코스피 이긴 날%
 const GRP = {M:[[0,-1],[1,1],[2,1],[3,1],[4,1]], R:[[5,1],[6,1]], V:[[7,-1],[8,-1]], Y:[[9,1]], A:[[10,1]], R3:[[11,1]], H:[[13,1]],
-             O:[[14,1]], P:[[15,1]], IR:[[16,1]]};
-const MID = {Y:50, A:50, R3:50, H:50, O:50, P:50, IR:50};    // 값 없으면 중간값(백테스트와 같음)
-const WS = { up:   {M:0.5, R:1.5, V:0, Y:0, A:1, R3:0.5, H:0.5, O:0,   P:0,   IR:0},
-             down: {M:0,   R:3,   V:1, Y:1, A:1, R3:0,   H:0,   O:0.5, P:0.5, IR:0.5} };
+             O:[[14,1]], P:[[15,1]], IR:[[16,1]], MR:[[0,1],[1,-1],[2,-1],[3,-1],[4,-1]], B5:[[17,1]]};
+const MID = {Y:50, A:50, R3:50, H:50, O:50, P:50, IR:50, B5:50};    // 값 없으면 중간값(백테스트와 같음)
+const WS = { up:   {M:1.5, R:1.5, V:0,   Y:0, A:0.5, R3:0.5, H:1, O:0,   P:0,   IR:0,   MR:0, B5:0.5},
+             down: {M:0,   R:3,   V:0.5, Y:1, A:1,   R3:0,   H:0, O:0.5, P:0.5, IR:0.5, MR:2, B5:0} };
 const GN = {M:'모멘텀', R:'추정치 상향', V:'밸류', Y:'이익 성장', A:'성장 가속', R3:'3개월 상향', H:'외국인 보유율',
-            O:'기타법인 60일', P:'개인 20일', IR:'기관 20일 역'};
+            O:'기타법인 60일', P:'개인 20일', IR:'기관 20일 역', MR:'낙폭 후 반등', B5:'5일 이긴 날'};
 const RG = D.reg;
 let sortKey = 'rk', sortDir = 1;
 const secs = [...new Set(D.rows.map(r=>r.s))].sort();
@@ -424,17 +444,17 @@ function render(){
   rows.sort((a,b)=>{ const x=gv(a), y=gv(b); if(x==null) return 1; if(y==null) return -1; return (x>y?1:x<y?-1:0)*sortDir; });
   document.getElementById('cnt').textContent = `유니버스 ${all.filter(r=>r.rk!=null).length}종목 중 ${rows.length}개`;
   const on = g => W[g]>0? '' : ' style="opacity:.45"';
-  const H = [['rk','#'],['d1','전일'],['d5','1주'],['n','종목'],['s','섹터'],['cap','시총(억)'],['tot','총점'],['M','모멘텀'],['R','추정치'],['V','밸류'],['Y','이익성장'],['A','성장가속'],['R3','3M상향'],['H','외인보유'],['O','기타법인'],['P','개인'],['IR','기관역'],
-    ['v0','1M%'],['v1','6M%'],['v2','12M%'],['v5','FY1 OP 1M%'],['v6','FY2 OP 1M%'],['v11','FY1 OP 3M%'],['v9','TTM OP YoY%'],['v13','외인%'],['v7','시총/OP1'],['v8','시총/OP2']];
-  const gcol = {M:1,R:1,V:1,Y:1,A:1,R3:1,H:1,O:1,P:1,IR:1};
+  const H = [['rk','#'],['d1','전일'],['d5','1주'],['n','종목'],['s','섹터'],['cap','시총(억)'],['tot','총점'],['M','모멘텀'],['R','추정치'],['V','밸류'],['Y','이익성장'],['A','성장가속'],['R3','3M상향'],['H','외인보유'],['O','기타법인'],['P','개인'],['IR','기관역'],['MR','낙폭반등'],['B5','5일승'],
+    ['v17','5일 이긴%'],['v0','1M%'],['v1','6M%'],['v2','12M%'],['v5','FY1 OP 1M%'],['v6','FY2 OP 1M%'],['v11','FY1 OP 3M%'],['v9','TTM OP YoY%'],['v13','외인%'],['v7','시총/OP1'],['v8','시총/OP2']];
+  const gcol = {M:1,R:1,V:1,Y:1,A:1,R3:1,H:1,O:1,P:1,IR:1,MR:1,B5:1};
   let h = '<tr>'+H.map(([k,t])=>`<th data-k="${k}" class="${k===sortKey?'sorted':''}"${k in gcol? on(k):''}>${t}</th>`).join('')+'</tr>';
   const byRank = sortKey==='rk' && !sec && !q;
   h += rows.slice(0, topn).map(r=>{
     const trc = byRank && r.rk>20 && r.rk<=40 ? (r.rk===21? 'keep cut':'keep') : '';
     return `<tr class="${trc}"><td>${r.rk}</td><td>${mv(r,'d1')}</td><td>${mv(r,'d5')}</td><td>${r.n}${r.v[12]===1?'<span class="tag">흑전</span>':''}</td><td class="sub">${r.s}</td><td>${r.cap.toLocaleString()}</td>
     <td><span class="bar" style="width:${r.tot*0.6}px"></span>${f(r.tot)}</td>` +
-    ['M','R','V','Y','A','R3','H','O','P','IR'].map(g=>`<td${on(g)}>${f(r[g],0)}</td>`).join('') +
-    [0,1,2,5,6,11,9].map(k=>`<td class="${cl(r.v[k])}">${k===9 && r.v[k]!=null && Math.abs(r.v[k])>=500? (r.v[k]>0?'500+':'-500') : f(r.v[k])}</td>`).join('') +
+    ['M','R','V','Y','A','R3','H','O','P','IR','MR','B5'].map(g=>`<td${on(g)}>${f(r[g],0)}</td>`).join('') +
+    `<td>${f(r.v[17],0)}</td>` + [0,1,2,5,6,11,9].map(k=>`<td class="${cl(r.v[k])}">${k===9 && r.v[k]!=null && Math.abs(r.v[k])>=500? (r.v[k]>0?'500+':'-500') : f(r.v[k])}</td>`).join('') +
     `<td>${f(r.v[13])}</td><td>${f(r.v[7])}</td><td>${f(r.v[8])}</td></tr>`; }).join('');
   const t = document.getElementById('tbl'); t.innerHTML = h;
   t.querySelectorAll('th').forEach(th=>th.onclick=()=>{ const k=th.dataset.k; if(sortKey===k) sortDir*=-1; else {sortKey=k; sortDir=(k==='rk'||k==='n'||k==='s')?1:-1;} render(); });
