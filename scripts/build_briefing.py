@@ -550,12 +550,12 @@ def main():
                            for part in (keep_rows[:half], keep_rows[half:]))
         dr = QB["dropped"]
         drop_txt = ("1주 전 추천 40 중 빠짐: " + ", ".join(f"<b>{n}</b>" for _c, n, _p in dr[:8]) + (f" 외 {len(dr) - 8}개" if len(dr) > 8 else "")) if dr else "1주 전 추천 40에서 빠진 종목 없음."
-        cond = "200일선 +2% 위로 가면(1주 지연) 상승형으로 전환" if RG["state"] == "down" else "200일선 -2% 아래로 가면(1주 지연) 하락형으로 전환"
+        cond = "직접 지정 중(자동 전환 없음)" if RG.get("forced") else "200일선 +2% 위로 가면(1주 지연) 상승형으로 전환" if RG["state"] == "down" else "200일선 -2% 아래로 가면(1주 지연) 하락형으로 전환"
         qr_page = f"""<div class="page">
   <div class="hdr"><div><h1>퀀트 종합 순위</h1><div class="sub">시총·추정치 {QB['asof']} · 외국인 보유율 {QB['fh_asof']} · 코스피 {RG['asof']} · 시총 {QB['min_cap']:,}억 이상 {QB['n_uni']}종목 · 1주 전 비교 {QB['prev_date'] or '-'}</div></div>
     <div class="sub">3/3 퀀트 · joonhakkim.github.io/liquidity-dashboard/quant_rank.html</div></div>
   <div class="hero">
-    <div class="box" style="border-color:{rcol}"><div class="lbl">국면 (코스피 200일선 ±2%p)</div><div class="val" style="color:{rcol}">{rname}</div><div class="sub">{RG['since']}부터</div></div>
+    <div class="box" style="border-color:{rcol}"><div class="lbl">퀀트 가중치</div><div class="val" style="color:{rcol}">{rname}</div><div class="sub">{("직접 지정 · 200일선 기준은 " + ("상승형" if RG.get("auto") == "up" else "하락형")) if RG.get("forced") else RG["since"] + "부터"}</div></div>
     <div class="box"><div class="lbl">코스피 / 200일선</div><div class="val">{RG['gap']:+.1f}%</div><div class="sub">{RG['close']:,.0f} / {RG['ma200']:,.0f}</div></div>
     <div class="box"><div class="lbl">판단 기준 (1주 전 이격)</div><div class="val">{RG['gap_lag']:+.1f}%</div><div class="sub">{cond}</div></div>
   </div>

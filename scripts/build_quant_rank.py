@@ -44,6 +44,8 @@ BRIEF_PATH = os.path.join(BASE_DIR, "data", "quant_rank_brief.json")   # 아침 
 HIST_PATH = os.path.join(BASE_DIR, "data", "quant_rank_hist.json")     # 날짜별 상위 40 기록(1주 전 순위 비교용)
 D1M, D3M, D6M, D12M = 21, 63, 126, 252
 BAND_TH, LAG = 0.02, 5
+# 2026-11-27 사용자 "지금 하락형 말고 상승형으로" - "up"/"down"이면 그 가중치로 고정, None이면 코스피 200일선 국면을 따름
+FORCE_STATE = "up"
 # 페이지 JS와 같은 규칙(바꿀 때 둘 다 바꿀 것)
 GRP = {"M": [(0, -1), (1, 1), (2, 1), (3, 1), (4, 1)], "R": [(5, 1), (6, 1)], "V": [(7, -1), (8, -1)],
        "Y": [(9, 1)], "A": [(10, 1)], "R3": [(11, 1)], "H": [(13, 1)], "O": [(14, 1)], "P": [(15, 1)], "IR": [(16, 1)],
@@ -223,7 +225,7 @@ def regime():
             if state is not None:
                 hist.append((d.strftime("%Y-%m-%d"), new))
             state, since = new, d
-    return {"state": state, "since": since.strftime("%Y-%m-%d"), "asof": k.index[-1].strftime("%Y-%m-%d"),
+    return {"state": FORCE_STATE or state, "auto": state, "forced": FORCE_STATE is not None, "since": since.strftime("%Y-%m-%d"), "asof": k.index[-1].strftime("%Y-%m-%d"),
             "close": round(float(k.iloc[-1]), 2), "ma200": round(float(ma.iloc[-1]), 2),
             "gap": round(float(gap.iloc[-1]) * 100, 1), "gap_lag": round(float(lag.iloc[-1]) * 100, 1),
             "recent": hist[-6:], "n_switch_5y": sum(1 for d, _ in hist if d >= (k.index[-1] - pd.DateOffset(years=5)).strftime("%Y-%m-%d"))}
@@ -454,6 +456,7 @@ TEMPLATE = r"""<!doctype html>
     <div class="wt" id="wt"></div>
   </div>
   <div class="note">
+    <b style="color:#ff8787">2026-11-27부터 상승형으로 직접 고정</b> (코스피 200일선 기준으로는 하락형). 과거 하락 국면에서 상승형 가중치(총점 상위 20)는 1달 코스피 대비 +0.8%p(이긴 비율 50%), 하락형은 +2.8%p(78%)였음.<br>
     <b>국면</b> 코스피가 200일선보다 <b>2% 넘게 위</b>면 상승형, <b>2% 넘게 아래</b>면 하락형, 그 사이는 직전 국면 유지. 판단은 1주(5거래일) 전 값 기준.<br>
     <b>추천 40 (2026-11-27 변경)</b> ① <b>강세 지속 20</b> = 최근 5일 중 3일 이상 + 7일 중 4일 이상 코스피를 이긴 종목, ② <b>반등 시작 20</b> = 10일 중 4일 이하였다가 최근 3일 중 2일 이상 이긴 종목. 각각 퀀트 총점 순.<br>
     <b style="color:#ff8787">주의(과거 검증, 2,000억·11년, 코스피 대비 1달 평균)</b> 총점 상위 20 그대로 +2.2%p, 강세 지속 20 +0.4%p, 반등 시작 20 -1.3%p. <b>이 두 목록은 후보를 찾는 화면이지 성과가 검증된 매수 목록이 아님.</b> 총점 전체 순위는 '표시 &rarr; 퀀트 전체'.<br>
@@ -470,7 +473,7 @@ TEMPLATE = r"""<!doctype html>
     유니버스 = FY2 영업이익 추정치 흑자(올해 적자·내년 흑자 포함, <span class="tag">흑전</span> 표시). 거래정지 종목은 제외. <b>하락형일 때는 실적 TTM 영업흑자 + FY1 추정 흑자인 종목만</b>(비교할 값이 없는 종목 제외). <b>수익률은 시총 변화</b>라 증자·분할 때 왜곡될 수 있음.
   </div>
   <div class="ctl">
-    가중치 <select id="mode"><option value="auto">현재 국면</option><option value="up">상승형으로 보기</option><option value="down">하락형으로 보기</option></select>
+    가중치 <select id="mode"><option value="auto">현재 설정</option><option value="up">상승형으로 보기</option><option value="down">하락형으로 보기</option></select>
     시총 하한(억) <input type="number" id="minCap" value="2000" step="100">
     섹터 <select id="sec"><option value="">전체</option></select>
     검색 <input type="text" id="q" placeholder="종목명">
@@ -501,10 +504,10 @@ const f = (v,d=1)=> v==null? '-' : v.toFixed(d);
 const cl = v => v>0? 'pos' : v<0? 'neg' : '';
 const regName = s => s==='up'? '상승형' : '하락형';
 document.getElementById('reg').innerHTML =
-  `<span class="big ${RG.state}">${regName(RG.state)}</span>
+  `<span class="big ${RG.state}">${regName(RG.state)}${RG.forced? ' (직접 지정)' : ''}</span>
    <span class="kv">코스피 <b>${RG.close.toLocaleString()}</b> / 200일선 <b>${RG.ma200.toLocaleString()}</b> &rarr; 이격 <b class="${cl(RG.gap)}">${f(RG.gap)}%</b></span>
    <span class="kv">판단 기준(1주 전) <b class="${cl(RG.gap_lag)}">${f(RG.gap_lag)}%</b></span>
-   <span class="kv"><b>${RG.since}</b>부터 ${regName(RG.state)} &middot; ${RG.state==='down'? '200일선 +2% 위로 가면(1주 지연) 상승형' : '200일선 -2% 아래로 가면(1주 지연) 하락형'}</span>
+   <span class="kv">${RG.forced? `코스피 200일선 기준으로는 <b>${regName(RG.auto)}</b>(${RG.since}부터)` : `<b>${RG.since}</b>부터 ${regName(RG.state)} &middot; ${RG.state==='down'? '200일선 +2% 위로 가면(1주 지연) 상승형' : '200일선 -2% 아래로 가면(1주 지연) 하락형'}`}</span>
    <span class="kv sub">최근 전환: ${RG.recent.slice().reverse().map(([d,s])=>d+' '+regName(s)).join(' · ')} (최근 5년 ${RG.n_switch_5y}회)</span>`;
 function pct(arr, dir){            // 백분위 0~100 (좋을수록 높음), 값 없으면 null
   const idx = arr.map((v,i)=>i).filter(i=>arr[i]!=null).sort((a,b)=>dir*(arr[a]-arr[b]));
