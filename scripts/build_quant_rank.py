@@ -44,8 +44,10 @@ BRIEF_PATH = os.path.join(BASE_DIR, "data", "quant_rank_brief.json")   # 아침 
 HIST_PATH = os.path.join(BASE_DIR, "data", "quant_rank_hist.json")     # 날짜별 상위 40 기록(1주 전 순위 비교용)
 D1M, D3M, D6M, D12M = 21, 63, 126, 252
 BAND_TH, LAG = 0.02, 5
-# 2026-11-27 사용자 "지금 하락형 말고 상승형으로" - "up"/"down"이면 그 가중치로 고정, None이면 코스피 200일선 국면을 따름
-FORCE_STATE = "up"
+# 2026-11-27 사용자: 상승형/하락형 판단을 코스피 200일선 대신 시장 국면 점수(market_phase.html)의 화면 국면으로.
+# 상승(①②③)·고점권 조정(④) = 상승형, 하락(⑤⑥) = 하락형. 페이지는 장중 잠정치(live/intraday.json)가 더 새로우면 그 값을 씀.
+PHASE_PATH = os.path.join(BASE_DIR, "data", "screening", "market_phase_daily.csv")
+LIVE_PATH = os.path.join(BASE_DIR, "docs", "live", "intraday.json")
 # 페이지 JS와 같은 규칙(바꿀 때 둘 다 바꿀 것)
 GRP = {"M": [(0, -1), (1, 1), (2, 1), (3, 1), (4, 1)], "R": [(5, 1), (6, 1)], "V": [(7, -1), (8, -1)],
        "Y": [(9, 1)], "A": [(10, 1)], "R3": [(11, 1)], "H": [(13, 1)], "O": [(14, 1)], "P": [(15, 1)], "IR": [(16, 1)],
@@ -205,30 +207,26 @@ def load_band_arrays():
 
 
 def regime():
-    """코스피 200일선 국면: 5거래일 전 이격으로 ±2%p 밴드 판단. 반환 dict."""
-    k = pd.read_csv(KOSPI_PATH, dtype={"date": str})
-    k["date"] = pd.to_datetime(k["date"].str[:8])
-    k = k.drop_duplicates("date").set_index("date")["close"].astype(float).sort_index()
-    ma = k.rolling(200).mean()
-    gap = (k / ma - 1)
-    lag = gap.shift(LAG)
-    state, since, hist = None, None, []
-    for d, g in lag.dropna().items():
-        new = state
-        if state is None:
-            new = "up" if g > 0 else "down"
-        elif g > BAND_TH:
-            new = "up"
-        elif g < -BAND_TH:
-            new = "down"
-        if new != state:
-            if state is not None:
-                hist.append((d.strftime("%Y-%m-%d"), new))
-            state, since = new, d
-    return {"state": FORCE_STATE or state, "auto": state, "forced": FORCE_STATE is not None, "since": since.strftime("%Y-%m-%d"), "asof": k.index[-1].strftime("%Y-%m-%d"),
-            "close": round(float(k.iloc[-1]), 2), "ma200": round(float(ma.iloc[-1]), 2),
-            "gap": round(float(gap.iloc[-1]) * 100, 1), "gap_lag": round(float(lag.iloc[-1]) * 100, 1),
-            "recent": hist[-6:], "n_switch_5y": sum(1 for d, _ in hist if d >= (k.index[-1] - pd.DateOffset(years=5)).strftime("%Y-%m-%d"))}
+    """시장 국면 점수의 화면 국면(phase_shown)으로 상승형/하락형 판단. 확정값 뒤에 장중 잠정치가 있으면 그 값. 반환 dict."""
+    d = pd.read_csv(PHASE_PATH, encoding="utf-8-sig").dropna(subset=["phase_shown"])
+    dates = d["date"].astype(str).tolist()
+    shown = d["phase_shown"].astype(int).tolist()
+    live = False
+    try:
+        j = json.load(open(LIVE_PATH, encoding="utf-8"))
+        if str(j.get("date")) > dates[-1] and j["phase"].get("shown"):
+            dates.append(str(j["date"]))
+            shown.append(int(j["phase"]["shown"]))
+            live = True
+    except Exception:  # noqa: BLE001
+        pass
+    st = ["up" if x <= 4 else "down" for x in shown]
+    hist = [(dates[i], st[i]) for i in range(1, len(st)) if st[i] != st[i - 1]]
+    since = hist[-1][0] if hist else dates[0]
+    names = {1: "상승", 2: "상승", 3: "상승", 4: "고점권 조정", 5: "하락", 6: "하락"}
+    cut = (pd.Timestamp(dates[-1]) - pd.DateOffset(years=5)).strftime("%Y-%m-%d")
+    return {"state": st[-1], "name": names[shown[-1]], "since": since, "asof": dates[-1], "live": live,
+            "recent": hist[-6:], "n_switch_5y": sum(1 for x, _ in hist if x >= cut)}
 
 
 def main():
@@ -276,7 +274,7 @@ def main():
             .replace("__DATA__", json.dumps(out, ensure_ascii=False, separators=(",", ":"))))
     with open(OUT_PATH, "w", encoding="utf-8") as fh_out:
         fh_out.write(html)
-    print(f"종목 {len(rows)}개(시총 하한 전), 기준일 {out['asof']}, 전일 {prev['d1']['date']}, 1주 전 {prev['d5']['date']}, 보유율 {fh_asof}, 국면 {reg['state']}(이격 {reg['gap']}%, 1주 전 {reg['gap_lag']}%, {reg['since']}부터) | 저장: {OUT_PATH} ({len(html) // 1024}KB)")
+    print(f"종목 {len(rows)}개(시총 하한 전), 기준일 {out['asof']}, 전일 {prev['d1']['date']}, 1주 전 {prev['d5']['date']}, 보유율 {fh_asof}, 국면 {reg['name']}→{reg['state']}({reg['asof']}{' 잠정' if reg['live'] else ''}, {reg['since']}부터) | 저장: {OUT_PATH} ({len(html) // 1024}KB)")
 
 
 TV_PATH = os.path.join(BASE_DIR, "data", "screening", "cache", "trading_value.pkl")
@@ -449,15 +447,14 @@ TEMPLATE = r"""<!doctype html>
 </head>
 <body>
   <a class="back" href="index.html">&larr; 홈</a>
-  <h1>퀀트 종합 순위 <span style="font-size:13px;color:#9aa0a6;font-weight:normal">코스피 200일선 국면별 가중치</span></h1>
-  <div class="updated">최종 갱신: __UPDATED__ &middot; 시총·추정치 기준일 __ASOF__ &middot; 외국인 보유율 __FHASOF__ &middot; 코스피 __KASOF__ &middot; 기업 밴드 찾기 2 + 네이버</div>
+  <h1>퀀트 종합 순위 <span style="font-size:13px;color:#9aa0a6;font-weight:normal">시장 국면별 가중치</span></h1>
+  <div class="updated">최종 갱신: __UPDATED__ &middot; 시총·추정치 기준일 __ASOF__ &middot; 외국인 보유율 __FHASOF__ &middot; 시장 국면 __KASOF__ &middot; 기업 밴드 찾기 2 + 네이버</div>
   <div class="box">
     <div class="reg" id="reg"></div>
     <div class="wt" id="wt"></div>
   </div>
   <div class="note">
-    <b style="color:#ff8787">2026-11-27부터 상승형으로 직접 고정</b> (코스피 200일선 기준으로는 하락형). 과거 하락 국면에서 상승형 가중치(총점 상위 20)는 1달 코스피 대비 +0.8%p(이긴 비율 50%), 하락형은 +2.8%p(78%)였음.<br>
-    <b>국면</b> 코스피가 200일선보다 <b>2% 넘게 위</b>면 상승형, <b>2% 넘게 아래</b>면 하락형, 그 사이는 직전 국면 유지. 판단은 1주(5거래일) 전 값 기준.<br>
+    <b>국면</b> <b>시장 국면 점수</b> 페이지의 화면 국면을 따름: 상승·고점권 조정 = 상승형, 하락 = 하락형(2026-11-27, 이전에는 코스피 200일선 ±2%p). 과거 2018.8~ 비교(총점 상위 20): 200일선 기준 연 52%, 국면 점수 기준 연 41%, 한쪽 고정 33~34%.<br>
     <b>추천 40 (2026-11-27 변경)</b> ① <b>강세 지속 20</b> = 최근 5일 중 3일 이상 + 7일 중 4일 이상 코스피를 이긴 종목, ② <b>반등 시작 20</b> = 10일 중 4일 이하였다가 최근 3일 중 2일 이상 이긴 종목. 각각 퀀트 총점 순.<br>
     <b style="color:#ff8787">주의(과거 검증, 2,000억·11년, 코스피 대비 1달 평균)</b> 총점 상위 20 그대로 +2.2%p, 강세 지속 20 +0.4%p, 반등 시작 20 -1.3%p. <b>이 두 목록은 후보를 찾는 화면이지 성과가 검증된 매수 목록이 아님.</b> 총점 전체 순위는 '표시 &rarr; 퀀트 전체'.<br>
     <b>가중치는 짧은 기간 성과로 처음부터 다시 고름(2026-11-26)</b> 1주·2주·1달·3달 구간마다 코스피 대비 초과수익(평균과 가장 나쁜 10%)을 보고, 2016~20과 2021~26 둘 다에서 좋은 조합만 남김.<br>
@@ -503,12 +500,22 @@ document.getElementById('sec').innerHTML += secs.map(s=>`<option>${s}</option>`)
 const f = (v,d=1)=> v==null? '-' : v.toFixed(d);
 const cl = v => v>0? 'pos' : v<0? 'neg' : '';
 const regName = s => s==='up'? '상승형' : '하락형';
-document.getElementById('reg').innerHTML =
-  `<span class="big ${RG.state}">${regName(RG.state)}${RG.forced? ' (직접 지정)' : ''}</span>
-   <span class="kv">코스피 <b>${RG.close.toLocaleString()}</b> / 200일선 <b>${RG.ma200.toLocaleString()}</b> &rarr; 이격 <b class="${cl(RG.gap)}">${f(RG.gap)}%</b></span>
-   <span class="kv">판단 기준(1주 전) <b class="${cl(RG.gap_lag)}">${f(RG.gap_lag)}%</b></span>
-   <span class="kv">${RG.forced? `코스피 200일선 기준으로는 <b>${regName(RG.auto)}</b>(${RG.since}부터)` : `<b>${RG.since}</b>부터 ${regName(RG.state)} &middot; ${RG.state==='down'? '200일선 +2% 위로 가면(1주 지연) 상승형' : '200일선 -2% 아래로 가면(1주 지연) 하락형'}`}</span>
-   <span class="kv sub">최근 전환: ${RG.recent.slice().reverse().map(([d,s])=>d+' '+regName(s)).join(' · ')} (최근 5년 ${RG.n_switch_5y}회)</span>`;
+function renderReg(){
+  document.getElementById('reg').innerHTML =
+    `<span class="big ${RG.state}">${regName(RG.state)}</span>
+     <span class="kv">시장 국면 <b>${RG.name}</b> (<a href="market_phase.html" style="color:#4dabf7">시장 국면 점수</a>) &middot; ${RG.asof}${RG.live? ' <b style="color:#ffa94d">장중 잠정</b>' : ' 확정'}</span>
+     <span class="kv"><b>${RG.since}</b>부터 ${regName(RG.state)} &middot; 상승·고점권 조정 = 상승형, 하락 = 하락형</span>
+     <span class="kv sub">최근 전환: ${RG.recent.slice().reverse().map(([d,s])=>d+' '+regName(s)).join(' · ')} (최근 5년 ${RG.n_switch_5y}회)</span>`;
+}
+renderReg();
+// 시장 국면 페이지와 같은 장중 잠정치가 더 새로우면 따라감
+fetch('live/intraday.json?t='+Date.now()).then(r=>r.json()).then(j=>{
+  if (!(j.date >= RG.asof && j.phase && j.phase.shown) || (j.date===RG.asof && !RG.live)) return;
+  const sh = j.phase.shown, st = sh<=4? 'up' : 'down';
+  if (st!==RG.state){ RG.since = j.date; }
+  Object.assign(RG, {state: st, name: sh<=3? '상승' : sh===4? '고점권 조정' : '하락', asof: j.date, live: true});
+  renderReg(); render();
+}).catch(()=>{});
 function pct(arr, dir){            // 백분위 0~100 (좋을수록 높음), 값 없으면 null
   const idx = arr.map((v,i)=>i).filter(i=>arr[i]!=null).sort((a,b)=>dir*(arr[a]-arr[b]));
   const n = idx.length, s = new Array(arr.length).fill(null); idx.forEach((i,k)=> s[i] = n>1? k/(n-1)*100 : 50); return s;
