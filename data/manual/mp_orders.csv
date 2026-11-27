@@ -790,3 +790,8 @@
 2026-11-26,kosdaq_long_short_index,reduce_pct,심텍,222800,3.0,,2026-11-27T07:38:03.791329
 2026-11-26,kosdaq_long_short_index,new_entry_pct,리브스메드,491000,2.0,,2026-11-27T07:38:03.791329
 2026-11-26,kosdaq_long_short_index,new_entry_pct,에스티팜,237690,2.0,,2026-11-27T07:38:03.791329
+2026-11-27,troy_mp,reduce_pct,삼성전자,005930,1.0,,
+2026-11-27,troy_mp,reduce_pct,SK하이닉스,000660,1.0,,
+2026-11-27,troy_mp,exit,샘씨엔에스,252990,,,
+2026-11-27,troy_mp,new_entry_pct,이수스페셜티케미컬,457190,2.0,,
+2026-11-27,troy_mp,new_entry_pct,LIG아큐버,073490,2.0,,
