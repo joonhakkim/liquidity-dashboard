@@ -541,19 +541,15 @@ def main():
                     f"<td>{r['cap']:,}</td><td><b>{r['tot']:.1f}</b></td>"
                     f"<td class='{cv(v[0])}'>{fv(v[0])}</td><td class='{cv(v[5])}'>{fv(v[5])}</td><td class='{cv(v[6])}'>{fv(v[6])}</td>"
                     f"<td class='{cv(v[11])}'>{fv(v[11])}</td><td>{yoy_s(v[9])}</td><td>{fv(v[13])}</td><td>{fv(v[8])}</td><td class='memo'></td></tr>")
-        top20 = "".join(qrow(r) for r in QB["rows"][:20])
-        keep_rows = QB["rows"][20:40]
+        top20 = "".join(qrow(r) for r in QB["rows"] if r.get("grp") == "A")
+        keep_rows = [r for r in QB["rows"] if r.get("grp") == "B"]
         def krow(r):
-            return f"<tr><td>{r['rk']}</td><td style='text-align:left'>{r['n']}</td><td class='sub' style='text-align:left'>{r['s']}</td><td>{r['tot']:.1f}</td><td>{prev_s(r)}</td></tr>"
+            return f"<tr><td>{r['rk']}</td><td style='text-align:left'>{r['n']}</td><td class='sub' style='text-align:left'>{r['s']}</td><td>{r['tot']:.1f}</td><td>{r['v'][22]:.0f}/3 · {r['v'][25]:.0f}/10</td><td>{prev_s(r)}</td></tr>"
         half = (len(keep_rows) + 1) // 2
-        keep_tbl = "".join(f"<div><table><tr><th>순위</th><th>종목</th><th>섹터</th><th>총점</th><th>1주 전</th></tr>{''.join(krow(r) for r in part)}</table></div>"
+        keep_tbl = "".join(f"<div><table><tr><th>순위</th><th>종목</th><th>섹터</th><th>총점</th><th>이긴 날</th><th>1주 전</th></tr>{''.join(krow(r) for r in part)}</table></div>"
                            for part in (keep_rows[:half], keep_rows[half:]))
-        if QB["prev_date"] is None:
-            drop_txt = "순위 기록이 1주 쌓이면 1주 전 순위·빠진 종목이 표시됩니다(기록 시작 2026-11-19)."
-        elif QB["dropped"]:
-            drop_txt = "1주 전 상위 20 중 지금 40위 밖(매도 대상): " + ", ".join(f"<b>{n}</b>(전 {p}위)" for _c, n, p in QB["dropped"][:6]) + (f" 외 {len(QB['dropped']) - 6}개" if len(QB["dropped"]) > 6 else "")
-        else:
-            drop_txt = "1주 전 상위 20 중 40위 밖으로 밀린 종목 없음(교체 없음)."
+        dr = QB["dropped"]
+        drop_txt = ("1주 전 추천 40 중 빠짐: " + ", ".join(f"<b>{n}</b>" for _c, n, _p in dr[:8]) + (f" 외 {len(dr) - 8}개" if len(dr) > 8 else "")) if dr else "1주 전 추천 40에서 빠진 종목 없음."
         cond = "200일선 +2% 위로 가면(1주 지연) 상승형으로 전환" if RG["state"] == "down" else "200일선 -2% 아래로 가면(1주 지연) 하락형으로 전환"
         qr_page = f"""<div class="page">
   <div class="hdr"><div><h1>퀀트 종합 순위</h1><div class="sub">시총·추정치 {QB['asof']} · 외국인 보유율 {QB['fh_asof']} · 코스피 {RG['asof']} · 시총 {QB['min_cap']:,}억 이상 {QB['n_uni']}종목 · 1주 전 비교 {QB['prev_date'] or '-'}</div></div>
@@ -564,11 +560,11 @@ def main():
     <div class="box"><div class="lbl">판단 기준 (1주 전 이격)</div><div class="val">{RG['gap_lag']:+.1f}%</div><div class="sub">{cond}</div></div>
   </div>
   <div class="qguide"><b>{rname} 가중치</b> {' · '.join(f'{k} <b>{w}</b>' for k, w in QB['weights'].items())}
-    &nbsp;|&nbsp; <b>운용</b> 주 1회 상위 20 동일 비중, 들고 있는 종목은 40위 안이면 유지(빠진 자리만 상위에서 채움).
-    11년 백테스트(2,000억 이상) 연 45%(코스피 10%), 최대 낙폭 -45% · 급락 초기엔 코스피보다 더 빠질 수 있음.</div>
-  <h2>상위 20 <span class="sub">총점 = {rname} 가중 백분위(0~100) · 1M·OP 변화·YoY = % · 외인 = 보유율 % · 시총/OP2 = 내년 영업이익 대비 배수</span></h2>
+    &nbsp;|&nbsp; <b>강세 지속</b> 5일 중 3일↑·7일 중 4일↑ 코스피를 이긴 종목 · <b>반등 시작</b> 10일 중 4일↓였다가 3일 중 2일↑ · 각각 총점 순.
+    과거 검증(1달 코스피 대비): 총점 상위 20 +2.2%p, 강세 +0.4%p, 반등 -1.3%p → 후보 찾기용.</div>
+  <h2>① 강세 지속 <span class="sub">총점 = {rname} 가중 백분위(0~100) · 1M·OP 변화·YoY = % · 외인 = 보유율 % · 시총/OP2 = 내년 영업이익 대비 배수</span></h2>
   <table class="qr"><tr><th>#</th><th>1주 전</th><th style="text-align:left">종목</th><th style="text-align:left">섹터</th><th>시총(억)</th><th>총점</th><th>1M%</th><th>FY1 OP<br>1M</th><th>FY2 OP<br>1M</th><th>FY1 OP<br>3M</th><th>TTM<br>YoY</th><th>외인%</th><th>시총/<br>OP2</th><th class='memo' style='text-align:left'>비고</th></tr>{top20}</table>
-  <h2>21~40위 (보유 중이면 유지하는 구간)</h2>
+  <h2>② 반등 시작</h2>
   <div class="grid2">{keep_tbl}</div>
   <div class="note" style="font-size:10px;color:#495057">{drop_txt}</div>
 </div>"""

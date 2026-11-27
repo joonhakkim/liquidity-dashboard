@@ -1,5 +1,5 @@
 """
-시장 대비 강한 종목 - 최근 5·7·10거래일 중 코스피를 이긴 날 수 (2026-11-26 사용자 요청)
+시장 대비 강한 종목 - 최근 3·5·7·10거래일(3일은 2026-11-27 추가) 중 코스피를 이긴 날 수 (2026-11-26 사용자 요청)
 
 "코스피 하락일엔 덜 떨어지고, 상승일엔 더 오른 날" = 그날 종목 등락률 > 코스피 등락률인 날을 '이긴 날'로 센다.
 - 하락일 이긴 날 / 상승일 이긴 날을 따로 보여 줌(하락일에 버틴 종목인지, 상승일에 더 오른 종목인지).
@@ -25,7 +25,7 @@ from build_relative_strength import (MAX_DAILY_MOVE, OP_BAND_SUMMARY_PATH, PRICE
 BASE_DIR = os.path.join(os.path.dirname(__file__), "..")
 OUT_PATH = os.path.join(BASE_DIR, "docs", "beat_days.html")
 SUMMARY_PATH = os.path.join(BASE_DIR, "data", "screening", "beat_days_summary.csv")
-WINDOWS = [5, 7, 10]
+WINDOWS = [3, 5, 7, 10]
 NDAYS = max(WINDOWS)
 
 
@@ -169,7 +169,7 @@ TEMPLATE = r"""<!doctype html>
 </head>
 <body>
   <a class="back" href="index.html">&larr; 홈</a>
-  <h1>시장 대비 강한 종목 <span style="font-size:13px;color:#9aa0a6;font-weight:normal">최근 5·7·10거래일 중 코스피를 이긴 날 수</span></h1>
+  <h1>시장 대비 강한 종목 <span style="font-size:13px;color:#9aa0a6;font-weight:normal">최근 3·5·7·10거래일 중 코스피를 이긴 날 수</span></h1>
   <div class="updated">최종 갱신: __UPDATED__ &middot; 기준일 __ASOF__ &middot; 코스피·코스닥 보통주 __N__종목</div>
   <div class="note">
     <b>이긴 날</b> = 그날 종목 등락률이 코스피 등락률보다 높은 날(코스피 하락일엔 덜 빠지고, 상승일엔 더 오른 날). 코스닥 종목도 코스피 대비.
@@ -185,7 +185,7 @@ TEMPLATE = r"""<!doctype html>
     시장 <select id="mkt"><option value="">전체</option><option value="P">코스피</option><option value="Q">코스닥</option></select>
     시총 하한(억) <input type="number" id="minCap" value="2000" step="500">
     최소 이긴 날 <select id="minW"></select>
-    <label><input type="checkbox" id="all3"> 5·7·10일 모두 승률 ≥ <input type="number" id="allPct" value="70" step="10" style="width:46px">%</label>
+    <label><input type="checkbox" id="all3"> 3·5·7·10일 모두 승률 ≥ <input type="number" id="allPct" value="70" step="10" style="width:46px">%</label>
     섹터 <select id="sec"><option value="">전체</option></select>
     검색 <input type="text" id="q" placeholder="종목명">
     표시 <select id="topn"><option>50</option><option selected>100</option><option>300</option><option>9999</option></select>

@@ -32,7 +32,8 @@ import pandas as pd
 
 sys.path.insert(0, os.path.dirname(__file__))
 from build_op_band import load_band_workbook  # noqa: E402
-from build_relative_strength import assign_sectors  # noqa: E402
+from build_relative_strength import (MAX_DAILY_MOVE, PRICES_PATH, assign_sectors,  # noqa: E402
+                                     load_kospi_series, read_recent_prices)
 
 BASE_DIR = os.path.join(os.path.dirname(__file__), "..")
 OUT_PATH = os.path.join(BASE_DIR, "docs", "quant_rank.html")
@@ -107,33 +108,64 @@ def score_rows(rows, state, min_cap=2000):
     return df.dropna(subset=["tot"]).sort_values("tot", ascending=False).reset_index(drop=True)
 
 
+def pick_two(df, n=20):
+    """2026-11-27 사용자: ① 강세 = 5일 중 3일↑·7일 중 4일↑ 코스피를 이긴 종목, ② 반등 = 10일 중 4일↓였다가 3일 중 2일↑.
+    각각 퀀트 총점 순 n개(페이지 JS pickTwo와 같은 규칙). df는 총점 내림차순. v[22..25] = 3·5·7·10일 이긴 날 수."""
+    w = lambda r, i: -1 if r.v[i] is None else r.v[i]
+    rows = list(df.itertuples())
+    a = [r for r in rows if w(r, 23) >= 3 and w(r, 24) >= 4][:n]
+    ac = {r.c for r in a}
+    b = [r for r in rows if r.c not in ac and 0 <= w(r, 25) <= 4 and w(r, 22) >= 2][:n]
+    return [("A", r) for r in a] + [("B", r) for r in b]
+
+
+def load_wins():
+    """시장 대비 강한 종목 페이지(build_beat_days)와 같은 정의의 일별 승패(1/0/NaN): 종가 등락률 > 코스피."""
+    px = read_recent_prices(PRICES_PATH, keep_days=45)
+    wide = px.pivot_table(index="date", columns="code", values="close", aggfunc="last").sort_index()
+    cnt = wide.notna().sum(axis=1)
+    while len(cnt) > 1 and cnt.iloc[-1] < 0.9 * cnt.iloc[-20:-1].median():
+        wide, cnt = wide.iloc[:-1], cnt.iloc[:-1]
+    R = wide.pct_change(fill_method=None)
+    R[R.abs() > MAX_DAILY_MOVE] = np.nan
+    ks = load_kospi_series()
+    kr = pd.Series({d: ks.get(d, np.nan) for d in wide.index}).pct_change(fill_method=None)
+    ex = R.sub(kr, axis=0).iloc[1:]
+    win = (ex > 0).astype(float).where(ex.notna())
+    win.index = pd.to_datetime(win.index)
+    return win
+
+
+def win_counts(win, asof, n):
+    W = win.loc[:asof].iloc[-n:]
+    return W.sum().where(W.notna().sum() >= int(np.ceil(n * 0.6)))
+
+
 def save_brief(out, min_cap=2000, keep=40):
     state = out["reg"]["state"]
     df = score_rows(out["rows"], state, min_cap)
-    top = df.head(keep)
+    picked = pick_two(df)
     hist = {}
     if os.path.exists(HIST_PATH):
         try:
             hist = json.load(open(HIST_PATH, encoding="utf-8"))
         except Exception:
             hist = {}
-    hist[out["asof"]] = {"state": state, "top": [[r.c, r.n] for r in top.itertuples()]}
+    hist[out["asof"]] = {"state": state, "top": [[r.c, r.n] for _, r in picked]}
     hist = dict(sorted(hist.items())[-60:])
     json.dump(hist, open(HIST_PATH, "w", encoding="utf-8"), ensure_ascii=False)
-    # 1주 전 = 기준일 7일 전 이전의 마지막 기록
-    cut = (pd.Timestamp(out["asof"]) - pd.Timedelta(days=7)).strftime("%Y-%m-%d")
-    prev_key = max([d for d in hist if d <= cut], default=None)
-    prev = hist[prev_key]["top"] if prev_key else None
-    prank = {c: i + 1 for i, (c, _) in enumerate(prev)} if prev else {}
-    now40 = set(top.c)
-    dropped = [[c, n, i + 1] for i, (c, n) in enumerate(prev[:20]) if c not in now40] if prev else []
+    # 1주 전 = 5거래일 전 데이터를 지금 규칙·가중치로 다시 계산한 목록(기록 파일 비교는 규칙을 바꾸면 어긋나서)
+    p5 = out["prev"]["d5"]
+    prank, pname = p5["rank"][state], p5["name"][state]
+    now = {r.c for _, r in picked}
+    dropped = [[c, pname.get(c, c), i] for c, i in sorted(prank.items(), key=lambda x: x[1]) if c not in now]
     rows = []
-    for i, r in enumerate(top.itertuples(), 1):
-        rows.append({"rk": i, "c": r.c, "n": r.n, "s": r.s, "cap": r.cap, "tot": round(r.tot, 1),
+    for i, (grp, r) in enumerate(picked, 1):
+        rows.append({"rk": i, "grp": grp, "c": r.c, "n": r.n, "s": r.s, "cap": r.cap, "tot": round(r.tot, 1),
                      "g": {g: (None if pd.isna(getattr(r, g)) else round(float(getattr(r, g)))) for g in GRP},
-                     "v": r.v, "prev": prank.get(r.c) if prev else None})
+                     "v": r.v, "prev": prank.get(r.c)})
     brief = {"asof": out["asof"], "fh_asof": out["fh_asof"], "reg": out["reg"], "min_cap": min_cap, "n_uni": len(df),
-             "weights": {GN[g]: w for g, w in WS[state].items() if w > 0}, "prev_date": prev_key,
+             "weights": {GN[g]: w for g, w in WS[state].items() if w > 0}, "prev_date": p5["date"],
              "rows": rows, "dropped": dropped}
     json.dump(brief, open(BRIEF_PATH, "w", encoding="utf-8"), ensure_ascii=False)
     return df
@@ -215,7 +247,7 @@ def main():
     cr = cap.pct_change(fill_method=None)
     ex = cr.sub(kr.reindex(cap.index), axis=0)
     win = (ex > 0).astype(float).where(ex.notna())
-    fhF = (fhF, flow, win, make_ext(capf, op1f, op2f))
+    fhF = (fhF, flow, win, make_ext(capf, op1f, op2f), load_wins())
     sm = pd.read_csv(SECTOR_MAP_PATH, dtype=str)
     meta = pd.DataFrame({"name": sm["name"].values}, index=sm["code"].str.zfill(6).values)
     meta = meta[~meta.index.duplicated()]
@@ -227,8 +259,10 @@ def main():
     prev = {}
     for key, back in (("d1", 1), ("d5", 5)):
         po = make_rows(T - back, capf, op1f, op2f, ttmf, fhF, meta, naver, sec_of, bnames)
+        pk = {st: pick_two(score_rows(po["rows"], st)) for st in WS}     # 그날의 추천 40(순위 = 목록 위치)
         prev[key] = {"date": po["asof"],
-                     "rank": {st: {r.c: i + 1 for i, r in enumerate(score_rows(po["rows"], st).itertuples())} for st in WS}}
+                     "rank": {st: {r.c: i + 1 for i, (_, r) in enumerate(pk[st])} for st in WS},
+                     "name": {st: {r.c: r.n for _, r in pk[st]} for st in WS}}
     out["prev"] = prev
     reg = regime()
     out["reg"] = reg
@@ -317,7 +351,8 @@ def make_rows(t, capf, op1f, op2f, ttmf, fhF, meta, naver, sec_of, bnames):
     yacc = yoy - yoy_at(t - D3M)
     fy1neg = (a1 <= 0)
     # 외국인 보유율(최근 5거래일 안 마지막 값)
-    fhF, flow, win, ext = fhF
+    fhF, flow, win, ext, wins = fhF
+    wc = [win_counts(wins, asof, n) for n in (3, 5, 7, 10)]
     opband, pbrband = band_pct(ext["opm"], t), band_pct(ext["pbr"], t)
     tt = ttmf.iloc[t]
     fwdg = (op1f.iloc[t] / tt - 1).where(tt > 0).clip(-5, 5)
@@ -368,8 +403,8 @@ def make_rows(t, capf, op1f, op2f, ttmf, fhF, meta, naver, sec_of, bnames):
         vals = [m1.get(c), m6.get(c), m12.get(c), m6x.get(c), m12x.get(c), r1.get(c), r2.get(c), per1.get(c), per2.get(c),
                 yoy.get(c), yacc.get(c), r3m.get(c), float(fy1neg.get(c, False)), fh.get(c, np.nan),
                 oth60.get(c, np.nan), ind20.get(c, np.nan), inst20r.get(c, np.nan), b5.get(c, np.nan),
-                opband.get(c, np.nan), pbrband.get(c, np.nan), fwdg.get(c, np.nan), tvs.get(c, np.nan)]
-        scale = [100] * 7 + [1, 1] + [100, 100, 100, 1, 1] + [100, 100, 100, 100] + [100, 100, 100, 1]
+                opband.get(c, np.nan), pbrband.get(c, np.nan), fwdg.get(c, np.nan), tvs.get(c, np.nan)] + [x.get(c, np.nan) for x in wc]
+        scale = [100] * 7 + [1, 1] + [100, 100, 100, 1, 1] + [100, 100, 100, 100] + [100, 100, 100, 1] + [1, 1, 1, 1]
 
         def rd(v, s):
             return None if (v is None or not np.isfinite(v)) else round(float(v) * s, 2)
@@ -403,7 +438,7 @@ TEMPLATE = r"""<!doctype html>
   th, td { padding:5px 7px; border-bottom:1px solid #23262e; text-align:right; white-space:nowrap; }
   th:nth-child(4), td:nth-child(4), th:nth-child(5), td:nth-child(5) { text-align:left; }
   th { color:#9aa0a6; font-weight:normal; cursor:pointer; position:sticky; top:0; background:#12151b; } th.sorted { color:#4dabf7; }
-  tr.keep td { background:#151922; } tr.cut td { border-top:2px solid #4dabf7; }
+  tr.grp td { text-align:left !important; background:#1c2a3e; color:#fff; font-weight:bold; border-top:2px solid #4dabf7; }
   .pos { color:#ff8787; } .neg { color:#74a7ff; } .sub { color:#7c828b; }
   .tag { font-size:10px; color:#ffa94d; border:1px solid #6b4a1f; border-radius:4px; padding:0 4px; margin-left:4px; }
   .tblwrap { overflow:auto; max-height:760px; }
@@ -420,9 +455,10 @@ TEMPLATE = r"""<!doctype html>
   </div>
   <div class="note">
     <b>국면</b> 코스피가 200일선보다 <b>2% 넘게 위</b>면 상승형, <b>2% 넘게 아래</b>면 하락형, 그 사이는 직전 국면 유지. 판단은 1주(5거래일) 전 값 기준.<br>
-    <b>운용</b> 주 1회 상위 20종목 동일 비중. <b>들고 있는 종목은 40위 안이면 유지</b>하고 빠진 자리만 상위에서 채운다(표에서 21~40위 음영).<br>
+    <b>추천 40 (2026-11-27 변경)</b> ① <b>강세 지속 20</b> = 최근 5일 중 3일 이상 + 7일 중 4일 이상 코스피를 이긴 종목, ② <b>반등 시작 20</b> = 10일 중 4일 이하였다가 최근 3일 중 2일 이상 이긴 종목. 각각 퀀트 총점 순.<br>
+    <b style="color:#ff8787">주의(과거 검증, 2,000억·11년, 코스피 대비 1달 평균)</b> 총점 상위 20 그대로 +2.2%p, 강세 지속 20 +0.4%p, 반등 시작 20 -1.3%p. <b>이 두 목록은 후보를 찾는 화면이지 성과가 검증된 매수 목록이 아님.</b> 총점 전체 순위는 '표시 &rarr; 퀀트 전체'.<br>
     <b>가중치는 짧은 기간 성과로 처음부터 다시 고름(2026-11-26)</b> 1주·2주·1달·3달 구간마다 코스피 대비 초과수익(평균과 가장 나쁜 10%)을 보고, 2016~20과 2021~26 둘 다에서 좋은 조합만 남김.<br>
-    <b>11년 백테스트</b>(2016~2026.11, <b>시총 2,000억 이상</b>(2026-11-26 기준 변경, 그 아래는 못 삼), 주 1회 다음 날 종가, 비용 0.25%): 연 45%, 최대 낙폭 -45%, 코스피 연 10%. 코스피 대비 1달 평균 +2.4%p(이긴 비율 69%), 가장 나쁜 10% 구간 -3.3%p, 3달 평균 +7.4%p(이긴 비율 83%).
+    <b>총점 상위 20의 11년 백테스트</b>(2016~2026.11, <b>시총 2,000억 이상</b>(2026-11-26 기준 변경, 그 아래는 못 삼), 주 1회 다음 날 종가, 비용 0.25%): 연 45%, 최대 낙폭 -45%, 코스피 연 10%. 코스피 대비 1달 평균 +2.4%p(이긴 비율 69%), 가장 나쁜 10% 구간 -3.3%p, 3달 평균 +7.4%p(이긴 비율 83%).
     상승 국면 성과는 1~2주는 잡음에 가깝고 2~3달 단위로 판단. 급락 초기엔 코스피보다 더 빠질 수 있음. 2,000억 아래로 내려간 보유 종목을 더 들고 가도 이득이 없어 2,000억 기준 그대로.<br>
     <b>상승형</b> 추정치 상향 0.5 + <b>PBR밴드 위치 높음</b> 1(자기 3년 PBR 중 높은 쪽 = 재평가 받는 중). 둘 비율이 0.4~0.75 사이면 비슷, PBR밴드 쪽으로 더 치우치면 크게 나빠짐.<br>
     <b>하락형</b> <b>추정/TTM 낮음</b>(실적 TTM이 FY1 추정치를 이미 따라잡음) 1 + 성장 가속 1 + <b>거래대금 감소</b>(20일/120일) 0.5 + OP밴드 낮음 0.5 + PER(FY1) 낮음 0.25 + 기관 20일 순매도 0.25.<br>
@@ -438,7 +474,7 @@ TEMPLATE = r"""<!doctype html>
     시총 하한(억) <input type="number" id="minCap" value="2000" step="100">
     섹터 <select id="sec"><option value="">전체</option></select>
     검색 <input type="text" id="q" placeholder="종목명">
-    표시 <select id="topn"><option selected>20</option><option>40</option><option>100</option><option>9999</option></select>
+    표시 <select id="topn"><option value="rec" selected>추천 40</option><option value="20">총점 20</option><option value="100">총점 100</option><option value="9999">퀀트 전체</option></select>
     <span id="cnt" class="sub"></span>
   </div>
   <div class="box" id="chg"></div>
@@ -490,33 +526,36 @@ function calc(){
     for (const g in GRP){ o[g] = G[g][i]; if (W[g]>0){ if (G[g][i]==null) bad = true; else tot += W[g]*G[g][i]; } }
     o.tot = bad? null : tot/sw; return o; });
   rows.sort((a,b)=>(b.tot??-1)-(a.tot??-1)); rows.forEach((r,i)=>r.rk = r.tot==null? null : i+1);
+  pickTwo(rows);
   const st = curState();
-  rows.forEach(r=>{ for (const k of ['d1','d5']){ const p = D.prev[k].rank[st][r.c]; r[k+'p'] = p??null; r[k] = (p!=null && r.rk!=null)? p - r.rk : null; } });
+  rows.forEach(r=>{ for (const k of ['d1','d5']){ const p = D.prev[k].rank[st][r.c]; r[k+'p'] = p??null; r[k] = (p!=null && r.pk!=null)? p - r.pk : null; } });
   return rows;
 }
+function pickTwo(rows){            // 파이썬 pick_two와 같은 규칙. rows는 총점 순. grp A=강세 지속, B=반등 시작, pk=목록 위치(1~40)
+  const w = (r,i)=> r.v[i]==null? -1 : r.v[i];
+  const ok = rows.filter(r=>r.tot!=null);
+  const a = ok.filter(r=>w(r,23)>=3 && w(r,24)>=4).slice(0,20), A = new Set(a);
+  const b = ok.filter(r=>!A.has(r) && w(r,25)>=0 && w(r,25)<=4 && w(r,22)>=2).slice(0,20);
+  rows.forEach(r=>{ r.grp = null; r.pk = null; });
+  a.concat(b).forEach((r,i)=>{ r.grp = i<a.length? 'A':'B'; r.pk = i+1; });
+}
 function curState(){ const m = document.getElementById('mode').value; return m==='auto'? RG.state : m; }
-function mv(r, k){                  // 순위 변화 표시: ▲ 오름 / ▼ 내림 / 신규
-  if (r.rk==null) return '';
+function mv(r, k){                  // 추천 40 안 위치 변화: ▲ 오름 / ▼ 내림 / 신규
+  if (r.pk==null) return '';
   if (r[k+'p']==null) return '<span class="tag">신규</span>';
   const d = r[k]; return d>0? `<span class="pos">▲${d}</span>` : d<0? `<span class="neg">▼${-d}</span>` : '<span class="sub">-</span>';
 }
 function renderChg(all){
-  const st = curState(), P = D.prev.d1, top = all.filter(r=>r.rk!=null && r.rk<=20);
-  const inn = top.filter(r=>r.d1p==null || r.d1p>20);
-  const byC = Object.fromEntries(all.map(r=>[r.c, r]));
-  const out = Object.entries(P.rank[st]).filter(([c,p])=>p<=20 && !(byC[c] && byC[c].rk!=null && byC[c].rk<=20))
-                .map(([c,p])=>({c, p, r: byC[c]})).sort((a,b)=>a.p-b.p);
-  const top100 = all.filter(r=>r.rk!=null && r.rk<=100 && r.d1!=null);
-  const up = top100.slice().sort((a,b)=>b.d1-a.d1).filter(r=>r.d1>0).slice(0,8);
-  const dn = all.filter(r=>r.rk!=null && r.d1p!=null && r.d1p<=100 && r.d1<0).sort((a,b)=>a.d1-b.d1).slice(0,8);
-  const nm = r => `<b>${r.n}</b>`;
+  const st = curState(), P = D.prev.d1;
+  const now = all.filter(r=>r.pk!=null).sort((a,b)=>a.pk-b.pk), have = new Set(now.map(r=>r.c));
+  const inn = g => now.filter(r=>r.grp===g && r.d1p==null).map(r=>`<b>${r.n}</b>`).join(', ') || '없음';
+  const out = Object.keys(P.rank[st]).filter(c=>!have.has(c)).sort((a,b)=>P.rank[st][a]-P.rank[st][b]).map(c=>P.name[st][c]||c);
   document.getElementById('chg').innerHTML =
-    `<div style="font-size:13px;margin-bottom:6px"><b>전일(${P.date}) 대비</b> <span class="sub">&middot; 같은 가중치로 그날 데이터를 다시 계산(시총 2,000억 기준) &middot; 표의 '전일'·'1주' 칸 = 순위 변화</span></div>
+    `<div style="font-size:13px;margin-bottom:6px"><b>전일(${P.date}) 대비</b> <span class="sub">&middot; 같은 규칙·가중치로 그날 데이터를 다시 계산 &middot; 표의 '전일'·'1주' 칸 = 추천 40 안 위치 변화</span></div>
      <div class="wt" style="margin-top:0">
-     <b>상위 20 진입</b> ${inn.length? inn.map(r=>`${nm(r)}(${r.d1p? r.d1p+'→' : '신규→'}${r.rk})`).join(', ') : '없음'}<br>
-     <b>상위 20 이탈</b> ${out.length? out.map(o=>`${o.r? nm(o.r) : o.c}(${o.p}→${o.r && o.r.rk? o.r.rk : '제외'})`).join(', ') : '없음'}<br>
-     <b>많이 오름</b>(100위 안) ${up.length? up.map(r=>`${nm(r)} ${r.d1p}→${r.rk}`).join(' &middot; ') : '없음'}<br>
-     <b>많이 내림</b>(전일 100위 안) ${dn.length? dn.map(r=>`${nm(r)} ${r.d1p}→${r.rk}`).join(' &middot; ') : '없음'}</div>`;
+     <b>강세 지속에 새로 들어옴</b> ${inn('A')}<br>
+     <b>반등 시작에 새로 들어옴</b> ${inn('B')}<br>
+     <b>추천 40에서 빠짐</b> ${out.length? out.join(', ') : '없음'}</div>`;
 }
 function render(){
   const W = weights();
@@ -524,21 +563,26 @@ function render(){
     Object.entries(W).filter(([g,w])=>w>0).map(([g,w])=>`${GN[g]} <b>${w}</b>`).join(' &middot; ');
   const all = calc(), sec = document.getElementById('sec').value;
   renderChg(all);
-  const q = document.getElementById('q').value.trim(), topn = +document.getElementById('topn').value;
-  let rows = all.filter(r=>r.rk!=null && (!sec||r.s===sec) && (!q||r.n.includes(q)));
+  const q = document.getElementById('q').value.trim(), tv = document.getElementById('topn').value;
+  const rec = tv==='rec' && !q, topn = tv==='rec'||q? 9999 : +tv;
+  let rows = all.filter(r=>r.rk!=null && (!rec||r.pk!=null) && (!sec||r.s===sec) && (!q||r.n.includes(q)));
   const key = sortKey, gv = (r)=> key==='n'||key==='s'? r[key] : (key.startsWith('v')? r.v[+key.slice(1)] : r[key]);
   rows.sort((a,b)=>{ const x=gv(a), y=gv(b); if(x==null) return 1; if(y==null) return -1; return (x>y?1:x<y?-1:0)*sortDir; });
+  const grouped = rec && sortKey==='rk';
+  if (grouped) rows.sort((a,b)=>a.pk-b.pk);
   document.getElementById('cnt').textContent = `유니버스 ${all.filter(r=>r.rk!=null).length}종목 중 ${rows.length}개`;
   const on = g => W[g]>0? '' : ' style="opacity:.45"';
-  const H = [['rk','#'],['d1','전일'],['d5','1주'],['n','종목'],['s','섹터'],['cap','시총(억)'],['tot','총점'],['M','모멘텀'],['R','추정치'],['V','밸류'],['Y','이익성장'],['A','성장가속'],['R3','3M상향'],['H','외인보유'],['O','기타법인'],['P','개인'],['IR','기관역'],['MR','낙폭반등'],['B5','5일승'],['PB','PBR밴드↑'],['OB','OP밴드↓'],['FG','추정/TTM↓'],['TV','거래대금↓'],['P1','PER1↓'],
+  const H = [['rk','퀀트#'],['d1','전일'],['d5','1주'],['n','종목'],['s','섹터'],['cap','시총(억)'],['tot','총점'],['v22','3일승'],['v23','5일승'],['v24','7일승'],['v25','10일승'],['M','모멘텀'],['R','추정치'],['V','밸류'],['Y','이익성장'],['A','성장가속'],['R3','3M상향'],['H','외인보유'],['O','기타법인'],['P','개인'],['IR','기관역'],['MR','낙폭반등'],['B5','5일승'],['PB','PBR밴드↑'],['OB','OP밴드↓'],['FG','추정/TTM↓'],['TV','거래대금↓'],['P1','PER1↓'],
     ['v19','PBR밴드%'],['v18','OP밴드%'],['v20','FY1/TTM%'],['v21','거래대금20/120'],['v17','5일 이긴%'],['v0','1M%'],['v1','6M%'],['v2','12M%'],['v5','FY1 OP 1M%'],['v6','FY2 OP 1M%'],['v11','FY1 OP 3M%'],['v9','TTM OP YoY%'],['v13','외인%'],['v7','시총/OP1'],['v8','시총/OP2']];
   const gcol = {M:1,R:1,V:1,Y:1,A:1,R3:1,H:1,O:1,P:1,IR:1,MR:1,B5:1,PB:1,OB:1,FG:1,TV:1,P1:1};
   let h = '<tr>'+H.map(([k,t])=>`<th data-k="${k}" class="${k===sortKey?'sorted':''}"${k in gcol? on(k):''}>${t}</th>`).join('')+'</tr>';
-  const byRank = sortKey==='rk' && !sec && !q;
+  const gname = {A:'① 강세 지속 — 5일 중 3일↑ · 7일 중 4일↑ 코스피를 이김', B:'② 반등 시작 — 10일 중 4일↓였다가 3일 중 2일↑'};
+  let last = null;
   h += rows.slice(0, topn).map(r=>{
-    const trc = byRank && r.rk>20 && r.rk<=40 ? (r.rk===21? 'keep cut':'keep') : '';
-    return `<tr class="${trc}"><td>${r.rk}</td><td>${mv(r,'d1')}</td><td>${mv(r,'d5')}</td><td>${r.n}${r.v[12]===1?'<span class="tag">흑전</span>':''}</td><td class="sub">${r.s}</td><td>${r.cap.toLocaleString()}</td>
-    <td><span class="bar" style="width:${r.tot*0.6}px"></span>${f(r.tot)}</td>` +
+    let head = '';
+    if (grouped && r.grp!==last){ last = r.grp; head = `<tr class="grp"><td colspan="${H.length}">${gname[r.grp]} · ${rows.filter(x=>x.grp===r.grp).length}종목</td></tr>`; }
+    return head + `<tr><td>${r.rk}</td><td>${mv(r,'d1')}</td><td>${mv(r,'d5')}</td><td>${r.n}${r.v[12]===1?'<span class="tag">흑전</span>':''}</td><td class="sub">${r.s}</td><td>${r.cap.toLocaleString()}</td>
+    <td><span class="bar" style="width:${r.tot*0.6}px"></span>${f(r.tot)}</td>` + [22,23,24,25].map(k=>`<td>${r.v[k]==null? '-' : r.v[k]}</td>`).join('') + `` +
     ['M','R','V','Y','A','R3','H','O','P','IR','MR','B5','PB','OB','FG','TV','P1'].map(g=>`<td${on(g)}>${f(r[g],0)}</td>`).join('') +
     `<td>${f(r.v[19],0)}</td><td>${f(r.v[18],0)}</td><td>${f(r.v[20],0)}</td><td>${f(r.v[21],2)}</td><td>${f(r.v[17],0)}</td>` + [0,1,2,5,6,11,9].map(k=>`<td class="${cl(r.v[k])}">${k===9 && r.v[k]!=null && Math.abs(r.v[k])>=500? (r.v[k]>0?'500+':'-500') : f(r.v[k])}</td>`).join('') +
     `<td>${f(r.v[13])}</td><td>${f(r.v[7])}</td><td>${f(r.v[8])}</td></tr>`; }).join('');
